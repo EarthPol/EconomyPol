@@ -14,6 +14,8 @@ import java.util.List;
 
 public final class LiveMoneyService {
 
+    public static final String NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE = "Not enough room to return change.";
+
     private final DenominationService denominationService;
     private final PluginSettings.WalletSettings walletSettings;
 
@@ -47,6 +49,43 @@ public final class LiveMoneyService {
             remaining = removeFromInventory(player.getEnderChest(), remaining, false);
         }
         return amount - remaining;
+    }
+
+    public SpendResult spendFromLiveSources(Player player, long amount, List<MoneyRouteTarget> routingOrder) {
+        if (amount < 0L) {
+            return SpendResult.failure(amount, "Cannot spend a negative amount.");
+        }
+        if (amount == 0L) {
+            return SpendResult.success(0L, 0L, 0L);
+        }
+
+        long available = scanPlayerMoney(player);
+        if (available < amount) {
+            return SpendResult.failure(amount, "Insufficient funds.");
+        }
+
+        LiveSourcesSnapshot snapshot = snapshot(player);
+        long removed = removeFromLiveSources(player, amount);
+        if (removed == amount) {
+            return SpendResult.success(amount, removed, 0L);
+        }
+
+        long remaining = amount - removed;
+        OverpayCandidate candidate = findSmallestOverpayCandidate(player, remaining);
+        if (candidate == null) {
+            restore(player, snapshot);
+            return SpendResult.failure(amount, "Unable to make exact change from live funds.");
+        }
+
+        removeSingleCandidate(player, candidate);
+        long debited = removed + candidate.denomination().baseUnits();
+        long change = debited - amount;
+        DeliveryResult changeDelivery = deliver(player, change, routingOrder);
+        if (changeDelivery.remainder() > 0L) {
+            restore(player, snapshot);
+            return SpendResult.failure(amount, NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE);
+        }
+        return SpendResult.success(amount, debited, change);
     }
 
     public DeliveryResult deliver(Player player, long amount, List<MoneyRouteTarget> routingOrder) {
@@ -167,7 +206,126 @@ public final class LiveMoneyService {
         return leftovers;
     }
 
+    private LiveSourcesSnapshot snapshot(Player player) {
+        ItemStack[] inventoryContents = cloneContents(player.getInventory().getContents());
+        ItemStack[] enderContents = cloneContents(player.getEnderChest().getContents());
+        ItemStack offHand = cloneStack(player.getInventory().getItemInOffHand());
+        return new LiveSourcesSnapshot(inventoryContents, enderContents, offHand);
+    }
+
+    private void restore(Player player, LiveSourcesSnapshot snapshot) {
+        player.getInventory().setContents(cloneContents(snapshot.inventoryContents()));
+        player.getEnderChest().setContents(cloneContents(snapshot.enderChestContents()));
+        player.getInventory().setItemInOffHand(cloneStack(snapshot.offHand()));
+    }
+
+    private OverpayCandidate findSmallestOverpayCandidate(Player player, long remaining) {
+        OverpayCandidate best = null;
+        if (walletSettings.includeLivePlayerInventory()) {
+            best = findSmallestOverpayCandidate(player.getInventory(), remaining, OverpaySourceType.INVENTORY, best);
+            ItemStack offHand = player.getInventory().getItemInOffHand();
+            if (denominationService.isMoney(offHand)) {
+                Denomination denomination = denominationService.find(offHand.getType()).orElseThrow();
+                if (denomination.baseUnits() > remaining && (best == null || denomination.baseUnits() < best.denomination().baseUnits())) {
+                    best = new OverpayCandidate(OverpaySourceType.OFFHAND, -1, denomination);
+                }
+            }
+        }
+        if (walletSettings.includeLiveEnderChest()) {
+            best = findSmallestOverpayCandidate(player.getEnderChest(), remaining, OverpaySourceType.ENDER_CHEST, best);
+        }
+        return best;
+    }
+
+    private OverpayCandidate findSmallestOverpayCandidate(
+            Inventory inventory,
+            long remaining,
+            OverpaySourceType sourceType,
+            OverpayCandidate currentBest
+    ) {
+        OverpayCandidate best = currentBest;
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            ItemStack itemStack = inventory.getItem(slot);
+            if (!denominationService.isMoney(itemStack)) {
+                continue;
+            }
+            Denomination denomination = denominationService.find(itemStack.getType()).orElseThrow();
+            if (denomination.baseUnits() <= remaining) {
+                continue;
+            }
+            if (best == null || denomination.baseUnits() < best.denomination().baseUnits()) {
+                best = new OverpayCandidate(sourceType, slot, denomination);
+            }
+        }
+        return best;
+    }
+
+    private void removeSingleCandidate(Player player, OverpayCandidate candidate) {
+        switch (candidate.sourceType()) {
+            case INVENTORY -> decrementItem(player.getInventory(), candidate.slot());
+            case ENDER_CHEST -> decrementItem(player.getEnderChest(), candidate.slot());
+            case OFFHAND -> {
+                ItemStack offHand = player.getInventory().getItemInOffHand();
+                if (offHand == null || offHand.getType().isAir()) {
+                    throw new IllegalStateException("Expected money item in offhand for change-making.");
+                }
+                offHand.setAmount(offHand.getAmount() - 1);
+                if (offHand.getAmount() <= 0) {
+                    player.getInventory().setItemInOffHand(null);
+                } else {
+                    player.getInventory().setItemInOffHand(offHand);
+                }
+            }
+        }
+    }
+
+    private void decrementItem(Inventory inventory, int slot) {
+        ItemStack itemStack = inventory.getItem(slot);
+        if (itemStack == null || itemStack.getType().isAir()) {
+            throw new IllegalStateException("Expected money item in slot " + slot + " for change-making.");
+        }
+        itemStack.setAmount(itemStack.getAmount() - 1);
+        if (itemStack.getAmount() <= 0) {
+            inventory.setItem(slot, null);
+        } else {
+            inventory.setItem(slot, itemStack);
+        }
+    }
+
+    private static ItemStack[] cloneContents(ItemStack[] contents) {
+        ItemStack[] clone = new ItemStack[contents.length];
+        for (int index = 0; index < contents.length; index++) {
+            clone[index] = cloneStack(contents[index]);
+        }
+        return clone;
+    }
+
+    private static ItemStack cloneStack(ItemStack itemStack) {
+        return itemStack == null ? null : itemStack.clone();
+    }
+
     public record DeliveryResult(long deliveredToInventory, long deliveredToEnder, long remainder) {}
 
     public record NormalizationResult(long normalizedValue, long overflow, boolean malformedStacksFound) {}
+
+    public record SpendResult(boolean success, long requestedAmount, long debitedAmount, long changeAmount, String message) {
+
+        public static SpendResult success(long requestedAmount, long debitedAmount, long changeAmount) {
+            return new SpendResult(true, requestedAmount, debitedAmount, changeAmount, "Funds withdrawn.");
+        }
+
+        public static SpendResult failure(long requestedAmount, String message) {
+            return new SpendResult(false, requestedAmount, 0L, 0L, message);
+        }
+    }
+
+    private record LiveSourcesSnapshot(ItemStack[] inventoryContents, ItemStack[] enderChestContents, ItemStack offHand) {}
+
+    private record OverpayCandidate(OverpaySourceType sourceType, int slot, Denomination denomination) {}
+
+    private enum OverpaySourceType {
+        INVENTORY,
+        ENDER_CHEST,
+        OFFHAND
+    }
 }

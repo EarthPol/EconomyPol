@@ -143,31 +143,24 @@ public final class EconomyService {
                 return MoneyOperationResult.failure(amount, "Player money is locked during wallet sync.");
             }
             Player onlinePlayer = player.getPlayer();
-            Optional<Long> fromLiveOptional = schedulerService.callOnPlayerEntityScheduler(
+            Optional<LiveMoneyService.SpendResult> spendResultOptional = schedulerService.callOnPlayerEntityScheduler(
                     onlinePlayer,
-                    () -> {
-                        long available = liveMoneyService.scanPlayerMoney(onlinePlayer);
-                        if (available < amount) {
-                            return -1L;
-                        }
-                        return liveMoneyService.removeFromLiveSources(onlinePlayer, amount);
-                    },
+                    () -> liveMoneyService.spendFromLiveSources(onlinePlayer, amount, settings.routingOrder()),
                     "withdraw-player-live"
             );
-            if (fromLiveOptional.isEmpty()) {
+            if (spendResultOptional.isEmpty()) {
                 return MoneyOperationResult.failure(amount, "Player money could not be accessed safely.");
             }
-            long fromLive = fromLiveOptional.get();
-            if (fromLive < 0L) {
-                return MoneyOperationResult.failure(amount, "Insufficient funds.");
-            }
-            if (fromLive < amount) {
-                operationsLog.warn("Live player withdrawal removed less money than expected. player=" + player.getUniqueId() +
-                        " requested=" + amount + " removed=" + fromLive);
-                return MoneyOperationResult.failure(amount, "Player money could not be accessed safely.");
+            LiveMoneyService.SpendResult spendResult = spendResultOptional.get();
+            if (!spendResult.success()) {
+                if (LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE.equals(spendResult.message())) {
+                    notificationService.notifyNotEnoughRoomForChange(onlinePlayer);
+                }
+                return MoneyOperationResult.failure(amount, spendResult.message());
             }
             auditLog.info("player-withdraw player=" + player.getUniqueId() + " amount=" + amount +
-                    " live=" + fromLive + " reason=" + reason);
+                    " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount() +
+                    " reason=" + reason);
             return MoneyOperationResult.success(amount, amount, 0L, "Funds withdrawn.");
         }
 
@@ -239,13 +232,20 @@ public final class EconomyService {
         }
         long available = liveMoneyService.scanPlayerMoney(player);
         long requested = amount <= 0L ? available : amount;
-        long removed = liveMoneyService.removeFromLiveSources(player, requested);
-        if (removed <= 0L) {
+        LiveMoneyService.SpendResult spendResult = liveMoneyService.spendFromLiveSources(player, requested, settings.routingOrder());
+        if (!spendResult.success()) {
+            if (requested <= 0L) {
+                return MoneyOperationResult.failure(requested, "No live money was available to deposit.");
+            }
+            return MoneyOperationResult.failure(requested, spendResult.message());
+        }
+        if (requested <= 0L) {
             return MoneyOperationResult.failure(requested, "No live money was available to deposit.");
         }
-        repository.changeAvailable(account.accountId(), removed, "SELF_DEPOSIT", "SELF_DEPOSIT", player.getUniqueId(), null);
-        auditLog.info("self-deposit player=" + player.getUniqueId() + " amount=" + removed);
-        return MoneyOperationResult.success(requested, removed, requested - removed, "Funds deposited.");
+        repository.changeAvailable(account.accountId(), requested, "SELF_DEPOSIT", "SELF_DEPOSIT", player.getUniqueId(), null);
+        auditLog.info("self-deposit player=" + player.getUniqueId() + " amount=" + requested +
+                " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount());
+        return MoneyOperationResult.success(requested, requested, 0L, "Funds deposited.");
     }
 
     // withdrawCustodialAsPhysicalMoney is the explicit conversion path from custodial storage
