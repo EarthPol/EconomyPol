@@ -1,0 +1,57 @@
+database:
+  host: 127.0.0.1
+  port: 3306
+  name: economypol
+  username: root
+  password: changeme
+  disable-plugin-on-failure: true
+
+currency:
+  singular-name: Gold Coin
+  plural-name: Gold Coins
+  denominations:
+    - material: GOLD_NUGGET
+      base-units: 1
+    - material: GOLD_INGOT
+      base-units: 9
+    - material: GOLD_BLOCK
+      base-units: 81
+
+numeric:
+  # How non-whole external amounts from Vault/VaultUnlocked are handled.
+  # REJECT: fail on any fractional amount such as 5.5
+  # ROUND: round to a whole number using rounding-mode
+  # TRUNCATE: cut toward zero; 5.9 -> 5, -5.9 -> -5
+  decimal-handling: REJECT
+  # Used only when decimal-handling is ROUND.
+  # Any java.math.RoundingMode enum name is valid.
+  # Common choices:
+  # HALF_UP: 5.5 -> 6, -5.5 -> -6
+  # HALF_DOWN: 5.5 -> 5, -5.5 -> -5
+  # HALF_EVEN: 4.5 -> 4, 5.5 -> 6
+  # UP: away from zero
+  # DOWN: toward zero
+  # CEILING: toward positive infinity
+  # FLOOR: toward negative infinity
+  rounding-mode: HALF_UP
+
+players:
+  allow-self-deposit: false
+  allow-external-credit: true
+  allow-self-withdraw: true
+
+routing:
+  order:
+    - INVENTORY
+    - ENDER_CHEST
+    - CUSTODIAL_ACCOUNT
+
+wallet:
+  managed-ender-wallet-enabled: true
+  include-live-player-inventory: true
+  include-live-ender-chest: true
+
+logging:
+  debug: false
+  audit-log-name: audit
+  operations-log-name: operations

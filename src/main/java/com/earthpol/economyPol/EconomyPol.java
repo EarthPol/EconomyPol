@@ -1,0 +1,245 @@
+package com.earthpol.economyPol;
+
+import com.earthpol.earthPolLib.database.DatabaseService;
+import com.earthpol.earthPolLib.database.flyway.FlywaySupport;
+import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.api.EconomyPolAPI;
+import com.earthpol.economyPol.api.EconomyPolApiProvider;
+import com.earthpol.economyPol.command.EconomyCommand;
+import com.earthpol.economyPol.config.PluginSettings;
+import com.earthpol.economyPol.listener.EnderChestLockListener;
+import com.earthpol.economyPol.listener.PlayerLifecycleListener;
+import com.earthpol.economyPol.logging.EconomyLoggers;
+import com.earthpol.economyPol.persistence.JdbcEconomyRepository;
+import com.earthpol.economyPol.service.DatabaseCheckService;
+import com.earthpol.economyPol.service.DenominationService;
+import com.earthpol.economyPol.service.EconomyService;
+import com.earthpol.economyPol.service.EnderWalletService;
+import com.earthpol.economyPol.service.LiveMoneyService;
+import com.earthpol.economyPol.service.NotificationService;
+import com.earthpol.economyPol.service.NumericalConsistencyService;
+import com.earthpol.economyPol.service.PlayerMoneyLockService;
+import com.earthpol.economyPol.service.ReservationService;
+import com.earthpol.economyPol.service.SchedulerService;
+import com.earthpol.economyPol.vault.EconomyVaultAdapter;
+import com.earthpol.economyPol.vault.VaultUnlockedEconomyAdapter;
+import org.bukkit.command.PluginCommand;
+import org.bukkit.plugin.ServicePriority;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+public final class EconomyPol extends JavaPlugin {
+
+    private PluginSettings settings;
+    private EconomyLoggers loggers;
+    private DatabaseService dbService;
+    private JdbcEconomyRepository repository;
+    private DenominationService denominationService;
+    private NumericalConsistencyService numericalConsistencyService;
+    private LiveMoneyService liveMoneyService;
+    private SchedulerService schedulerService;
+    private NotificationService notificationService;
+    private PlayerMoneyLockService playerMoneyLockService;
+    private EnderWalletService enderWalletService;
+    private ReservationService reservationService;
+    private DatabaseCheckService databaseCheckService;
+    private EconomyService economyService;
+    private EconomyPolAPI economyPolApi;
+    private EconomyVaultAdapter vaultAdapter;
+    private VaultUnlockedEconomyAdapter vaultUnlockedAdapter;
+    private boolean uncleanBoot;
+
+    public PluginSettings settings() {return settings;}
+    public EconomyLoggers loggers() {return loggers;}
+    public EnhancedLogger log() {return loggers.operations();}
+    public EnhancedLogger audit() {return loggers.audit();}
+    public EnhancedLogger healthcheck() {return loggers.healthcheck();}
+    public DatabaseService dbService() {return dbService;}
+    public EconomyService economyService() {return economyService;}
+    public NumericalConsistencyService numericalConsistencyService() {return numericalConsistencyService;}
+    public ReservationService reservationService() {return reservationService;}
+    public DatabaseCheckService databaseCheckService() {return databaseCheckService;}
+    public NotificationService notificationService() {return notificationService;}
+    public SchedulerService schedulerService() {return schedulerService;}
+    public EconomyPolAPI api() {return economyPolApi;}
+    public boolean isUncleanBoot() {return uncleanBoot;}
+
+    @Override
+    public void onEnable() {
+        saveDefaultConfig();
+        reloadConfig();
+
+        settings = PluginSettings.load(getConfig());
+        loggers = new EconomyLoggers(
+                EnhancedLogger.create(this, settings.logging().operationsLogName(), settings.logging().debug()),
+                EnhancedLogger.create(this, settings.logging().auditLogName(), settings.logging().debug()),
+                EnhancedLogger.create(this, "healthcheck", settings.logging().debug())
+        );
+
+        uncleanBoot = detectUncleanBoot();
+        writeRuntimeMarker();
+
+        initializeDatabase();
+        if (dbService == null || !dbService.isRunning()) {
+            return;
+        }
+
+        repository = new JdbcEconomyRepository(dbService, log(), audit());
+        repository.markStaleSnapshotsDisabled();
+
+        denominationService = new DenominationService(settings.currency(), log());
+        numericalConsistencyService = new NumericalConsistencyService(settings.numeric(), denominationService);
+        liveMoneyService = new LiveMoneyService(denominationService, settings.wallet());
+        schedulerService = new SchedulerService(this, log());
+        notificationService = new NotificationService(denominationService, repository, schedulerService, log());
+        playerMoneyLockService = new PlayerMoneyLockService();
+        reservationService = new ReservationService(repository, audit());
+        enderWalletService = new EnderWalletService(
+                this,
+                repository,
+                playerMoneyLockService,
+                notificationService,
+                schedulerService,
+                audit(),
+                uncleanBoot
+        );
+        databaseCheckService = new DatabaseCheckService(dbService);
+        economyService = new EconomyService(
+                repository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                log(),
+                audit()
+        );
+        economyPolApi = new EconomyPolApiProvider(economyService, reservationService, enderWalletService, denominationService);
+
+        vaultUnlockedAdapter = new VaultUnlockedEconomyAdapter(
+                this,
+                economyService,
+                numericalConsistencyService,
+                settings.currency(),
+                log()
+        );
+        vaultAdapter = new EconomyVaultAdapter(
+                this,
+                economyService,
+                numericalConsistencyService,
+                settings.currency(),
+                log()
+        );
+        getServer().getServicesManager().register(EconomyPolAPI.class, economyPolApi, this, ServicePriority.Highest);
+        getServer().getServicesManager().register(net.milkbowl.vault2.economy.Economy.class, vaultUnlockedAdapter, this, ServicePriority.Highest);
+        getServer().getServicesManager().register(net.milkbowl.vault.economy.Economy.class, vaultAdapter, this, ServicePriority.Highest);
+        log().info("Registered EconomyPolAPI, VaultUnlocked v2, and legacy Vault economy providers.");
+
+        registerListeners();
+        registerCommands();
+        log().info("EconomyPol enabled.");
+    }
+
+    @Override
+    public void onDisable() {
+        if (enderWalletService != null) {
+            getServer().getOnlinePlayers().forEach(enderWalletService::snapshotOnQuit);
+        }
+        if (dbService != null) {
+            try {
+                dbService.getDB().shutdown();
+            } catch (Exception exception) {
+                if (loggers != null) {
+                    log().severe("Failed to shutdown database cleanly.", exception);
+                }
+            }
+        }
+        deleteRuntimeMarker();
+        if (loggers != null) {
+            log().info("EconomyPol disabled.");
+            loggers.healthcheck().close();
+            loggers.audit().close();
+            loggers.operations().close();
+        }
+    }
+
+    private void initializeDatabase() {
+        PluginSettings.DatabaseSettings database = settings.database();
+        dbService = new DatabaseService(
+                log(),
+                this,
+                database.username(),
+                database.password(),
+                database.name(),
+                database.host(),
+                database.port(),
+                database.disablePluginOnFailure(),
+                "EconomyPol-DB",
+                "db/migration/economypol"
+        );
+        dbService.start();
+        if (!dbService.isRunning()) {
+            log().severe("Database did not start successfully.");
+            return;
+        }
+        FlywaySupport.migrate(dbService.getDB(), this, java.util.List.of("db/migration/economypol"), log());
+    }
+
+    private void registerListeners() {
+        getServer().getPluginManager().registerEvents(
+                new PlayerLifecycleListener(enderWalletService, economyService, notificationService),
+                this
+        );
+        getServer().getPluginManager().registerEvents(new EnderChestLockListener(playerMoneyLockService), this);
+    }
+
+    private void registerCommands() {
+        PluginCommand command = getCommand("economypol");
+        if (command == null) {
+            throw new IllegalStateException("economypol command is missing from plugin.yml");
+        }
+        EconomyCommand executor = new EconomyCommand(
+                economyService,
+                enderWalletService,
+                databaseCheckService,
+                settings,
+                log(),
+                healthcheck()
+        );
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
+    }
+
+    private Path runtimeMarkerPath() {
+        return getDataFolder().toPath().resolve("runtime.lock");
+    }
+
+    private boolean detectUncleanBoot() {
+        return Files.exists(runtimeMarkerPath());
+    }
+
+    private void writeRuntimeMarker() {
+        try {
+            Files.createDirectories(getDataFolder().toPath());
+            Files.writeString(runtimeMarkerPath(), Long.toString(System.currentTimeMillis()));
+        } catch (IOException exception) {
+            log().warn("Failed to write runtime marker: " + exception.getMessage());
+        }
+    }
+
+    private void deleteRuntimeMarker() {
+        try {
+            Files.deleteIfExists(runtimeMarkerPath());
+        } catch (IOException exception) {
+            if (loggers != null) {
+                log().warn("Failed to delete runtime marker: " + exception.getMessage());
+            }
+        }
+    }
+}

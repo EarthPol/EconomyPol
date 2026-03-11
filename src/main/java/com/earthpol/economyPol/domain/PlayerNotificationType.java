@@ -1,0 +1,9 @@
+package com.earthpol.economyPol.domain;
+
+public enum PlayerNotificationType {
+    INCOMING_OVERFLOW_TO_CUSTODIAL,
+    CUSTODIAL_WITHDRAWAL_RETAINED,
+    WALLET_OVERFLOW_TO_CUSTODIAL,
+    CUSTODIAL_BALANCE_REMINDER,
+    OFFLINE_CREDIT_TO_CUSTODIAL
+}

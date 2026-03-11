@@ -1,0 +1,363 @@
+package com.earthpol.economyPol.vault;
+
+import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.EconomyPol;
+import com.earthpol.economyPol.config.PluginSettings;
+import com.earthpol.economyPol.domain.MoneyOperationResult;
+import com.earthpol.economyPol.service.EconomyService;
+import com.earthpol.economyPol.service.NumericalConsistencyService;
+import net.milkbowl.vault.economy.AbstractEconomy;
+import net.milkbowl.vault.economy.EconomyResponse;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+public final class EconomyVaultAdapter extends AbstractEconomy {
+
+    private final EconomyPol plugin;
+    private final EconomyService economyService;
+    private final NumericalConsistencyService numericalConsistencyService;
+    private final PluginSettings.CurrencySettings currencySettings;
+    private final EnhancedLogger logger;
+
+    public EconomyVaultAdapter(
+            EconomyPol plugin,
+            EconomyService economyService,
+            NumericalConsistencyService numericalConsistencyService,
+            PluginSettings.CurrencySettings currencySettings,
+            EnhancedLogger logger
+    ) {
+        this.plugin = plugin;
+        this.economyService = economyService;
+        this.numericalConsistencyService = numericalConsistencyService;
+        this.currencySettings = currencySettings;
+        this.logger = logger;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return plugin.isEnabled();
+    }
+
+    @Override
+    public String getName() {
+        return plugin.getName();
+    }
+
+    @Override
+    public boolean hasBankSupport() {
+        return true;
+    }
+
+    @Override
+    public int fractionalDigits() {
+        return numericalConsistencyService.fractionalDigits();
+    }
+
+    @Override
+    public String format(double amount) {
+        return numericalConsistencyService.format(amount);
+    }
+
+    @Override
+    public String currencyNamePlural() {
+        return currencySettings.pluralName();
+    }
+
+    @Override
+    public String currencyNameSingular() {
+        return currencySettings.singularName();
+    }
+
+    @Override
+    public boolean hasAccount(String playerName) {
+        return resolvePlayer(playerName).map(economyService::ensurePlayerAccount).isPresent();
+    }
+
+    @Override
+    public boolean hasAccount(OfflinePlayer player) {
+        return player != null && economyService.ensurePlayerAccount(player) != null;
+    }
+
+    @Override
+    public boolean hasAccount(String playerName, String worldName) {
+        return hasAccount(playerName);
+    }
+
+    @Override
+    public boolean hasAccount(OfflinePlayer player, String worldName) {
+        return hasAccount(player);
+    }
+
+    @Override
+    public double getBalance(String playerName) {
+        return resolvePlayer(playerName).map(economyService::getBalance).orElse(0L);
+    }
+
+    @Override
+    public double getBalance(OfflinePlayer player) {
+        return player == null ? 0D : economyService.getBalance(player);
+    }
+
+    @Override
+    public double getBalance(String playerName, String worldName) {
+        return getBalance(playerName);
+    }
+
+    @Override
+    public double getBalance(OfflinePlayer player, String worldName) {
+        return getBalance(player);
+    }
+
+    @Override
+    public boolean has(String playerName, double amount) {
+        NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
+        return conversion.success() && resolvePlayer(playerName)
+                .map(player -> economyService.hasEnough(player, conversion.units()))
+                .orElse(false);
+    }
+
+    @Override
+    public boolean has(OfflinePlayer player, double amount) {
+        NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
+        return player != null && conversion.success() && economyService.hasEnough(player, conversion.units());
+    }
+
+    @Override
+    public boolean has(String playerName, String worldName, double amount) {
+        return has(playerName, amount);
+    }
+
+    @Override
+    public boolean has(OfflinePlayer player, String worldName, double amount) {
+        return has(player, amount);
+    }
+
+    @Override
+    public EconomyResponse withdrawPlayer(String playerName, double amount) {
+        NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
+        if (!conversion.success()) {
+            return failure(amount, conversion.message());
+        }
+        return resolvePlayer(playerName)
+                .map(player -> toResponse(economyService.withdrawPlayer(player, conversion.units(), "VAULT_WITHDRAW"), player))
+                .orElse(failure(amount, "Unknown player."));
+    }
+
+    @Override
+    public EconomyResponse withdrawPlayer(OfflinePlayer player, double amount) {
+        NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
+        if (!conversion.success()) {
+            return player == null
+                    ? failure(amount, conversion.message())
+                    : invalidAmountResponse(player, amount, conversion.message());
+        }
+        return player == null
+                ? failure(amount, "Unknown player.")
+                : toResponse(economyService.withdrawPlayer(player, conversion.units(), "VAULT_WITHDRAW"), player);
+    }
+
+    @Override
+    public EconomyResponse withdrawPlayer(String playerName, String worldName, double amount) {
+        return withdrawPlayer(playerName, amount);
+    }
+
+    @Override
+    public EconomyResponse withdrawPlayer(OfflinePlayer player, String worldName, double amount) {
+        return withdrawPlayer(player, amount);
+    }
+
+    @Override
+    public EconomyResponse depositPlayer(String playerName, double amount) {
+        NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
+        if (!conversion.success()) {
+            return failure(amount, conversion.message());
+        }
+        return resolvePlayer(playerName)
+                .map(player -> toResponse(economyService.depositPlayer(player, conversion.units(), "VAULT_DEPOSIT"), player))
+                .orElse(failure(amount, "Unknown player."));
+    }
+
+    @Override
+    public EconomyResponse depositPlayer(OfflinePlayer player, double amount) {
+        NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
+        if (!conversion.success()) {
+            return player == null
+                    ? failure(amount, conversion.message())
+                    : invalidAmountResponse(player, amount, conversion.message());
+        }
+        return player == null
+                ? failure(amount, "Unknown player.")
+                : toResponse(economyService.depositPlayer(player, conversion.units(), "VAULT_DEPOSIT"), player);
+    }
+
+    @Override
+    public EconomyResponse depositPlayer(String playerName, String worldName, double amount) {
+        return depositPlayer(playerName, amount);
+    }
+
+    @Override
+    public EconomyResponse depositPlayer(OfflinePlayer player, String worldName, double amount) {
+        return depositPlayer(player, amount);
+    }
+
+    @Override
+    public EconomyResponse createBank(String name, String player) {
+        OfflinePlayer owner = resolvePlayer(player).orElse(null);
+        economyService.ensureSharedAccount(name, owner);
+        return new EconomyResponse(0D, economyService.bankBalance(name), EconomyResponse.ResponseType.SUCCESS, "");
+    }
+
+    @Override
+    public EconomyResponse deleteBank(String name) {
+        Optional<com.earthpol.economyPol.domain.AccountRecord> bank = economyService.findSharedAccount(name);
+        if (bank.isEmpty()) {
+            return new EconomyResponse(0D, 0D, EconomyResponse.ResponseType.FAILURE, "Bank does not exist.");
+        }
+        boolean deleted = economyService.deleteSharedAccount(bank.get().accountId());
+        return new EconomyResponse(
+                0D,
+                deleted ? 0D : economyService.bankBalance(name),
+                deleted ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE,
+                deleted ? "" : "Bank deletion failed."
+        );
+    }
+
+    @Override
+    public EconomyResponse bankBalance(String name) {
+        return new EconomyResponse(0D, economyService.bankBalance(name), EconomyResponse.ResponseType.SUCCESS, "");
+    }
+
+    @Override
+    public EconomyResponse bankHas(String name, double amount) {
+        NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
+        long balance = economyService.bankBalance(name);
+        if (!conversion.success()) {
+            return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.FAILURE, conversion.message());
+        }
+        return new EconomyResponse(
+                amount,
+                balance,
+                balance >= conversion.units() ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE,
+                ""
+        );
+    }
+
+    @Override
+    public EconomyResponse bankWithdraw(String name, double amount) {
+        NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
+        if (!conversion.success()) {
+            return new EconomyResponse(amount, economyService.bankBalance(name), EconomyResponse.ResponseType.FAILURE, conversion.message());
+        }
+        MoneyOperationResult result = economyService.bankWithdraw(name, conversion.units(), "VAULT_BANK_WITHDRAW");
+        return new EconomyResponse(result.processedAmount(), economyService.bankBalance(name),
+                result.success() ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE,
+                result.message());
+    }
+
+    @Override
+    public EconomyResponse bankDeposit(String name, double amount) {
+        NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
+        if (!conversion.success()) {
+            return new EconomyResponse(amount, economyService.bankBalance(name), EconomyResponse.ResponseType.FAILURE, conversion.message());
+        }
+        MoneyOperationResult result = economyService.bankDeposit(name, null, conversion.units(), "VAULT_BANK_DEPOSIT");
+        return new EconomyResponse(result.processedAmount(), economyService.bankBalance(name),
+                result.success() ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE,
+                result.message());
+    }
+
+    @Override
+    public EconomyResponse isBankOwner(String name, String playerName) {
+        return resolvePlayer(playerName)
+                .map(player -> isBankOwner(name, player))
+                .orElse(failure(0D, "Unknown player."));
+    }
+
+    @Override
+    public EconomyResponse isBankMember(String name, String playerName) {
+        return resolvePlayer(playerName)
+                .map(player -> isBankMember(name, player))
+                .orElse(failure(0D, "Unknown player."));
+    }
+
+    @Override
+    public List<String> getBanks() {
+        return economyService.listBanks();
+    }
+
+    @Override
+    public boolean createPlayerAccount(String playerName) {
+        return resolvePlayer(playerName).map(economyService::ensurePlayerAccount).isPresent();
+    }
+
+    @Override
+    public boolean createPlayerAccount(OfflinePlayer player) {
+        return player != null && economyService.ensurePlayerAccount(player) != null;
+    }
+
+    @Override
+    public boolean createPlayerAccount(String playerName, String worldName) {
+        return createPlayerAccount(playerName);
+    }
+
+    @Override
+    public boolean createPlayerAccount(OfflinePlayer player, String worldName) {
+        return createPlayerAccount(player);
+    }
+
+    @Override
+    public EconomyResponse createBank(String name, OfflinePlayer player) {
+        economyService.ensureSharedAccount(name, player);
+        return new EconomyResponse(0D, economyService.bankBalance(name), EconomyResponse.ResponseType.SUCCESS, "");
+    }
+
+    @Override
+    public EconomyResponse isBankOwner(String name, OfflinePlayer player) {
+        Optional<com.earthpol.economyPol.domain.AccountRecord> bank = economyService.findSharedAccount(name);
+        boolean owner = bank.isPresent() && player != null && player.getUniqueId().equals(bank.get().ownerUuid());
+        return new EconomyResponse(0D, economyService.bankBalance(name), owner ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE, owner ? "" : "Not owner.");
+    }
+
+    @Override
+    public EconomyResponse isBankMember(String name, OfflinePlayer player) {
+        return isBankOwner(name, player);
+    }
+
+    private Optional<OfflinePlayer> resolvePlayer(String playerName) {
+        if (playerName == null || playerName.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            try {
+                UUID playerUuid = UUID.fromString(playerName);
+                return Optional.of(Bukkit.getOfflinePlayer(playerUuid));
+            } catch (IllegalArgumentException ignored) {
+            }
+            return Optional.of(Bukkit.getOfflinePlayer(playerName));
+        } catch (Exception exception) {
+            logger.warn("Failed to resolve player '" + playerName + "': " + exception.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    private EconomyResponse toResponse(MoneyOperationResult result, OfflinePlayer player) {
+        return new EconomyResponse(
+                result.processedAmount(),
+                economyService.getBalance(player),
+                result.success() ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE,
+                result.message()
+        );
+    }
+
+    private EconomyResponse invalidAmountResponse(OfflinePlayer player, double amount, String message) {
+        return new EconomyResponse(amount, numericalConsistencyService.toDouble(economyService.getBalance(player)), EconomyResponse.ResponseType.FAILURE, message);
+    }
+
+    private EconomyResponse failure(double amount, String message) {
+        return new EconomyResponse(amount, 0D, EconomyResponse.ResponseType.FAILURE, message);
+    }
+}
