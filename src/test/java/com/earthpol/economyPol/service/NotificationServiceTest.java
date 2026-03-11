@@ -113,6 +113,18 @@ final class NotificationServiceTest {
     }
 
     @Test
+    void notEnoughRoomForChangeNotificationExplainsCanceledTransaction() {
+        Player player = mock(Player.class);
+
+        notificationService.notifyNotEnoughRoomForChange(player);
+
+        String message = capturePlainText(player);
+        assertTrue(message.contains("Not Enough Room For Change"));
+        assertTrue(message.contains("This transaction was canceled because you do not have enough space"));
+        assertTrue(message.contains("inventory and/or ender chest"));
+    }
+
+    @Test
     void deliverPendingNotificationsSendsQueuedMessagesAndDeletesThem() {
         UUID playerUuid = UUID.randomUUID();
         Player player = mock(Player.class);

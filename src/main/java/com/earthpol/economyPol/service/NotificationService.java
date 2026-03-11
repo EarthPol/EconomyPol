@@ -133,6 +133,24 @@ public final class NotificationService {
         );
     }
 
+    public void notifyNotEnoughRoomForChange(Player player) {
+        if (player == null) {
+            return;
+        }
+        send(player, "Not Enough Room For Change", List.of(
+                Component.text(
+                        "This transaction was canceled because you do not have enough space in your inventory and/or ender chest to receive your change back.",
+                        NamedTextColor.GRAY
+                )
+        ), () -> queueNotification(
+                player.getUniqueId(),
+                PlayerNotificationType.NOT_ENOUGH_ROOM_FOR_CHANGE,
+                null,
+                null,
+                false
+        ), "notify-not-enough-room-for-change");
+    }
+
     public int deliverPendingNotifications(Player player) {
         if (player == null) {
             return 0;
@@ -231,6 +249,15 @@ public final class NotificationService {
                             detail("Credited to custodial: ", amount(notification.primaryAmount())),
                             detail("Custodial balance: ", amount(notification.secondaryAmount())),
                             withdrawHint("Money received while you were offline was stored safely in custodial.")
+                    )
+            );
+            case NOT_ENOUGH_ROOM_FOR_CHANGE -> buildMessage(
+                    "Not Enough Room For Change",
+                    List.of(
+                            Component.text(
+                                    "This transaction was canceled because you do not have enough space in your inventory and/or ender chest to receive your change back.",
+                                    NamedTextColor.GRAY
+                            )
                     )
             );
         };
