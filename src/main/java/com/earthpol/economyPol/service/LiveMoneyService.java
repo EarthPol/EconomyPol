@@ -40,6 +40,32 @@ public final class LiveMoneyService {
         return countInventory(player.getEnderChest());
     }
 
+    public ManagedEnderWalletSyncPlan planManagedEnderWalletSync(ItemStack[] currentContents, long targetBaseUnits) {
+        ItemStack[] targetContents = cloneContents(currentContents);
+        long existingTopLevelMoneyValue = 0L;
+        boolean malformed = false;
+
+        for (int slot = 0; slot < targetContents.length; slot++) {
+            ItemStack itemStack = targetContents[slot];
+            if (!denominationService.isMoney(itemStack)) {
+                continue;
+            }
+            if (itemStack.getAmount() > itemStack.getMaxStackSize()) {
+                malformed = true;
+            }
+            existingTopLevelMoneyValue += denominationService.valueOf(itemStack);
+            targetContents[slot] = null;
+        }
+
+        List<ItemStack> pending = new ArrayList<>();
+        for (ItemStack itemStack : denominationService.materialize(targetBaseUnits)) {
+            pending.add(cloneStack(itemStack));
+        }
+        List<ItemStack> leftovers = placeIntoEmptySlots(targetContents, pending);
+        long overflow = denominationService.countStacks(leftovers);
+        return new ManagedEnderWalletSyncPlan(targetBaseUnits, existingTopLevelMoneyValue, overflow, malformed, targetContents);
+    }
+
     public long removeFromLiveSources(Player player, long amount) {
         long remaining = amount;
         if (walletSettings.includeLivePlayerInventory()) {
@@ -304,9 +330,33 @@ public final class LiveMoneyService {
         return itemStack == null ? null : itemStack.clone();
     }
 
+    private List<ItemStack> placeIntoEmptySlots(ItemStack[] contents, List<ItemStack> itemStacks) {
+        List<ItemStack> leftovers = new ArrayList<>();
+        int nextItemIndex = 0;
+        for (int slot = 0; slot < contents.length && nextItemIndex < itemStacks.size(); slot++) {
+            if (contents[slot] != null && contents[slot].getType() != Material.AIR) {
+                continue;
+            }
+            contents[slot] = cloneStack(itemStacks.get(nextItemIndex));
+            nextItemIndex++;
+        }
+        for (int index = nextItemIndex; index < itemStacks.size(); index++) {
+            leftovers.add(cloneStack(itemStacks.get(index)));
+        }
+        return leftovers;
+    }
+
     public record DeliveryResult(long deliveredToInventory, long deliveredToEnder, long remainder) {}
 
     public record NormalizationResult(long normalizedValue, long overflow, boolean malformedStacksFound) {}
+
+    public record ManagedEnderWalletSyncPlan(
+            long targetBaseUnits,
+            long existingTopLevelMoneyValue,
+            long overflow,
+            boolean malformedStacksFound,
+            ItemStack[] targetContents
+    ) {}
 
     public record SpendResult(boolean success, long requestedAmount, long debitedAmount, long changeAmount, String message) {
 

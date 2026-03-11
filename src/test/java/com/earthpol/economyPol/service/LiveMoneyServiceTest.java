@@ -12,6 +12,7 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -91,5 +92,43 @@ final class LiveMoneyServiceTest {
         assertEquals("Not enough room to return change.", result.message());
         assertEquals(Material.GOLD_BLOCK, player.getInventory().getItem(0).getType());
         assertEquals(81L, service.scanPlayerMoney(player));
+    }
+
+    @Test
+    void planManagedEnderWalletSyncReplacesExistingTopLevelMoneyWithSnapshotValue() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        ItemStack[] currentContents = new ItemStack[27];
+        currentContents[0] = new ItemStack(Material.GOLD_BLOCK, 1);
+        currentContents[5] = new ItemStack(Material.DIAMOND, 3);
+
+        LiveMoneyService.ManagedEnderWalletSyncPlan plan = service.planManagedEnderWalletSync(currentContents, 10L);
+
+        assertEquals(10L, plan.targetBaseUnits());
+        assertEquals(81L, plan.existingTopLevelMoneyValue());
+        assertEquals(0L, plan.overflow());
+        assertFalse(plan.malformedStacksFound());
+        assertEquals(Material.DIAMOND, plan.targetContents()[5].getType());
+        assertEquals(10L, denominationService.countStacks(Arrays.asList(plan.targetContents())));
+    }
+
+    @Test
+    void planManagedEnderWalletSyncReportsOverflowWhenNoSlotsAreAvailable() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        ItemStack[] currentContents = new ItemStack[2];
+        currentContents[0] = new ItemStack(Material.STONE, 64);
+        currentContents[1] = new ItemStack(Material.DIAMOND, 1);
+
+        LiveMoneyService.ManagedEnderWalletSyncPlan plan = service.planManagedEnderWalletSync(currentContents, 10L);
+
+        assertEquals(0L, plan.existingTopLevelMoneyValue());
+        assertEquals(10L, plan.overflow());
+        assertEquals(Material.STONE, plan.targetContents()[0].getType());
+        assertEquals(Material.DIAMOND, plan.targetContents()[1].getType());
     }
 }

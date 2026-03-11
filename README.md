@@ -321,14 +321,24 @@ The player is money-locked while sync runs.
 During sync:
 
 - snapshot state becomes `SYNCING`
-- current top-level ender chest money is normalized
-- snapshot value plus normalized live ender value is materialized into the ender chest
+- the current top-level ender chest contents are cloned
+- a theoretical final chest layout is computed from that clone
+- only the frozen snapshot value is materialized back into top-level ender chest slots
+- existing top-level money items are cleared and replaced as part of that planned layout
 - overflow or malformed leftovers are moved to custodial
 - the snapshot row is deleted after success
+
+If join sync fails after the snapshot was moved to `SYNCING`:
+
+- the original top-level ender chest contents are restored
+- the original `FROZEN` snapshot row is restored
+- the restored frozen snapshot is safe while the player is still online because online player balance and spending ignore frozen snapshots
+- that restored snapshot acts as a dormant recovery record until the player logs out again or a later sync succeeds
 
 If the server had an unclean shutdown:
 
 - stale syncing snapshots are marked `DISABLED_UNCLEAN`
+- startup logs emit severe entries describing each quarantined snapshot row
 - offline ender-wallet behavior is disabled until the player returns
 
 ## Notifications
@@ -374,6 +384,7 @@ Available database check reports:
 - `accounts`
 - `balances`
 - `snapshots`
+- `unclean-snapshots`
 - `reservations`
 - `notifications`
 - `stats`
@@ -547,6 +558,7 @@ Current checks look for malformed or inconsistent rows in:
 - accounts
 - balances
 - snapshots
+- unclean snapshots
 - reservations
 - notifications
 
