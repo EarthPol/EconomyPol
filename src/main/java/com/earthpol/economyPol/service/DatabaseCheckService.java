@@ -16,7 +16,15 @@ import java.util.Map;
 
 public final class DatabaseCheckService {
 
-    private static final List<String> REPORT_NAMES = List.of("accounts", "balances", "snapshots", "reservations", "notifications", "stats");
+    private static final List<String> REPORT_NAMES = List.of(
+            "accounts",
+            "balances",
+            "snapshots",
+            "unclean-snapshots",
+            "reservations",
+            "notifications",
+            "stats"
+    );
 
     private final DatabaseService databaseService;
 
@@ -37,6 +45,7 @@ public final class DatabaseCheckService {
                 case "accounts" -> checkAccounts(ranAt, startedNanos);
                 case "balances" -> checkBalances(ranAt, startedNanos);
                 case "snapshots" -> checkSnapshots(ranAt, startedNanos);
+                case "unclean-snapshots" -> checkUncleanSnapshots(ranAt, startedNanos);
                 case "reservations" -> checkReservations(ranAt, startedNanos);
                 case "notifications" -> checkNotifications(ranAt, startedNanos);
                 case "stats" -> checkStats(ranAt, startedNanos);
@@ -211,6 +220,11 @@ public final class DatabaseCheckService {
                 )
         ));
 
+        List<String> notes = new ArrayList<>();
+        if (statistics.get("snapshot_disabled_unclean") > 0L) {
+            notes.add("Some snapshots are quarantined as DISABLED_UNCLEAN after startup recovery. Run 'unclean-snapshots' for row-level details.");
+        }
+
         return finish(
                 "snapshots",
                 ranAt,
@@ -218,7 +232,51 @@ public final class DatabaseCheckService {
                 findings.isEmpty(),
                 findings.isEmpty() ? "No malformed ender-wallet snapshot rows found." : "Found " + findings.size() + " malformed snapshot rows.",
                 statistics,
-                List.of(),
+                notes,
+                findings
+        );
+    }
+
+    private DatabaseCheckReport checkUncleanSnapshots(Instant ranAt, long startedNanos) {
+        Map<String, Long> statistics = new LinkedHashMap<>();
+        statistics.put("unclean_snapshot_rows", queryLong(
+                "SELECT COUNT(*) FROM economy_ender_wallet_snapshots WHERE state = 'DISABLED_UNCLEAN'"
+        ));
+        statistics.put("unclean_snapshot_base_units_total", queryLong(
+                "SELECT COALESCE(SUM(base_units), 0) FROM economy_ender_wallet_snapshots WHERE state = 'DISABLED_UNCLEAN'"
+        ));
+
+        List<DatabaseCheckFinding> findings = queryFindings(
+                """
+                SELECT s.player_uuid, s.base_units, s.last_clean_sync_at, s.updated_at, a.account_name
+                FROM economy_ender_wallet_snapshots s
+                LEFT JOIN economy_accounts a ON a.account_id = s.player_uuid
+                WHERE s.state = 'DISABLED_UNCLEAN'
+                ORDER BY s.updated_at ASC, s.player_uuid ASC
+                """,
+                resultSet -> new DatabaseCheckFinding(
+                        "economy_ender_wallet_snapshots",
+                        "player_uuid=" + resultSet.getString("player_uuid") +
+                                (resultSet.getString("account_name") == null ? "" : ", account_name=" + resultSet.getString("account_name")),
+                        "Snapshot quarantined after unclean startup recovery. base_units=" + resultSet.getLong("base_units") +
+                                ", last_clean_sync_at=" + nullableLong(resultSet, "last_clean_sync_at") +
+                                ", updated_at=" + resultSet.getLong("updated_at")
+                )
+        );
+
+        return finish(
+                "unclean-snapshots",
+                ranAt,
+                startedNanos,
+                findings.isEmpty(),
+                findings.isEmpty()
+                        ? "No DISABLED_UNCLEAN ender-wallet snapshots were found."
+                        : "Found " + findings.size() + " DISABLED_UNCLEAN ender-wallet snapshots quarantined after startup recovery.",
+                statistics,
+                List.of(
+                        "These rows indicate startup recovery encountered stale SYNCING snapshots after an unclean shutdown.",
+                        "The rows are quarantined to avoid trusting ambiguous offline wallet state until a later clean player lifecycle rebuilds the snapshot."
+                ),
                 findings
         );
     }
@@ -432,6 +490,11 @@ public final class DatabaseCheckService {
     ) {
         long durationMillis = Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
         return new DatabaseCheckReport(reportName, ranAt, durationMillis, healthy, summary, statistics, notes, findings);
+    }
+
+    private Long nullableLong(ResultSet resultSet, String columnName) throws SQLException {
+        long value = resultSet.getLong(columnName);
+        return resultSet.wasNull() ? null : value;
     }
 
     @FunctionalInterface

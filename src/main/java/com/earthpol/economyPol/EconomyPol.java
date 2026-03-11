@@ -7,6 +7,7 @@ import com.earthpol.economyPol.api.EconomyPolAPI;
 import com.earthpol.economyPol.api.EconomyPolApiProvider;
 import com.earthpol.economyPol.command.EconomyCommand;
 import com.earthpol.economyPol.config.PluginSettings;
+import com.earthpol.economyPol.domain.EnderWalletSnapshot;
 import com.earthpol.economyPol.listener.EnderChestLockListener;
 import com.earthpol.economyPol.listener.PlayerLifecycleListener;
 import com.earthpol.economyPol.logging.EconomyLoggers;
@@ -30,6 +31,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 public final class EconomyPol extends JavaPlugin {
 
@@ -88,7 +90,7 @@ public final class EconomyPol extends JavaPlugin {
         }
 
         repository = new JdbcEconomyRepository(dbService, log(), audit());
-        repository.markStaleSnapshotsDisabled();
+        logRecoveredUncleanSnapshots(repository.markStaleSnapshotsDisabled());
 
         denominationService = new DenominationService(settings.currency(), log());
         numericalConsistencyService = new NumericalConsistencyService(settings.numeric(), denominationService);
@@ -240,6 +242,21 @@ public final class EconomyPol extends JavaPlugin {
             if (loggers != null) {
                 log().warn("Failed to delete runtime marker: " + exception.getMessage());
             }
+        }
+    }
+
+    private void logRecoveredUncleanSnapshots(List<EnderWalletSnapshot> recoveredSnapshots) {
+        if (recoveredSnapshots.isEmpty()) {
+            return;
+        }
+        log().severe("Startup recovery quarantined " + recoveredSnapshots.size() +
+                " managed ender-wallet snapshot(s) left in SYNCING from a previous unclean shutdown. " +
+                "They were marked DISABLED_UNCLEAN to prevent ambiguous offline wallet use. " +
+                "Run '/economypol admin check unclean-snapshots' for details.");
+        for (EnderWalletSnapshot snapshot : recoveredSnapshots) {
+            log().severe("unclean-snapshot player=" + snapshot.playerUuid() +
+                    " base_units=" + snapshot.baseUnits() +
+                    " last_clean_sync_at=" + snapshot.lastCleanSyncAt());
         }
     }
 }

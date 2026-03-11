@@ -300,16 +300,44 @@ public final class JdbcEconomyRepository {
         update("DELETE FROM economy_ender_wallet_snapshots WHERE player_uuid = ?", uuid(playerUuid));
     }
 
-    public void markStaleSnapshotsDisabled() {
-        update("""
-                UPDATE economy_ender_wallet_snapshots
-                SET state = ?, updated_at = ?
-                WHERE state = ?
-                """,
-                OfflineEnderWalletState.DISABLED_UNCLEAN.name(),
-                System.currentTimeMillis(),
-                OfflineEnderWalletState.SYNCING.name()
-        );
+    public List<EnderWalletSnapshot> markStaleSnapshotsDisabled() {
+        return inTransaction(connection -> {
+            List<EnderWalletSnapshot> staleSnapshots = new ArrayList<>();
+            try (PreparedStatement select = connection.prepareStatement("""
+                    SELECT player_uuid, base_units, state, last_clean_sync_at
+                    FROM economy_ender_wallet_snapshots
+                    WHERE state = ?
+                    FOR UPDATE
+                    """)) {
+                select.setString(1, OfflineEnderWalletState.SYNCING.name());
+                try (ResultSet resultSet = select.executeQuery()) {
+                    while (resultSet.next()) {
+                        staleSnapshots.add(new EnderWalletSnapshot(
+                                parseUuid(resultSet.getString("player_uuid")),
+                                resultSet.getLong("base_units"),
+                                OfflineEnderWalletState.valueOf(resultSet.getString("state")),
+                                nullableLong(resultSet, "last_clean_sync_at")
+                        ));
+                    }
+                }
+            }
+
+            if (staleSnapshots.isEmpty()) {
+                return List.of();
+            }
+
+            try (PreparedStatement update = connection.prepareStatement("""
+                    UPDATE economy_ender_wallet_snapshots
+                    SET state = ?, updated_at = ?
+                    WHERE state = ?
+                    """)) {
+                update.setString(1, OfflineEnderWalletState.DISABLED_UNCLEAN.name());
+                update.setLong(2, System.currentTimeMillis());
+                update.setString(3, OfflineEnderWalletState.SYNCING.name());
+                update.executeUpdate();
+            }
+            return List.copyOf(staleSnapshots);
+        });
     }
 
     public ReservationRecord createReservation(UUID accountId, long amount, String reason, Long expiresAt) {
