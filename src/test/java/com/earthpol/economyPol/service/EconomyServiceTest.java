@@ -218,6 +218,122 @@ final class EconomyServiceTest {
         verify(notificationService).notifyWithdrawalRetainedInCustodial(player, 4L, 94L);
     }
 
+    @Test
+    void withdrawPlayerDoesNotSendDirectChangeNotificationForVaultTriggeredFailures() {
+        PlayerMock player = server.addPlayer();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
+        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+
+        PlayerAccountPolicy policy = new PlayerAccountPolicy(false, true, true);
+        List<MoneyRouteTarget> routingOrder = List.of(
+                MoneyRouteTarget.INVENTORY,
+                MoneyRouteTarget.ENDER_CHEST,
+                MoneyRouteTarget.CUSTODIAL_ACCOUNT
+        );
+        UUID accountId = player.getUniqueId();
+        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
+
+        when(settings.playerPolicy()).thenReturn(policy);
+        when(settings.routingOrder()).thenReturn(routingOrder);
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
+        when(liveMoneyService.spendFromLiveSources(player, 10L, routingOrder))
+                .thenReturn(LiveMoneyService.SpendResult.failure(10L, LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE));
+        doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
+                .when(schedulerService)
+                .callOnPlayerEntityScheduler(eq(player), any(), anyString());
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                fundsRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                operationsLog,
+                auditLog
+        );
+
+        MoneyOperationResult result = economyService.withdrawPlayer(player, 10L, "VAULT2_WITHDRAW:QuickShop");
+
+        assertFalse(result.success());
+        assertEquals(LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE, result.message());
+        verify(notificationService, never()).notifyNotEnoughRoomForChange(player);
+    }
+
+    @Test
+    void withdrawPlayerSendsDirectChangeNotificationForNonVaultFailures() {
+        PlayerMock player = server.addPlayer();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
+        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+
+        PlayerAccountPolicy policy = new PlayerAccountPolicy(false, true, true);
+        List<MoneyRouteTarget> routingOrder = List.of(
+                MoneyRouteTarget.INVENTORY,
+                MoneyRouteTarget.ENDER_CHEST,
+                MoneyRouteTarget.CUSTODIAL_ACCOUNT
+        );
+        UUID accountId = player.getUniqueId();
+        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
+
+        when(settings.playerPolicy()).thenReturn(policy);
+        when(settings.routingOrder()).thenReturn(routingOrder);
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
+        when(liveMoneyService.spendFromLiveSources(player, 10L, routingOrder))
+                .thenReturn(LiveMoneyService.SpendResult.failure(10L, LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE));
+        doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
+                .when(schedulerService)
+                .callOnPlayerEntityScheduler(eq(player), any(), anyString());
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                fundsRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                operationsLog,
+                auditLog
+        );
+
+        MoneyOperationResult result = economyService.withdrawPlayer(player, 10L, "PLAYER_MARKET_BUY");
+
+        assertFalse(result.success());
+        assertEquals(LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE, result.message());
+        verify(notificationService).notifyNotEnoughRoomForChange(player);
+    }
+
     private static LiveMoneyService.LiveContainerSnapshot snapshotOf(Player player) {
         return new LiveMoneyService.LiveContainerSnapshot(
                 cloneContents(player.getInventory().getContents()),

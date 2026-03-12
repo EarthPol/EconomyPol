@@ -157,7 +157,8 @@ public final class EconomyService {
             }
             LiveMoneyService.SpendResult spendResult = spendResultOptional.get();
             if (!spendResult.success()) {
-                if (LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE.equals(spendResult.message())) {
+                if (LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE.equals(spendResult.message())
+                        && shouldSendDirectFailureNotification(reason)) {
                     notificationService.notifyNotEnoughRoomForChange(onlinePlayer);
                 }
                 return MoneyOperationResult.failure(amount, spendResult.message());
@@ -541,5 +542,12 @@ public final class EconomyService {
 
     public EnhancedLogger operationsLog() {
         return operationsLog;
+    }
+
+    private boolean shouldSendDirectFailureNotification(String reason) {
+        if (reason == null || reason.isBlank()) {
+            return true;
+        }
+        return !reason.startsWith("VAULT_") && !reason.startsWith("VAULT2_");
     }
 }
