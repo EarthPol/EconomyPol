@@ -3,6 +3,8 @@ package com.earthpol.economyPol.vault;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.EconomyPol;
 import com.earthpol.economyPol.config.PluginSettings;
+import com.earthpol.economyPol.domain.AccountRecord;
+import com.earthpol.economyPol.domain.AccountType;
 import com.earthpol.economyPol.domain.MoneyOperationResult;
 import com.earthpol.economyPol.service.EconomyService;
 import com.earthpol.economyPol.service.NumericalConsistencyService;
@@ -74,12 +76,12 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
 
     @Override
     public boolean hasAccount(String playerName) {
-        return resolvePlayer(playerName).map(economyService::ensurePlayerAccount).isPresent();
+        return findExistingPlayerAccount(playerName).isPresent();
     }
 
     @Override
     public boolean hasAccount(OfflinePlayer player) {
-        return player != null && economyService.ensurePlayerAccount(player) != null;
+        return findExistingPlayerAccount(player).isPresent();
     }
 
     @Override
@@ -94,12 +96,16 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
 
     @Override
     public double getBalance(String playerName) {
-        return resolvePlayer(playerName).map(economyService::getBalance).orElse(0L);
+        return findExistingPlayerAccount(playerName)
+                .map(account -> numericalConsistencyService.toDouble(economyService.getBalance(account.accountId())))
+                .orElse(0D);
     }
 
     @Override
     public double getBalance(OfflinePlayer player) {
-        return player == null ? 0D : economyService.getBalance(player);
+        return findExistingPlayerAccount(player)
+                .map(account -> numericalConsistencyService.toDouble(economyService.getBalance(account.accountId())))
+                .orElse(0D);
     }
 
     @Override
@@ -115,15 +121,17 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
     @Override
     public boolean has(String playerName, double amount) {
         NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
-        return conversion.success() && resolvePlayer(playerName)
-                .map(player -> economyService.hasEnough(player, conversion.units()))
+        return conversion.success() && findExistingPlayerAccount(playerName)
+                .map(account -> economyService.hasEnough(account.accountId(), conversion.units()))
                 .orElse(false);
     }
 
     @Override
     public boolean has(OfflinePlayer player, double amount) {
         NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
-        return player != null && conversion.success() && economyService.hasEnough(player, conversion.units());
+        return conversion.success() && findExistingPlayerAccount(player)
+                .map(account -> economyService.hasEnough(account.accountId(), conversion.units()))
+                .orElse(false);
     }
 
     @Override
@@ -324,7 +332,9 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
 
     @Override
     public EconomyResponse isBankMember(String name, OfflinePlayer player) {
-        return isBankOwner(name, player);
+        Optional<AccountRecord> bank = economyService.findSharedAccount(name);
+        boolean member = bank.isPresent() && player != null && economyService.isAccountMember(bank.get().accountId(), player.getUniqueId());
+        return new EconomyResponse(0D, economyService.bankBalance(name), member ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE, member ? "" : "Not member.");
     }
 
     private Optional<OfflinePlayer> resolvePlayer(String playerName) {
@@ -344,6 +354,38 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
         }
     }
 
+    private Optional<AccountRecord> findExistingPlayerAccount(String playerName) {
+        if (playerName == null || playerName.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            UUID playerUuid = UUID.fromString(playerName);
+            return findExistingPlayerAccount(playerUuid);
+        } catch (IllegalArgumentException ignored) {
+        }
+
+        Optional<AccountRecord> byName = economyService.findAccountByName(playerName).filter(this::isPlayerAccount);
+        if (byName.isPresent()) {
+            return byName;
+        }
+        return resolvePlayer(playerName).flatMap(this::findExistingPlayerAccount);
+    }
+
+    private Optional<AccountRecord> findExistingPlayerAccount(OfflinePlayer player) {
+        if (player == null) {
+            return Optional.empty();
+        }
+        return findExistingPlayerAccount(player.getUniqueId());
+    }
+
+    private Optional<AccountRecord> findExistingPlayerAccount(UUID playerUuid) {
+        return economyService.findAccount(playerUuid).filter(this::isPlayerAccount);
+    }
+
+    private boolean isPlayerAccount(AccountRecord accountRecord) {
+        return accountRecord.accountType() == AccountType.PLAYER;
+    }
+
     private EconomyResponse toResponse(MoneyOperationResult result, OfflinePlayer player) {
         return new EconomyResponse(
                 result.processedAmount(),
@@ -354,7 +396,10 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
     }
 
     private EconomyResponse invalidAmountResponse(OfflinePlayer player, double amount, String message) {
-        return new EconomyResponse(amount, numericalConsistencyService.toDouble(economyService.getBalance(player)), EconomyResponse.ResponseType.FAILURE, message);
+        double balance = findExistingPlayerAccount(player)
+                .map(account -> numericalConsistencyService.toDouble(economyService.getBalance(account.accountId())))
+                .orElse(0D);
+        return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.FAILURE, message);
     }
 
     private EconomyResponse failure(double amount, String message) {
