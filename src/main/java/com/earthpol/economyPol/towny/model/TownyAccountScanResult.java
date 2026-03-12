@@ -1,6 +1,6 @@
 package com.earthpol.economyPol.towny.model;
 
-import com.earthpol.economyPol.model.DatabaseCheckFinding;
+import com.earthpol.economyPol.economy.model.DatabaseCheckFinding;
 
 import java.util.List;
 import java.util.Map;

@@ -1,7 +1,9 @@
 package com.earthpol.economyPol.service;
 
-import com.earthpol.economyPol.config.PluginSettings;
-import com.earthpol.economyPol.model.Denomination;
+import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.model.Denomination;
+import com.earthpol.economyPol.economy.service.DenominationService;
+import com.earthpol.economyPol.economy.service.NumericalConsistencyService;
 import org.bukkit.Material;
 import org.junit.jupiter.api.Test;
 

@@ -1,9 +1,9 @@
 package com.earthpol.economyPol.towny;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.model.AccountRecord;
-import com.earthpol.economyPol.model.DatabaseCheckFinding;
-import com.earthpol.economyPol.service.EconomyService;
+import com.earthpol.economyPol.economy.model.AccountRecord;
+import com.earthpol.economyPol.economy.model.DatabaseCheckFinding;
+import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.towny.model.TownyAccountScanResult;
 import com.earthpol.economyPol.towny.model.TownyCleanupResult;
 import com.earthpol.economyPol.towny.model.TownyGovernmentBinding;

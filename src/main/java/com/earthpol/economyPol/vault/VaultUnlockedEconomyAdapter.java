@@ -2,10 +2,10 @@ package com.earthpol.economyPol.vault;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.EconomyPol;
-import com.earthpol.economyPol.config.PluginSettings;
-import com.earthpol.economyPol.model.MoneyOperationResult;
-import com.earthpol.economyPol.service.EconomyService;
-import com.earthpol.economyPol.service.NumericalConsistencyService;
+import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.model.MoneyOperationResult;
+import com.earthpol.economyPol.economy.service.EconomyService;
+import com.earthpol.economyPol.economy.service.NumericalConsistencyService;
 import net.milkbowl.vault2.economy.AccountPermission;
 import net.milkbowl.vault2.economy.Economy;
 import net.milkbowl.vault2.economy.EconomyResponse;

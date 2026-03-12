@@ -2,7 +2,7 @@ package com.earthpol.economyPol.towny.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.repository.AbstractRepositorySupport;
+import com.earthpol.economyPol.economy.repository.AbstractRepositorySupport;
 import com.earthpol.economyPol.towny.model.TownyGovernmentBinding;
 import com.earthpol.economyPol.towny.model.TownyGovernmentType;
 
