@@ -3,7 +3,7 @@ package com.earthpol.economyPol.service;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.domain.PlayerNotificationRecord;
 import com.earthpol.economyPol.domain.PlayerNotificationType;
-import com.earthpol.economyPol.persistence.JdbcEconomyRepository;
+import com.earthpol.economyPol.persistence.NotificationRepository;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -20,13 +20,13 @@ public final class NotificationService {
     private static final String WITHDRAW_COMMAND = "/economypol withdraw <amount>";
 
     private final DenominationService denominationService;
-    private final JdbcEconomyRepository repository;
+    private final NotificationRepository repository;
     private final SchedulerService schedulerService;
     private final EnhancedLogger operationsLog;
 
     public NotificationService(
             DenominationService denominationService,
-            JdbcEconomyRepository repository,
+            NotificationRepository repository,
             SchedulerService schedulerService,
             EnhancedLogger operationsLog
     ) {

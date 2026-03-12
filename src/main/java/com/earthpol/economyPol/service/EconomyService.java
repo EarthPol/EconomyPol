@@ -9,7 +9,8 @@ import com.earthpol.economyPol.domain.EnderWalletSnapshot;
 import com.earthpol.economyPol.domain.MoneyOperationResult;
 import com.earthpol.economyPol.domain.OfflineEnderWalletState;
 import com.earthpol.economyPol.domain.PlayerBalanceView;
-import com.earthpol.economyPol.persistence.JdbcEconomyRepository;
+import com.earthpol.economyPol.persistence.AccountRepository;
+import com.earthpol.economyPol.persistence.FundsRepository;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -21,7 +22,8 @@ import java.util.UUID;
 
 public final class EconomyService {
 
-    private final JdbcEconomyRepository repository;
+    private final AccountRepository accountRepository;
+    private final FundsRepository fundsRepository;
     private final DenominationService denominationService;
     private final LiveMoneyService liveMoneyService;
     private final EnderWalletService enderWalletService;
@@ -34,7 +36,8 @@ public final class EconomyService {
     private final EnhancedLogger auditLog;
 
     public EconomyService(
-            JdbcEconomyRepository repository,
+            AccountRepository accountRepository,
+            FundsRepository fundsRepository,
             DenominationService denominationService,
             LiveMoneyService liveMoneyService,
             EnderWalletService enderWalletService,
@@ -46,7 +49,8 @@ public final class EconomyService {
             EnhancedLogger operationsLog,
             EnhancedLogger auditLog
     ) {
-        this.repository = repository;
+        this.accountRepository = accountRepository;
+        this.fundsRepository = fundsRepository;
         this.denominationService = denominationService;
         this.liveMoneyService = liveMoneyService;
         this.enderWalletService = enderWalletService;
@@ -68,37 +72,37 @@ public final class EconomyService {
     }
 
     public AccountRecord ensurePlayerAccount(OfflinePlayer player) {
-        return repository.ensurePlayerAccount(player.getUniqueId(), player.getName(), settings.playerPolicy());
+        return accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), settings.playerPolicy());
     }
 
     public AccountRecord ensurePlayerAccount(UUID playerUuid, String playerName) {
-        return repository.ensurePlayerAccount(playerUuid, playerName, settings.playerPolicy());
+        return accountRepository.ensurePlayerAccount(playerUuid, playerName, settings.playerPolicy());
     }
 
     public AccountRecord ensureSharedAccount(String name, OfflinePlayer owner) {
-        return repository.ensureSharedAccount(name, owner == null ? null : owner.getUniqueId());
+        return accountRepository.ensureSharedAccount(name, owner == null ? null : owner.getUniqueId());
     }
 
     public AccountRecord ensureSharedAccount(UUID accountId, String name, UUID ownerUuid) {
-        return repository.ensureSharedAccount(accountId, name, ownerUuid);
+        return accountRepository.ensureSharedAccount(accountId, name, ownerUuid);
     }
 
     public boolean createSharedAccount(UUID accountId, String name, UUID ownerUuid) {
-        Optional<AccountRecord> byId = repository.findAccount(accountId);
+        Optional<AccountRecord> byId = accountRepository.findAccount(accountId);
         if (byId.isPresent() && byId.get().accountType() != AccountType.SHARED) {
             return false;
         }
-        Optional<AccountRecord> byName = repository.findSharedAccount(name);
+        Optional<AccountRecord> byName = accountRepository.findSharedAccount(name);
         if (byName.isPresent() && !byName.get().accountId().equals(accountId)) {
             return false;
         }
-        repository.ensureSharedAccount(accountId, name, ownerUuid);
+        accountRepository.ensureSharedAccount(accountId, name, ownerUuid);
         return true;
     }
 
     public PlayerBalanceView balanceView(OfflinePlayer player) {
         AccountRecord account = ensurePlayerAccount(player);
-        BalanceRecord balance = repository.getBalance(account.accountId());
+        BalanceRecord balance = fundsRepository.getBalance(account.accountId());
         boolean locked = playerMoneyLockService.isLocked(player.getUniqueId());
         long liveMoney = 0L;
         long frozen = 0L;
@@ -123,7 +127,7 @@ public final class EconomyService {
     }
 
     public long getCustodialAvailable(OfflinePlayer player) {
-        return repository.getBalance(ensurePlayerAccount(player).accountId()).availableBalance();
+        return fundsRepository.getBalance(ensurePlayerAccount(player).accountId()).availableBalance();
     }
 
     public boolean hasEnough(OfflinePlayer player, long amount) {
@@ -242,7 +246,7 @@ public final class EconomyService {
         if (requested <= 0L) {
             return MoneyOperationResult.failure(requested, "No live money was available to deposit.");
         }
-        repository.changeAvailable(account.accountId(), requested, "SELF_DEPOSIT", "SELF_DEPOSIT", player.getUniqueId(), null);
+        fundsRepository.changeAvailable(account.accountId(), requested, "SELF_DEPOSIT", "SELF_DEPOSIT", player.getUniqueId(), null);
         auditLog.info("self-deposit player=" + player.getUniqueId() + " amount=" + requested +
                 " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount());
         return MoneyOperationResult.success(requested, requested, 0L, "Funds deposited.");
@@ -268,7 +272,7 @@ public final class EconomyService {
         if (!account.playerPolicy().allowSelfWithdraw()) {
             return MoneyOperationResult.failure(amount, "Self-withdraw is disabled.");
         }
-        BalanceRecord balance = repository.getBalance(account.accountId());
+        BalanceRecord balance = fundsRepository.getBalance(account.accountId());
         if (balance.availableBalance() < amount) {
             return MoneyOperationResult.failure(amount, "Insufficient custodial funds.");
         }
@@ -278,7 +282,7 @@ public final class EconomyService {
 
         LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
         try {
-            repository.reserveAvailable(account.accountId(), amount, "SELF_WITHDRAW_PENDING");
+            fundsRepository.reserveAvailable(account.accountId(), amount, "SELF_WITHDRAW_PENDING");
         } catch (RuntimeException exception) {
             return MoneyOperationResult.failure(amount, "Insufficient custodial funds.");
         }
@@ -294,7 +298,7 @@ public final class EconomyService {
         long delivered = amount - deliveryResult.remainder();
         BalanceRecord updatedBalance;
         try {
-            updatedBalance = repository.settleReservedWithdrawal(
+            updatedBalance = fundsRepository.settleReservedWithdrawal(
                     account.accountId(),
                     delivered,
                     deliveryResult.remainder(),
@@ -338,7 +342,7 @@ public final class EconomyService {
                     player.getUniqueId() + ".", restoreException);
         }
         try {
-            repository.releaseReserved(accountId, reservedAmount, "SELF_WITHDRAW_ROLLBACK");
+            fundsRepository.releaseReserved(accountId, reservedAmount, "SELF_WITHDRAW_ROLLBACK");
         } catch (RuntimeException releaseException) {
             operationsLog.severe("Failed to release reserved custodial funds after rollback for " +
                     player.getUniqueId() + ".", releaseException);
@@ -361,57 +365,57 @@ public final class EconomyService {
     }
 
     public BalanceRecord creditCustodial(UUID playerUuid, String playerName, long amount, String reason) {
-        AccountRecord account = repository.ensurePlayerAccount(playerUuid, playerName, settings.playerPolicy());
-        return repository.changeAvailable(account.accountId(), amount, "CUSTODIAL_CREDIT", reason, playerUuid, null);
+        AccountRecord account = accountRepository.ensurePlayerAccount(playerUuid, playerName, settings.playerPolicy());
+        return fundsRepository.changeAvailable(account.accountId(), amount, "CUSTODIAL_CREDIT", reason, playerUuid, null);
     }
 
     public Optional<AccountRecord> findAccount(UUID accountId) {
-        return repository.findAccount(accountId);
+        return accountRepository.findAccount(accountId);
     }
 
     public Optional<AccountRecord> findSharedAccount(String bankName) {
-        return repository.findSharedAccount(bankName);
+        return accountRepository.findSharedAccount(bankName);
     }
 
     public Optional<String> getAccountName(UUID accountId) {
-        return repository.findAccount(accountId).map(AccountRecord::accountName);
+        return accountRepository.findAccount(accountId).map(AccountRecord::accountName);
     }
 
     public MoneyOperationResult bankDeposit(String bankName, OfflinePlayer owner, long amount, String reason) {
-        AccountRecord account = repository.findSharedAccount(bankName).orElseGet(() -> ensureSharedAccount(bankName, owner));
-        repository.changeAvailable(account.accountId(), amount, "BANK_DEPOSIT", reason, owner == null ? null : owner.getUniqueId(), null);
+        AccountRecord account = accountRepository.findSharedAccount(bankName).orElseGet(() -> ensureSharedAccount(bankName, owner));
+        fundsRepository.changeAvailable(account.accountId(), amount, "BANK_DEPOSIT", reason, owner == null ? null : owner.getUniqueId(), null);
         return MoneyOperationResult.success(amount, amount, 0L, "Bank deposit completed.");
     }
 
     public MoneyOperationResult bankWithdraw(String bankName, long amount, String reason) {
-        Optional<AccountRecord> account = repository.findSharedAccount(bankName);
+        Optional<AccountRecord> account = accountRepository.findSharedAccount(bankName);
         if (account.isEmpty()) {
             return MoneyOperationResult.failure(amount, "Bank account does not exist.");
         }
-        BalanceRecord balance = repository.getBalance(account.get().accountId());
+        BalanceRecord balance = fundsRepository.getBalance(account.get().accountId());
         if (balance.availableBalance() < amount) {
             return MoneyOperationResult.failure(amount, "Insufficient bank funds.");
         }
-        repository.changeAvailable(account.get().accountId(), -amount, "BANK_WITHDRAW", reason, null, null);
+        fundsRepository.changeAvailable(account.get().accountId(), -amount, "BANK_WITHDRAW", reason, null, null);
         return MoneyOperationResult.success(amount, amount, 0L, "Bank withdrawal completed.");
     }
 
     public long bankBalance(String bankName) {
-        return repository.findSharedAccount(bankName)
-                .map(accountRecord -> repository.getBalance(accountRecord.accountId()).availableBalance())
+        return accountRepository.findSharedAccount(bankName)
+                .map(accountRecord -> fundsRepository.getBalance(accountRecord.accountId()).availableBalance())
                 .orElse(0L);
     }
 
     public List<String> listBanks() {
-        return repository.listSharedAccountNames();
+        return accountRepository.listSharedAccountNames();
     }
 
     public Map<UUID, String> accountNameMap() {
-        return repository.listAccountNames();
+        return accountRepository.listAccountNames();
     }
 
     public Optional<AccountRecord> findAccountByName(String name) {
-        return repository.findAccountByName(name);
+        return accountRepository.findAccountByName(name);
     }
 
     public boolean isPlayerLocked(UUID playerUuid) {
@@ -419,34 +423,34 @@ public final class EconomyService {
     }
 
     public boolean renameAccount(UUID accountId, String name) {
-        Optional<AccountRecord> existing = repository.findAccount(accountId);
+        Optional<AccountRecord> existing = accountRepository.findAccount(accountId);
         if (existing.isEmpty()) {
             return false;
         }
-        Optional<AccountRecord> collision = repository.findAccountByName(name);
+        Optional<AccountRecord> collision = accountRepository.findAccountByName(name);
         if (collision.isPresent() && !collision.get().accountId().equals(accountId)) {
             return false;
         }
-        return repository.renameAccount(accountId, name);
+        return accountRepository.renameAccount(accountId, name);
     }
 
     public boolean deleteSharedAccount(UUID accountId) {
-        Optional<AccountRecord> existing = repository.findAccount(accountId);
+        Optional<AccountRecord> existing = accountRepository.findAccount(accountId);
         if (existing.isEmpty() || existing.get().accountType() != AccountType.SHARED) {
             return false;
         }
-        return repository.deleteSharedAccount(accountId);
+        return accountRepository.deleteSharedAccount(accountId);
     }
 
     public long getBalance(UUID accountId) {
-        Optional<AccountRecord> account = repository.findAccount(accountId);
+        Optional<AccountRecord> account = accountRepository.findAccount(accountId);
         if (account.isEmpty()) {
             return 0L;
         }
         if (account.get().accountType() == AccountType.PLAYER) {
             return getBalance(Bukkit.getOfflinePlayer(accountId));
         }
-        return repository.getBalance(accountId).availableBalance();
+        return fundsRepository.getBalance(accountId).availableBalance();
     }
 
     public boolean hasEnough(UUID accountId, long amount) {
@@ -454,37 +458,37 @@ public final class EconomyService {
     }
 
     public MoneyOperationResult withdrawAccount(UUID accountId, long amount, String reason) {
-        Optional<AccountRecord> account = repository.findAccount(accountId);
+        Optional<AccountRecord> account = accountRepository.findAccount(accountId);
         if (account.isEmpty()) {
             return MoneyOperationResult.failure(amount, "Account does not exist.");
         }
         if (account.get().accountType() == AccountType.PLAYER) {
             return withdrawPlayer(Bukkit.getOfflinePlayer(accountId), amount, reason);
         }
-        BalanceRecord balance = repository.getBalance(accountId);
+        BalanceRecord balance = fundsRepository.getBalance(accountId);
         if (balance.availableBalance() < amount) {
             return MoneyOperationResult.failure(amount, "Insufficient funds.");
         }
-        repository.changeAvailable(accountId, -amount, "SHARED_WITHDRAW", reason, null, null);
+        fundsRepository.changeAvailable(accountId, -amount, "SHARED_WITHDRAW", reason, null, null);
         auditLog.info("shared-withdraw account=" + accountId + " amount=" + amount + " reason=" + reason);
         return MoneyOperationResult.success(amount, amount, 0L, "Funds withdrawn.");
     }
 
     public MoneyOperationResult depositAccount(UUID accountId, long amount, String reason) {
-        Optional<AccountRecord> account = repository.findAccount(accountId);
+        Optional<AccountRecord> account = accountRepository.findAccount(accountId);
         if (account.isEmpty()) {
             return MoneyOperationResult.failure(amount, "Account does not exist.");
         }
         if (account.get().accountType() == AccountType.PLAYER) {
             return depositPlayer(Bukkit.getOfflinePlayer(accountId), amount, reason);
         }
-        repository.changeAvailable(accountId, amount, "SHARED_DEPOSIT", reason, null, null);
+        fundsRepository.changeAvailable(accountId, amount, "SHARED_DEPOSIT", reason, null, null);
         auditLog.info("shared-deposit account=" + accountId + " amount=" + amount + " reason=" + reason);
         return MoneyOperationResult.success(amount, amount, 0L, "Funds deposited.");
     }
 
     public boolean isAccountOwner(UUID accountId, UUID subjectUuid) {
-        Optional<AccountRecord> account = repository.findAccount(accountId);
+        Optional<AccountRecord> account = accountRepository.findAccount(accountId);
         if (account.isEmpty() || subjectUuid == null) {
             return false;
         }
@@ -495,36 +499,36 @@ public final class EconomyService {
     }
 
     public boolean setSharedAccountOwner(UUID accountId, UUID ownerUuid) {
-        Optional<AccountRecord> account = repository.findSharedAccount(accountId);
+        Optional<AccountRecord> account = accountRepository.findSharedAccount(accountId);
         if (account.isEmpty()) {
             return false;
         }
-        return repository.updateSharedAccountOwner(accountId, ownerUuid);
+        return accountRepository.updateSharedAccountOwner(accountId, ownerUuid);
     }
 
     public boolean isAccountMember(UUID accountId, UUID subjectUuid) {
         if (isAccountOwner(accountId, subjectUuid)) {
             return true;
         }
-        return repository.findAccountMemberRole(accountId, subjectUuid).isPresent();
+        return accountRepository.findAccountMemberRole(accountId, subjectUuid).isPresent();
     }
 
     public boolean addSharedAccountMember(UUID accountId, UUID memberUuid) {
-        Optional<AccountRecord> account = repository.findSharedAccount(accountId);
+        Optional<AccountRecord> account = accountRepository.findSharedAccount(accountId);
         if (account.isEmpty() || memberUuid == null || isAccountOwner(accountId, memberUuid)) {
             return false;
         }
-        repository.upsertAccountMember(accountId, memberUuid, "MEMBER");
+        accountRepository.upsertAccountMember(accountId, memberUuid, "MEMBER");
         auditLog.info("shared-member-add account=" + accountId + " member=" + memberUuid);
         return true;
     }
 
     public boolean removeSharedAccountMember(UUID accountId, UUID memberUuid) {
-        Optional<AccountRecord> account = repository.findSharedAccount(accountId);
+        Optional<AccountRecord> account = accountRepository.findSharedAccount(accountId);
         if (account.isEmpty() || memberUuid == null || isAccountOwner(accountId, memberUuid)) {
             return false;
         }
-        boolean removed = repository.removeAccountMember(accountId, memberUuid);
+        boolean removed = accountRepository.removeAccountMember(accountId, memberUuid);
         if (removed) {
             auditLog.info("shared-member-remove account=" + accountId + " member=" + memberUuid);
         }

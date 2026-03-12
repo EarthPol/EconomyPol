@@ -5,7 +5,7 @@ import com.earthpol.economyPol.config.PluginSettings;
 import com.earthpol.economyPol.domain.Denomination;
 import com.earthpol.economyPol.domain.PlayerNotificationRecord;
 import com.earthpol.economyPol.domain.PlayerNotificationType;
-import com.earthpol.economyPol.persistence.JdbcEconomyRepository;
+import com.earthpol.economyPol.persistence.NotificationRepository;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 final class NotificationServiceTest {
 
     private NotificationService notificationService;
-    private JdbcEconomyRepository repository;
+    private NotificationRepository repository;
     private SchedulerService schedulerService;
 
     @BeforeEach
@@ -50,7 +50,7 @@ final class NotificationServiceTest {
                 ),
                 null
         );
-        repository = mock(JdbcEconomyRepository.class);
+        repository = mock(NotificationRepository.class);
         schedulerService = mock(SchedulerService.class);
         doAnswer(invocation -> {
             Runnable action = invocation.getArgument(1);

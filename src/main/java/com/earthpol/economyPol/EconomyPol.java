@@ -11,7 +11,10 @@ import com.earthpol.economyPol.domain.EnderWalletSnapshot;
 import com.earthpol.economyPol.listener.EnderChestLockListener;
 import com.earthpol.economyPol.listener.PlayerLifecycleListener;
 import com.earthpol.economyPol.logging.EconomyLoggers;
-import com.earthpol.economyPol.persistence.JdbcEconomyRepository;
+import com.earthpol.economyPol.persistence.AccountRepository;
+import com.earthpol.economyPol.persistence.EnderWalletRepository;
+import com.earthpol.economyPol.persistence.FundsRepository;
+import com.earthpol.economyPol.persistence.NotificationRepository;
 import com.earthpol.economyPol.service.DatabaseCheckService;
 import com.earthpol.economyPol.service.DenominationService;
 import com.earthpol.economyPol.service.EconomyService;
@@ -38,7 +41,10 @@ public final class EconomyPol extends JavaPlugin {
     private PluginSettings settings;
     private EconomyLoggers loggers;
     private DatabaseService dbService;
-    private JdbcEconomyRepository repository;
+    private AccountRepository accountRepository;
+    private FundsRepository fundsRepository;
+    private EnderWalletRepository enderWalletRepository;
+    private NotificationRepository notificationRepository;
     private DenominationService denominationService;
     private NumericalConsistencyService numericalConsistencyService;
     private LiveMoneyService liveMoneyService;
@@ -89,19 +95,22 @@ public final class EconomyPol extends JavaPlugin {
             return;
         }
 
-        repository = new JdbcEconomyRepository(dbService, log(), audit());
-        logRecoveredUncleanSnapshots(repository.markStaleSnapshotsDisabled());
+        accountRepository = new AccountRepository(dbService, log(), audit());
+        fundsRepository = new FundsRepository(dbService, log(), audit());
+        enderWalletRepository = new EnderWalletRepository(dbService, log(), audit());
+        notificationRepository = new NotificationRepository(dbService, log(), audit());
+        logRecoveredUncleanSnapshots(enderWalletRepository.markStaleSnapshotsDisabled());
 
         denominationService = new DenominationService(settings.currency(), log());
         numericalConsistencyService = new NumericalConsistencyService(settings.numeric(), denominationService);
         liveMoneyService = new LiveMoneyService(denominationService, settings.wallet());
         schedulerService = new SchedulerService(this, log());
-        notificationService = new NotificationService(denominationService, repository, schedulerService, log());
+        notificationService = new NotificationService(denominationService, notificationRepository, schedulerService, log());
         playerMoneyLockService = new PlayerMoneyLockService();
-        reservationService = new ReservationService(repository, audit());
+        reservationService = new ReservationService(fundsRepository, audit());
         enderWalletService = new EnderWalletService(
                 this,
-                repository,
+                enderWalletRepository,
                 playerMoneyLockService,
                 notificationService,
                 schedulerService,
@@ -110,7 +119,8 @@ public final class EconomyPol extends JavaPlugin {
         );
         databaseCheckService = new DatabaseCheckService(dbService);
         economyService = new EconomyService(
-                repository,
+                accountRepository,
+                fundsRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,

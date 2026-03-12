@@ -7,7 +7,7 @@ import com.earthpol.economyPol.domain.EnderWalletSnapshot;
 import com.earthpol.economyPol.domain.MoneyOperationResult;
 import com.earthpol.economyPol.domain.MoneyRouteTarget;
 import com.earthpol.economyPol.domain.OfflineEnderWalletState;
-import com.earthpol.economyPol.persistence.JdbcEconomyRepository;
+import com.earthpol.economyPol.persistence.EnderWalletRepository;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -18,7 +18,7 @@ import java.util.UUID;
 public final class EnderWalletService {
 
     private final EconomyPol plugin;
-    private final JdbcEconomyRepository repository;
+    private final EnderWalletRepository repository;
     private final PlayerMoneyLockService playerMoneyLockService;
     private final NotificationService notificationService;
     private final SchedulerService schedulerService;
@@ -27,7 +27,7 @@ public final class EnderWalletService {
 
     public EnderWalletService(
             EconomyPol plugin,
-            JdbcEconomyRepository repository,
+            EnderWalletRepository repository,
             PlayerMoneyLockService playerMoneyLockService,
             NotificationService notificationService,
             SchedulerService schedulerService,

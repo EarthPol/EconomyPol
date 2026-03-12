@@ -8,7 +8,8 @@ import com.earthpol.economyPol.domain.BalanceRecord;
 import com.earthpol.economyPol.domain.MoneyOperationResult;
 import com.earthpol.economyPol.domain.MoneyRouteTarget;
 import com.earthpol.economyPol.domain.PlayerAccountPolicy;
-import com.earthpol.economyPol.persistence.JdbcEconomyRepository;
+import com.earthpol.economyPol.persistence.AccountRepository;
+import com.earthpol.economyPol.persistence.FundsRepository;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -32,7 +33,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -60,7 +60,8 @@ final class EconomyServiceTest {
         player.getEnderChest().setItem(1, new ItemStack(Material.DIAMOND, 3));
         player.getInventory().setItemInOffHand(new ItemStack(Material.DIRT, 1));
 
-        JdbcEconomyRepository repository = mock(JdbcEconomyRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -83,9 +84,9 @@ final class EconomyServiceTest {
 
         when(settings.playerPolicy()).thenReturn(policy);
         when(settings.routingOrder()).thenReturn(routingOrder);
-        when(repository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
-        when(repository.getBalance(accountId)).thenReturn(new BalanceRecord(100L, 0L));
-        when(repository.reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING")).thenReturn(new BalanceRecord(90L, 10L));
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(fundsRepository.getBalance(accountId)).thenReturn(new BalanceRecord(100L, 0L));
+        when(fundsRepository.reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING")).thenReturn(new BalanceRecord(90L, 10L));
 
         LiveMoneyService.LiveContainerSnapshot snapshot = snapshotOf(player);
         when(liveMoneyService.captureLiveContainerSnapshot(player)).thenReturn(snapshot);
@@ -110,7 +111,8 @@ final class EconomyServiceTest {
                 .callOnPlayerEntityScheduler(eq(player), any(), anyString());
 
         EconomyService economyService = new EconomyService(
-                repository,
+                accountRepository,
+                fundsRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -131,9 +133,9 @@ final class EconomyServiceTest {
         assertEquals(Material.STONE, player.getInventory().getItem(0).getType());
         assertEquals(Material.DIAMOND, player.getEnderChest().getItem(1).getType());
         assertEquals(Material.DIRT, player.getInventory().getItemInOffHand().getType());
-        verify(repository).reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING");
-        verify(repository).releaseReserved(accountId, 10L, "SELF_WITHDRAW_ROLLBACK");
-        verify(repository, never()).settleReservedWithdrawal(any(), anyLong(), anyLong(), anyString(), anyString(), any());
+        verify(fundsRepository).reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING");
+        verify(fundsRepository).releaseReserved(accountId, 10L, "SELF_WITHDRAW_ROLLBACK");
+        verify(fundsRepository, never()).settleReservedWithdrawal(any(), anyLong(), anyLong(), anyString(), anyString(), any());
         verifyNoInteractions(notificationService);
     }
 
@@ -141,7 +143,8 @@ final class EconomyServiceTest {
     void withdrawCustodialAsPhysicalMoneySettlesReserveAndKeepsRemainderInCustodial() {
         PlayerMock player = server.addPlayer();
 
-        JdbcEconomyRepository repository = mock(JdbcEconomyRepository.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -164,10 +167,10 @@ final class EconomyServiceTest {
 
         when(settings.playerPolicy()).thenReturn(policy);
         when(settings.routingOrder()).thenReturn(routingOrder);
-        when(repository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
-        when(repository.getBalance(accountId)).thenReturn(new BalanceRecord(100L, 0L));
-        when(repository.reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING")).thenReturn(new BalanceRecord(90L, 10L));
-        when(repository.settleReservedWithdrawal(
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(fundsRepository.getBalance(accountId)).thenReturn(new BalanceRecord(100L, 0L));
+        when(fundsRepository.reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING")).thenReturn(new BalanceRecord(90L, 10L));
+        when(fundsRepository.settleReservedWithdrawal(
                 accountId,
                 6L,
                 4L,
@@ -182,7 +185,8 @@ final class EconomyServiceTest {
                 .callOnPlayerEntityScheduler(eq(player), any(), anyString());
 
         EconomyService economyService = new EconomyService(
-                repository,
+                accountRepository,
+                fundsRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -201,8 +205,8 @@ final class EconomyServiceTest {
         assertEquals(10L, result.requestedAmount());
         assertEquals(6L, result.processedAmount());
         assertEquals(4L, result.remainder());
-        verify(repository).reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING");
-        verify(repository).settleReservedWithdrawal(
+        verify(fundsRepository).reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING");
+        verify(fundsRepository).settleReservedWithdrawal(
                 accountId,
                 6L,
                 4L,
@@ -210,7 +214,7 @@ final class EconomyServiceTest {
                 "SELF_WITHDRAW_REMAINDER",
                 player.getUniqueId()
         );
-        verify(repository, never()).releaseReserved(any(), anyLong(), anyString());
+        verify(fundsRepository, never()).releaseReserved(any(), anyLong(), anyString());
         verify(notificationService).notifyWithdrawalRetainedInCustodial(player, 4L, 94L);
     }
 
