@@ -1,11 +1,14 @@
 package com.earthpol.economyPol.service;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.config.PluginSettings;
-import com.earthpol.economyPol.model.Denomination;
-import com.earthpol.economyPol.model.PlayerNotificationRecord;
-import com.earthpol.economyPol.model.PlayerNotificationType;
-import com.earthpol.economyPol.repository.NotificationRepository;
+import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.model.Denomination;
+import com.earthpol.economyPol.economy.model.PlayerNotificationRecord;
+import com.earthpol.economyPol.economy.model.PlayerNotificationType;
+import com.earthpol.economyPol.economy.repository.NotificationRepository;
+import com.earthpol.economyPol.economy.service.DenominationService;
+import com.earthpol.economyPol.economy.service.NotificationService;
+import com.earthpol.economyPol.economy.service.SchedulerService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;

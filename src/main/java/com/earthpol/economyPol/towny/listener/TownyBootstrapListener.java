@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.towny.listener;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.service.EconomyService;
+import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.towny.TownyIntegrationBackend;
 import com.earthpol.economyPol.towny.TownyService;
 import com.earthpol.economyPol.towny.repository.TownyGovernmentRepository;
