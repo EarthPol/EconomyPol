@@ -543,8 +543,12 @@ Current migrations:
 
 Main tables:
 
+- `economy_players`
+  - registered player identity rows
 - `economy_accounts`
   - player and shared accounts
+- `economy_towny_governments`
+  - Towny government to bank-account bindings
 - `economy_account_members`
   - shared account member relationships
 - `economy_balances`

@@ -29,9 +29,7 @@ public final class TownyLifecycleListener implements Listener {
     }
 
     @EventHandler
-    public void onDeleteTown(DeleteTownEvent event) {
-        townyService.deleteTown(event.getTownUUID(), event.getTownName());
-    }
+    public void onDeleteTown(DeleteTownEvent event) {townyService.deleteTown(event.getTownUUID(), event.getTownName());}
 
     @EventHandler
     public void onNewNation(NewNationEvent event) {
@@ -44,7 +42,5 @@ public final class TownyLifecycleListener implements Listener {
     }
 
     @EventHandler
-    public void onDeleteNation(DeleteNationEvent event) {
-        townyService.deleteNation(event.getNationUUID(), event.getNationName());
-    }
+    public void onDeleteNation(DeleteNationEvent event) {townyService.deleteNation(event.getNationUUID(), event.getNationName());}
 }
