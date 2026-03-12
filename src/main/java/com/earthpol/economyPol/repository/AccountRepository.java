@@ -8,6 +8,7 @@ import com.earthpol.economyPol.model.PlayerAccountPolicy;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +22,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
     }
 
     public AccountRecord ensurePlayerAccount(UUID playerUuid, String playerName, PlayerAccountPolicy policy) {
-        long now = System.currentTimeMillis();
+        Timestamp now = nowTimestamp();
         update("""
                 INSERT INTO economy_accounts (
                     account_id, account_type, owner_uuid, account_name,
@@ -56,7 +57,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
 
     public AccountRecord ensureSharedAccount(UUID accountId, String name, UUID ownerUuid) {
         UUID resolvedOwnerUuid = ownerUuid == null ? accountId : ownerUuid;
-        long now = System.currentTimeMillis();
+        Timestamp now = nowTimestamp();
         update("""
                 INSERT INTO economy_accounts (
                     account_id, account_type, owner_uuid, account_name,
@@ -191,7 +192,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
         return updateCount(
                 "UPDATE economy_accounts SET account_name = ?, updated_at = ? WHERE account_id = ?",
                 newName,
-                System.currentTimeMillis(),
+                nowTimestamp(),
                 uuid(accountId)
         ) > 0;
     }
@@ -200,7 +201,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
         return updateCount(
                 "UPDATE economy_accounts SET owner_uuid = ?, updated_at = ? WHERE account_id = ? AND account_type = ?",
                 uuid(ownerUuid),
-                System.currentTimeMillis(),
+                nowTimestamp(),
                 uuid(accountId),
                 AccountType.SHARED.name()
         ) > 0;
@@ -231,7 +232,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 uuid(accountId),
                 uuid(memberUuid),
                 role,
-                System.currentTimeMillis()
+                nowTimestamp()
         );
     }
 
@@ -278,7 +279,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 ON DUPLICATE KEY UPDATE updated_at = updated_at
                 """,
                 uuid(accountId),
-                System.currentTimeMillis()
+                nowTimestamp()
         );
     }
 }

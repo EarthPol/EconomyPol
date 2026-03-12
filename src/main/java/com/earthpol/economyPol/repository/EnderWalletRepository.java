@@ -29,7 +29,7 @@ public final class EnderWalletRepository extends AbstractRepositorySupport {
                         parseUuid(resultSet.getObject("player_uuid")),
                         resultSet.getLong("base_units"),
                         OfflineEnderWalletState.valueOf(resultSet.getString("state")),
-                        nullableLong(resultSet, "last_clean_sync_at")
+                        timestampMillis(resultSet, "last_clean_sync_at")
                 )
         );
     }
@@ -47,8 +47,8 @@ public final class EnderWalletRepository extends AbstractRepositorySupport {
                 uuid(snapshot.playerUuid()),
                 snapshot.baseUnits(),
                 snapshot.state().name(),
-                snapshot.lastCleanSyncAt(),
-                System.currentTimeMillis()
+                timestampFromMillis(snapshot.lastCleanSyncAt()),
+                nowTimestamp()
         );
     }
 
@@ -67,7 +67,7 @@ public final class EnderWalletRepository extends AbstractRepositorySupport {
                         parseUuid(resultSet.getObject("player_uuid")),
                         resultSet.getLong("base_units"),
                         OfflineEnderWalletState.valueOf(resultSet.getString("state")),
-                        nullableLong(resultSet, "last_clean_sync_at")
+                        timestampMillis(resultSet, "last_clean_sync_at")
                 )
         );
     }
@@ -88,7 +88,7 @@ public final class EnderWalletRepository extends AbstractRepositorySupport {
                                 parseUuid(resultSet.getObject("player_uuid")),
                                 resultSet.getLong("base_units"),
                                 OfflineEnderWalletState.valueOf(resultSet.getString("state")),
-                                nullableLong(resultSet, "last_clean_sync_at")
+                                timestampMillis(resultSet, "last_clean_sync_at")
                         ));
                     }
                 }
@@ -101,10 +101,10 @@ public final class EnderWalletRepository extends AbstractRepositorySupport {
             try (PreparedStatement update = connection.prepareStatement("""
                     UPDATE economy_ender_wallet_snapshots
                     SET state = ?, updated_at = ?
-                    WHERE state = ?
-                    """)) {
+                WHERE state = ?
+                """)) {
                 update.setString(1, OfflineEnderWalletState.DISABLED_UNCLEAN.name());
-                update.setLong(2, System.currentTimeMillis());
+                update.setTimestamp(2, nowTimestamp());
                 update.setString(3, OfflineEnderWalletState.SYNCING.name());
                 update.executeUpdate();
             }

@@ -3,11 +3,13 @@ package com.earthpol.economyPol.repository;
 import com.earthpol.earthPolLib.database.DatabaseService;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 
+import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.nio.ByteBuffer;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -116,6 +118,8 @@ public abstract class AbstractRepositorySupport {
                 statement.setInt(jdbcIndex, integer);
             } else if (parameter instanceof Long longValue) {
                 statement.setLong(jdbcIndex, longValue);
+            } else if (parameter instanceof Timestamp timestamp) {
+                statement.setTimestamp(jdbcIndex, timestamp);
             } else {
                 statement.setObject(jdbcIndex, parameter);
             }
@@ -150,6 +154,19 @@ public abstract class AbstractRepositorySupport {
     protected static Long nullableLong(ResultSet resultSet, String columnName) throws SQLException {
         long value = resultSet.getLong(columnName);
         return resultSet.wasNull() ? null : value;
+    }
+
+    protected static Timestamp nowTimestamp() {
+        return Timestamp.from(Instant.now());
+    }
+
+    protected static Timestamp timestampFromMillis(Long epochMillis) {
+        return epochMillis == null ? null : new Timestamp(epochMillis);
+    }
+
+    protected static Long timestampMillis(ResultSet resultSet, String columnName) throws SQLException {
+        Timestamp timestamp = resultSet.getTimestamp(columnName);
+        return timestamp == null ? null : timestamp.getTime();
     }
 
     @FunctionalInterface

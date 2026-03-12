@@ -10,6 +10,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -158,8 +159,8 @@ public final class FundsRepository extends AbstractRepositorySupport {
                 amount,
                 ReservationStatus.ACTIVE.name(),
                 reason,
-                System.currentTimeMillis(),
-                expiresAt
+                nowTimestamp(),
+                timestampFromMillis(expiresAt)
         );
         auditLog.info("reservation-create id=" + reservationId + " account=" + accountId + " amount=" + amount + " reason=" + reason);
         return new ReservationRecord(reservationId, accountId, amount, ReservationStatus.ACTIVE, reason, expiresAt);
@@ -178,7 +179,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
                         resultSet.getLong("amount"),
                         ReservationStatus.valueOf(resultSet.getString("status")),
                         resultSet.getString("reason"),
-                        nullableLong(resultSet, "expires_at")
+                        timestampMillis(resultSet, "expires_at")
                 )
         );
     }
@@ -195,7 +196,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
                 ON DUPLICATE KEY UPDATE updated_at = updated_at
                 """,
                 uuid(accountId),
-                System.currentTimeMillis()
+                nowTimestamp()
         );
     }
 
@@ -224,7 +225,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
                 ON DUPLICATE KEY UPDATE updated_at = updated_at
                 """)) {
             statement.setObject(1, uuid(accountId));
-            statement.setLong(2, System.currentTimeMillis());
+            statement.setTimestamp(2, nowTimestamp());
             statement.executeUpdate();
         }
     }
@@ -237,7 +238,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
                 """)) {
             statement.setLong(1, available);
             statement.setLong(2, reserved);
-            statement.setLong(3, System.currentTimeMillis());
+            statement.setTimestamp(3, nowTimestamp());
             statement.setObject(4, uuid(accountId));
             statement.executeUpdate();
         }
@@ -276,7 +277,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
             }
             statement.setString(7, entryType);
             statement.setString(8, reason);
-            statement.setLong(9, System.currentTimeMillis());
+            statement.setTimestamp(9, nowTimestamp());
             statement.executeUpdate();
         }
     }

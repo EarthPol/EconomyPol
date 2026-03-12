@@ -33,7 +33,7 @@ public final class NotificationRepository extends AbstractRepositorySupport {
                 secondaryAmount,
                 detailText,
                 flagValue,
-                System.currentTimeMillis()
+                nowTimestamp()
         );
         auditLog.info("player-notification-create player=" + playerUuid + " type=" + notificationType);
     }
@@ -54,7 +54,7 @@ public final class NotificationRepository extends AbstractRepositorySupport {
                         nullableLong(resultSet, "secondary_amount"),
                         resultSet.getString("detail_text"),
                         resultSet.getBoolean("flag_value"),
-                        resultSet.getLong("created_at")
+                        timestampMillis(resultSet, "created_at")
                 )
         );
     }

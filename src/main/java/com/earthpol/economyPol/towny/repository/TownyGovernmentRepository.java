@@ -8,6 +8,7 @@ import com.earthpol.economyPol.towny.model.TownyGovernmentType;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,7 +27,7 @@ public final class TownyGovernmentRepository extends AbstractRepositorySupport {
             String governmentName,
             String bankAccountName
     ) {
-        long now = System.currentTimeMillis();
+        Timestamp now = nowTimestamp();
         UUID townyBindingId = findByAccountId(accountId)
                 .map(TownyGovernmentBinding::townyBindingId)
                 .orElseGet(UUID::randomUUID);
@@ -124,8 +125,8 @@ public final class TownyGovernmentRepository extends AbstractRepositorySupport {
                 parseUuid(resultSet.getObject("bank_account_uuid")),
                 resultSet.getString("government_name"),
                 resultSet.getString("bank_account_name"),
-                resultSet.getLong("created_at"),
-                resultSet.getLong("updated_at")
+                timestampMillis(resultSet, "created_at"),
+                timestampMillis(resultSet, "updated_at")
         );
     }
 }

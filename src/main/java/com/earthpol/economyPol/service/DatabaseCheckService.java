@@ -10,6 +10,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -265,8 +266,8 @@ public final class DatabaseCheckService {
                         "player_uuid=" + resultSet.getString("player_uuid") +
                                 (resultSet.getString("account_name") == null ? "" : ", account_name=" + resultSet.getString("account_name")),
                         "Snapshot quarantined after unclean startup recovery. base_units=" + resultSet.getLong("base_units") +
-                                ", last_clean_sync_at=" + nullableLong(resultSet, "last_clean_sync_at") +
-                                ", updated_at=" + resultSet.getLong("updated_at")
+                                ", last_clean_sync_at=" + nullableTimestamp(resultSet, "last_clean_sync_at") +
+                                ", updated_at=" + nullableTimestamp(resultSet, "updated_at")
                 )
         );
 
@@ -516,9 +517,9 @@ public final class DatabaseCheckService {
         return new DatabaseCheckReport(reportName, ranAt, durationMillis, healthy, summary, statistics, notes, findings);
     }
 
-    private Long nullableLong(ResultSet resultSet, String columnName) throws SQLException {
-        long value = resultSet.getLong(columnName);
-        return resultSet.wasNull() ? null : value;
+    private String nullableTimestamp(ResultSet resultSet, String columnName) throws SQLException {
+        Timestamp timestamp = resultSet.getTimestamp(columnName);
+        return timestamp == null ? "null" : timestamp.toInstant().toString();
     }
 
     @FunctionalInterface
