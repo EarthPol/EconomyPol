@@ -366,13 +366,13 @@ Current queue table:
 - `/economypol balance`
 - `/economypol deposit <amount|all>`
 - `/economypol withdraw <amount>`
-- `/economypol syncwallet`
+- `/economypol normalizewallet`
 
 Notes:
 
 - `/economypol withdraw` means “withdraw custodial as physical money”
 - `/economypol deposit` means “store physical money into custodial”
-- `/economypol syncwallet` normalizes the current ender chest money layout
+- `/economypol normalizewallet` normalizes the current ender chest money layout
 
 ### Admin Commands
 

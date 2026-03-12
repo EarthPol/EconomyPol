@@ -5,20 +5,20 @@ import com.earthpol.economyPol.command.shared.CommandDependencies;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-public final class SyncWalletSubcommand extends AbstractEconomySubcommand {
+public final class NormalizeWalletSubcommand extends AbstractEconomySubcommand {
 
-    public SyncWalletSubcommand(CommandDependencies dependencies) {
+    public NormalizeWalletSubcommand(CommandDependencies dependencies) {
         super(dependencies);
     }
 
     @Override
     public String name() {
-        return "syncwallet";
+        return "normalizewallet";
     }
 
     @Override
     public String usage() {
-        return "/economypol syncwallet";
+        return "/economypol normalizewallet";
     }
 
     @Override
@@ -27,7 +27,7 @@ public final class SyncWalletSubcommand extends AbstractEconomySubcommand {
             sender.sendMessage(usage());
             return true;
         }
-        Player player = requirePlayer(sender, "Only players can sync their ender wallet.");
+        Player player = requirePlayer(sender, "Only players can normalize their ender wallet.");
         if (player == null) {
             return true;
         }

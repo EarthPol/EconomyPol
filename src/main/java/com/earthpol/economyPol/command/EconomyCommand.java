@@ -136,7 +136,7 @@ public final class EconomyCommand implements TabExecutor {
         register(commands, new com.earthpol.economyPol.command.player.BalanceSubcommand(dependencies));
         register(commands, new com.earthpol.economyPol.command.player.DepositSubcommand(dependencies));
         register(commands, new com.earthpol.economyPol.command.player.WithdrawSubcommand(dependencies));
-        register(commands, new com.earthpol.economyPol.command.player.SyncWalletSubcommand(dependencies));
+        register(commands, new com.earthpol.economyPol.command.player.NormalizeWalletSubcommand(dependencies));
         return Collections.unmodifiableMap(new LinkedHashMap<>(commands));
     }
 
