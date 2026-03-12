@@ -11,7 +11,7 @@ import com.earthpol.economyPol.towny.model.TownyGovernmentType;
 import com.earthpol.economyPol.towny.repository.TownyGovernmentRepository;
 import com.palmergames.bukkit.towny.TownyAPI;
 import com.palmergames.bukkit.towny.TownyEconomyHandler;
-import com.palmergames.bukkit.towny.TownySettings;
+import com.palmergames.bukkit.towny.object.Government;
 import com.palmergames.bukkit.towny.object.Nation;
 import com.palmergames.bukkit.towny.object.Town;
 
@@ -20,13 +20,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Locale;
 
 public final class TownyIntegrationBackend implements TownyService.Backend {
 
@@ -55,12 +55,12 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
     public void synchronizeAllGovernments() {
         int synchronizedCount = 0;
         for (Town town : TownyAPI.getInstance().getTowns()) {
-            if (syncTown(town)) {
+            if (syncGovernment(town)) {
                 synchronizedCount++;
             }
         }
         for (Nation nation : TownyAPI.getInstance().getNations()) {
-            if (syncNation(nation)) {
+            if (syncGovernment(nation)) {
                 synchronizedCount++;
             }
         }
@@ -74,7 +74,7 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
             operationsLog.warn("Towny refresh requested for missing town uuid=" + townUuid);
             return;
         }
-        syncTown(town);
+        syncGovernment(town);
     }
 
     @Override
@@ -84,7 +84,7 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
             operationsLog.warn("Towny refresh requested for missing nation uuid=" + nationUuid);
             return;
         }
-        syncNation(nation);
+        syncGovernment(nation);
     }
 
     @Override
@@ -168,23 +168,13 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
         return new TownyCleanupResult(true, ranAt, durationMillis, summary, statistics, List.copyOf(notes), List.copyOf(deletedEntries));
     }
 
-    private boolean syncTown(Town town) {
+    private boolean syncGovernment(Government government) {
         return syncGovernment(
-                TownyGovernmentType.TOWN,
-                town.getUUID(),
-                town.getName(),
-                town.getAccount().getUUID(),
-                town.getAccount().getName()
-        );
-    }
-
-    private boolean syncNation(Nation nation) {
-        return syncGovernment(
-                TownyGovernmentType.NATION,
-                nation.getUUID(),
-                nation.getName(),
-                nation.getAccount().getUUID(),
-                nation.getAccount().getName()
+                TownyGovernmentType.fromGovernment(government),
+                government.getUUID(),
+                government.getName(),
+                government.getAccount().getUUID(),
+                government.getAccount().getName()
         );
     }
 
@@ -326,8 +316,8 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
                 orphanBindings++;
                 findings.add(new DatabaseCheckFinding(
                         "economy_towny_governments",
-                        "towny_binding_id=" + binding.townyBindingId() + ", account_id=" + binding.accountId(),
-                        "Binding points to a Towny " + binding.governmentType().name().toLowerCase(Locale.ROOT) +
+                        "government_uuid=" + binding.governmentUuid() + ", account_id=" + binding.accountId(),
+                        "Binding points to a Towny " + binding.governmentType().displayNameLower() +
                                 " that no longer exists."
                 ));
                 cleanupCandidates.add(new CleanupCandidate(
@@ -343,7 +333,7 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
                 bindingMismatches++;
                 findings.add(new DatabaseCheckFinding(
                         "economy_towny_governments",
-                        "towny_binding_id=" + binding.townyBindingId() + ", account_id=" + binding.accountId(),
+                        "government_uuid=" + binding.governmentUuid() + ", account_id=" + binding.accountId(),
                         "Bank account UUID mismatch. stored_bank_account_uuid=" + binding.bankAccountUuid() +
                                 ", current_bank_account_uuid=" + current.bankAccountUuid()
                 ));
@@ -352,7 +342,7 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
                 bindingMismatches++;
                 findings.add(new DatabaseCheckFinding(
                         "economy_towny_governments",
-                        "towny_binding_id=" + binding.townyBindingId() + ", account_id=" + binding.accountId(),
+                        "government_uuid=" + binding.governmentUuid() + ", account_id=" + binding.accountId(),
                         "Binding account_id does not match the current Towny bank account UUID. expected_account_id=" +
                                 current.bankAccountUuid()
                 ));
@@ -361,7 +351,7 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
                 bindingMismatches++;
                 findings.add(new DatabaseCheckFinding(
                         "economy_towny_governments",
-                        "towny_binding_id=" + binding.townyBindingId() + ", account_id=" + binding.accountId(),
+                        "government_uuid=" + binding.governmentUuid() + ", account_id=" + binding.accountId(),
                         "Government name mismatch. stored_government_name=" + binding.governmentName() +
                                 ", current_government_name=" + current.governmentName()
                 ));
@@ -370,7 +360,7 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
                 bindingMismatches++;
                 findings.add(new DatabaseCheckFinding(
                         "economy_towny_governments",
-                        "towny_binding_id=" + binding.townyBindingId() + ", account_id=" + binding.accountId(),
+                        "government_uuid=" + binding.governmentUuid() + ", account_id=" + binding.accountId(),
                         "Bank account name mismatch. stored_bank_account_name=" + binding.bankAccountName() +
                                 ", current_bank_account_name=" + current.bankAccountName()
                 ));
@@ -381,7 +371,7 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
                 bindingMismatches++;
                 findings.add(new DatabaseCheckFinding(
                         "economy_accounts",
-                        "account_id=" + binding.accountId() + ", towny_binding_id=" + binding.townyBindingId(),
+                        "account_id=" + binding.accountId() + ", government_uuid=" + binding.governmentUuid(),
                         "Towny binding references a missing shared account row."
                 ));
                 continue;
@@ -483,42 +473,36 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
     private Map<GovernmentKey, GovernmentSnapshot> currentGovernments() {
         Map<GovernmentKey, GovernmentSnapshot> governments = new LinkedHashMap<>();
         for (Town town : TownyAPI.getInstance().getTowns()) {
-            GovernmentSnapshot snapshot = new GovernmentSnapshot(
-                    TownyGovernmentType.TOWN,
-                    town.getUUID(),
-                    town.getAccount().getUUID(),
-                    town.getName(),
-                    town.getAccount().getName()
-            );
-            governments.put(new GovernmentKey(snapshot.governmentType(), snapshot.governmentUuid()), snapshot);
+            putGovernmentSnapshot(governments, town);
         }
         for (Nation nation : TownyAPI.getInstance().getNations()) {
-            GovernmentSnapshot snapshot = new GovernmentSnapshot(
-                    TownyGovernmentType.NATION,
-                    nation.getUUID(),
-                    nation.getAccount().getUUID(),
-                    nation.getName(),
-                    nation.getAccount().getName()
-            );
-            governments.put(new GovernmentKey(snapshot.governmentType(), snapshot.governmentUuid()), snapshot);
+            putGovernmentSnapshot(governments, nation);
         }
         return governments;
     }
 
     private boolean looksTownyManagedAccount(String accountName) {
-        String normalized = normalize(accountName);
-        return normalized.startsWith(normalize(TownySettings.getTownAccountPrefix()))
-                || normalized.startsWith(normalize(TownySettings.getNationAccountPrefix()));
+        for (TownyGovernmentType governmentType : TownyGovernmentType.values()) {
+            if (governmentType.matchesAccountNamePrefix(accountName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String trimmedBankAccountName(TownyGovernmentType governmentType, String governmentName) {
-        String prefix = governmentType == TownyGovernmentType.TOWN
-                ? TownySettings.getTownAccountPrefix()
-                : TownySettings.getNationAccountPrefix();
-        String fullName = prefix + (governmentName == null ? "" : governmentName);
-        return fullName.length() <= TOWNY_ACCOUNT_NAME_MAX_LENGTH
-                ? fullName
-                : fullName.substring(0, TOWNY_ACCOUNT_NAME_MAX_LENGTH);
+        return governmentType.trimmedBankAccountName(governmentName, TOWNY_ACCOUNT_NAME_MAX_LENGTH);
+    }
+
+    private void putGovernmentSnapshot(Map<GovernmentKey, GovernmentSnapshot> governments, Government government) {
+        GovernmentSnapshot snapshot = new GovernmentSnapshot(
+                TownyGovernmentType.fromGovernment(government),
+                government.getUUID(),
+                government.getAccount().getUUID(),
+                government.getName(),
+                government.getAccount().getName()
+        );
+        governments.put(new GovernmentKey(snapshot.governmentType(), snapshot.governmentUuid()), snapshot);
     }
 
     private String normalize(String value) {

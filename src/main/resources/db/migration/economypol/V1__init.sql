@@ -1,3 +1,10 @@
+CREATE TABLE IF NOT EXISTS economy_players (
+    player_uuid UUID NOT NULL PRIMARY KEY,
+    username VARCHAR(191) NOT NULL,
+    created_at TIMESTAMP(3) NOT NULL,
+    updated_at TIMESTAMP(3) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS economy_accounts (
     account_id UUID NOT NULL PRIMARY KEY,
     account_type VARCHAR(32) NOT NULL,
@@ -17,7 +24,10 @@ CREATE TABLE IF NOT EXISTS economy_account_members (
     member_uuid UUID NOT NULL,
     membership_role VARCHAR(32) NOT NULL,
     created_at TIMESTAMP(3) NOT NULL,
-    PRIMARY KEY (account_id, member_uuid)
+    PRIMARY KEY (account_id, member_uuid),
+    CONSTRAINT fk_economy_account_members_member
+        FOREIGN KEY (member_uuid) REFERENCES economy_players(player_uuid)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS economy_balances (
@@ -32,7 +42,10 @@ CREATE TABLE IF NOT EXISTS economy_ender_wallet_snapshots (
     base_units BIGINT NOT NULL,
     state VARCHAR(32) NOT NULL,
     last_clean_sync_at TIMESTAMP(3) NULL,
-    updated_at TIMESTAMP(3) NOT NULL
+    updated_at TIMESTAMP(3) NOT NULL,
+    CONSTRAINT fk_economy_ender_wallet_snapshots_player
+        FOREIGN KEY (player_uuid) REFERENCES economy_players(player_uuid)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS economy_reservations (
@@ -55,7 +68,10 @@ CREATE TABLE IF NOT EXISTS economy_ledger_entries (
     reserved_balance BIGINT NULL,
     entry_type VARCHAR(64) NOT NULL,
     reason VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP(3) NOT NULL
+    created_at TIMESTAMP(3) NOT NULL,
+    CONSTRAINT fk_economy_ledger_entries_player
+        FOREIGN KEY (player_uuid) REFERENCES economy_players(player_uuid)
+        ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS economy_player_notifications (
@@ -67,5 +83,8 @@ CREATE TABLE IF NOT EXISTS economy_player_notifications (
     detail_text VARCHAR(255) NULL,
     flag_value BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP(3) NOT NULL,
-    KEY idx_economy_player_notifications_player (player_uuid, created_at, notification_id)
+    KEY idx_economy_player_notifications_player (player_uuid, created_at, notification_id),
+    CONSTRAINT fk_economy_player_notifications_player
+        FOREIGN KEY (player_uuid) REFERENCES economy_players(player_uuid)
+        ON DELETE CASCADE
 );

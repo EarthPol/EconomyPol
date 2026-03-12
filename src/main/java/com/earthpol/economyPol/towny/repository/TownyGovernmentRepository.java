@@ -28,21 +28,17 @@ public final class TownyGovernmentRepository extends AbstractRepositorySupport {
             String bankAccountName
     ) {
         Timestamp now = nowTimestamp();
-        UUID townyBindingId = findByAccountId(accountId)
-                .map(TownyGovernmentBinding::townyBindingId)
-                .orElseGet(UUID::randomUUID);
         update("""
                 INSERT INTO economy_towny_governments (
-                    towny_binding_id,
+                    government_uuid,
                     account_id,
                     government_type,
-                    government_uuid,
                     bank_account_uuid,
                     government_name,
                     bank_account_name,
                     created_at,
                     updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     government_type = VALUES(government_type),
                     government_uuid = VALUES(government_uuid),
@@ -51,10 +47,9 @@ public final class TownyGovernmentRepository extends AbstractRepositorySupport {
                     bank_account_name = VALUES(bank_account_name),
                     updated_at = VALUES(updated_at)
                 """,
-                uuid(townyBindingId),
+                uuid(governmentUuid),
                 uuid(accountId),
                 governmentType.name(),
-                uuid(governmentUuid),
                 uuid(bankAccountUuid),
                 governmentName,
                 bankAccountName,
@@ -69,7 +64,7 @@ public final class TownyGovernmentRepository extends AbstractRepositorySupport {
     public Optional<TownyGovernmentBinding> findByAccountId(UUID accountId) {
         return queryOne(
                 """
-                SELECT towny_binding_id, account_id, government_type, government_uuid, bank_account_uuid,
+                SELECT government_uuid, government_type, account_id, bank_account_uuid,
                        government_name, bank_account_name, created_at, updated_at
                 FROM economy_towny_governments
                 WHERE account_id = ?
@@ -82,7 +77,7 @@ public final class TownyGovernmentRepository extends AbstractRepositorySupport {
     public Optional<TownyGovernmentBinding> findByGovernment(TownyGovernmentType governmentType, UUID governmentUuid) {
         return queryOne(
                 """
-                SELECT towny_binding_id, account_id, government_type, government_uuid, bank_account_uuid,
+                SELECT government_uuid, government_type, account_id, bank_account_uuid,
                        government_name, bank_account_name, created_at, updated_at
                 FROM economy_towny_governments
                 WHERE government_type = ? AND government_uuid = ?
@@ -98,7 +93,7 @@ public final class TownyGovernmentRepository extends AbstractRepositorySupport {
     public List<TownyGovernmentBinding> listBindings() {
         return queryList(
                 """
-                SELECT towny_binding_id, account_id, government_type, government_uuid, bank_account_uuid,
+                SELECT government_uuid, government_type, account_id, bank_account_uuid,
                        government_name, bank_account_name, created_at, updated_at
                 FROM economy_towny_governments
                 ORDER BY government_type ASC, government_name ASC, account_id ASC
@@ -118,10 +113,9 @@ public final class TownyGovernmentRepository extends AbstractRepositorySupport {
 
     private TownyGovernmentBinding readBinding(ResultSet resultSet) throws SQLException {
         return new TownyGovernmentBinding(
-                parseUuid(resultSet.getObject("towny_binding_id")),
-                parseUuid(resultSet.getObject("account_id")),
-                TownyGovernmentType.valueOf(resultSet.getString("government_type")),
                 parseUuid(resultSet.getObject("government_uuid")),
+                TownyGovernmentType.valueOf(resultSet.getString("government_type")),
+                parseUuid(resultSet.getObject("account_id")),
                 parseUuid(resultSet.getObject("bank_account_uuid")),
                 resultSet.getString("government_name"),
                 resultSet.getString("bank_account_name"),

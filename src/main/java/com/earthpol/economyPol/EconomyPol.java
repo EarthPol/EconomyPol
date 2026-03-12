@@ -15,6 +15,7 @@ import com.earthpol.economyPol.repository.AccountRepository;
 import com.earthpol.economyPol.repository.EnderWalletRepository;
 import com.earthpol.economyPol.repository.FundsRepository;
 import com.earthpol.economyPol.repository.NotificationRepository;
+import com.earthpol.economyPol.repository.PlayerRepository;
 import com.earthpol.economyPol.service.DatabaseCheckService;
 import com.earthpol.economyPol.service.DenominationService;
 import com.earthpol.economyPol.service.EconomyService;
@@ -45,6 +46,7 @@ public final class EconomyPol extends JavaPlugin {
     private EconomyLoggers loggers;
     private DatabaseService dbService;
     private AccountRepository accountRepository;
+    private PlayerRepository playerRepository;
     private FundsRepository fundsRepository;
     private EnderWalletRepository enderWalletRepository;
     private NotificationRepository notificationRepository;
@@ -101,6 +103,7 @@ public final class EconomyPol extends JavaPlugin {
         }
 
         accountRepository = new AccountRepository(dbService, log(), audit());
+        playerRepository = new PlayerRepository(dbService, log(), audit());
         fundsRepository = new FundsRepository(dbService, log(), audit());
         enderWalletRepository = new EnderWalletRepository(dbService, log(), audit());
         notificationRepository = new NotificationRepository(dbService, log(), audit());
@@ -127,6 +130,7 @@ public final class EconomyPol extends JavaPlugin {
         databaseCheckService = new DatabaseCheckService(dbService, townyService);
         economyService = new EconomyService(
                 accountRepository,
+                playerRepository,
                 fundsRepository,
                 denominationService,
                 liveMoneyService,

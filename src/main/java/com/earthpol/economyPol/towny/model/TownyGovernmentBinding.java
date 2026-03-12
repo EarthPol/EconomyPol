@@ -3,10 +3,9 @@ package com.earthpol.economyPol.towny.model;
 import java.util.UUID;
 
 public record TownyGovernmentBinding(
-        UUID townyBindingId,
-        UUID accountId,
-        TownyGovernmentType governmentType,
         UUID governmentUuid,
+        TownyGovernmentType governmentType,
+        UUID accountId,
         UUID bankAccountUuid,
         String governmentName,
         String bankAccountName,

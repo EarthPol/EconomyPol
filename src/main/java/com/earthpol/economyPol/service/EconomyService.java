@@ -11,6 +11,7 @@ import com.earthpol.economyPol.model.OfflineEnderWalletState;
 import com.earthpol.economyPol.model.PlayerBalanceView;
 import com.earthpol.economyPol.repository.AccountRepository;
 import com.earthpol.economyPol.repository.FundsRepository;
+import com.earthpol.economyPol.repository.PlayerRepository;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
@@ -23,6 +24,7 @@ import java.util.UUID;
 public final class EconomyService {
 
     private final AccountRepository accountRepository;
+    private final PlayerRepository playerRepository;
     private final FundsRepository fundsRepository;
     private final DenominationService denominationService;
     private final LiveMoneyService liveMoneyService;
@@ -37,6 +39,7 @@ public final class EconomyService {
 
     public EconomyService(
             AccountRepository accountRepository,
+            PlayerRepository playerRepository,
             FundsRepository fundsRepository,
             DenominationService denominationService,
             LiveMoneyService liveMoneyService,
@@ -50,6 +53,7 @@ public final class EconomyService {
             EnhancedLogger auditLog
     ) {
         this.accountRepository = accountRepository;
+        this.playerRepository = playerRepository;
         this.fundsRepository = fundsRepository;
         this.denominationService = denominationService;
         this.liveMoneyService = liveMoneyService;
@@ -76,11 +80,27 @@ public final class EconomyService {
     }
 
     public AccountRecord ensurePlayerAccount(OfflinePlayer player) {
+        registerPlayer(player);
         return accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), settings.playerPolicy());
     }
 
     public AccountRecord ensurePlayerAccount(UUID playerUuid, String playerName) {
+        registerPlayer(playerUuid, playerName);
         return accountRepository.ensurePlayerAccount(playerUuid, playerName, settings.playerPolicy());
+    }
+
+    public void registerPlayer(OfflinePlayer player) {
+        if (player == null) {
+            return;
+        }
+        registerPlayer(player.getUniqueId(), player.getName());
+    }
+
+    public void registerPlayer(UUID playerUuid, String playerName) {
+        if (playerUuid == null) {
+            return;
+        }
+        playerRepository.ensurePlayer(playerUuid, playerName);
     }
 
     public AccountRecord ensureSharedAccount(String name, OfflinePlayer owner) {
@@ -467,7 +487,7 @@ public final class EconomyService {
     }
 
     public BalanceRecord creditCustodial(UUID playerUuid, String playerName, long amount, String reason) {
-        AccountRecord account = accountRepository.ensurePlayerAccount(playerUuid, playerName, settings.playerPolicy());
+        AccountRecord account = ensurePlayerAccount(playerUuid, playerName);
         return fundsRepository.changeAvailable(account.accountId(), amount, "CUSTODIAL_CREDIT", reason, playerUuid, null);
     }
 
@@ -484,6 +504,9 @@ public final class EconomyService {
     }
 
     public MoneyOperationResult bankDeposit(String bankName, OfflinePlayer owner, long amount, String reason) {
+        if (owner != null) {
+            registerPlayer(owner);
+        }
         AccountRecord account = accountRepository.findSharedAccount(bankName).orElseGet(() -> ensureSharedAccount(bankName, owner));
         fundsRepository.changeAvailable(account.accountId(), amount, "BANK_DEPOSIT", reason, owner == null ? null : owner.getUniqueId(), null);
         return MoneyOperationResult.success(amount, amount, 0L, "Bank deposit completed.");
@@ -631,6 +654,7 @@ public final class EconomyService {
         if (account.isEmpty() || memberUuid == null || isAccountOwner(accountId, memberUuid)) {
             return false;
         }
+        registerPlayer(Bukkit.getOfflinePlayer(memberUuid));
         accountRepository.upsertAccountMember(accountId, memberUuid, "MEMBER");
         auditLog.info("shared-member-add account=" + accountId + " member=" + memberUuid);
         return true;
