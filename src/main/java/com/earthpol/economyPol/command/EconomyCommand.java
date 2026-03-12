@@ -7,6 +7,7 @@ import com.earthpol.economyPol.config.PluginSettings;
 import com.earthpol.economyPol.service.DatabaseCheckService;
 import com.earthpol.economyPol.service.EconomyService;
 import com.earthpol.economyPol.service.EnderWalletService;
+import com.earthpol.economyPol.service.TownyDiagnosticsService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
@@ -31,6 +32,7 @@ public final class EconomyCommand implements TabExecutor {
             EconomyService economyService,
             EnderWalletService enderWalletService,
             DatabaseCheckService databaseCheckService,
+            TownyDiagnosticsService townyDiagnosticsService,
             PluginSettings settings,
             EnhancedLogger logger,
             EnhancedLogger healthcheckLogger
@@ -39,6 +41,7 @@ public final class EconomyCommand implements TabExecutor {
                 economyService,
                 enderWalletService,
                 databaseCheckService,
+                townyDiagnosticsService,
                 settings,
                 logger,
                 healthcheckLogger
@@ -164,6 +167,7 @@ public final class EconomyCommand implements TabExecutor {
         Map<String, EconomySubcommand> commands = new LinkedHashMap<>();
         register(commands, new com.earthpol.economyPol.command.admin.BalanceSubcommand(dependencies));
         register(commands, new com.earthpol.economyPol.command.admin.CheckSubcommand(dependencies));
+        register(commands, new com.earthpol.economyPol.command.admin.CleanupSubcommand(dependencies));
         return Collections.unmodifiableMap(new LinkedHashMap<>(commands));
     }
 

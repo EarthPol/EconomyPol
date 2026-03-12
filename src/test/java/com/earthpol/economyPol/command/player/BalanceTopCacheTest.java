@@ -10,6 +10,7 @@ import com.earthpol.economyPol.service.DenominationService;
 import com.earthpol.economyPol.service.EconomyService;
 import com.earthpol.economyPol.service.EnderWalletService;
 import com.earthpol.economyPol.service.SchedulerService;
+import com.earthpol.economyPol.service.TownyDiagnosticsService;
 import org.bukkit.command.CommandSender;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,6 +87,7 @@ final class BalanceTopCacheTest {
                 economyService,
                 enderWalletService,
                 mock(DatabaseCheckService.class),
+                new TownyDiagnosticsService(),
                 settings,
                 operationsLogger,
                 healthcheckLogger

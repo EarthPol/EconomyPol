@@ -396,6 +396,7 @@ Notes:
 
 - `/economypol admin balance <player>`
 - `/economypol admin check <report>`
+- `/economypol admin cleanup towny-orphans`
 
 Available database check reports:
 
@@ -405,9 +406,19 @@ Available database check reports:
 - `unclean-snapshots`
 - `reservations`
 - `notifications`
+- `towny-accounts`
 - `stats`
 
 `/economypol admin check` prints a chat-friendly report and also writes the full report to `healthcheck.log`.
+
+`towny-accounts` inspects Towny town/nation shared-account rows for:
+
+- orphaned deleted-government rows still present in EconomyPol
+- UUID mismatches against Towny's canonical government account UUID
+- owner UUID mismatches
+- missing canonical shared-account rows
+
+`/economypol admin cleanup towny-orphans` removes only orphaned Towny town/nation shared-account rows. It does not attempt to rewrite UUID-mismatch rows or repair missing canonical rows automatically.
 
 ## Permissions
 

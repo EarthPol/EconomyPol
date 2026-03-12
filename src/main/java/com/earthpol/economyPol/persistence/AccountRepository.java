@@ -159,6 +159,20 @@ public final class AccountRepository extends AbstractRepositorySupport {
         );
     }
 
+    public List<AccountRecord> listSharedAccounts() {
+        return queryList(
+                """
+                SELECT account_id, account_type, owner_uuid, account_name,
+                       allow_self_deposit, allow_external_credit, allow_self_withdraw
+                FROM economy_accounts
+                WHERE account_type = ?
+                ORDER BY account_name ASC
+                """,
+                statement -> statement.setString(1, AccountType.SHARED.name()),
+                this::readAccount
+        );
+    }
+
     public Map<UUID, String> listAccountNames() {
         Map<UUID, String> names = new LinkedHashMap<>();
         queryList(

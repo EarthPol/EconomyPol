@@ -23,13 +23,16 @@ public final class DatabaseCheckService {
             "unclean-snapshots",
             "reservations",
             "notifications",
+            "towny-accounts",
             "stats"
     );
 
     private final DatabaseService databaseService;
+    private final TownyDiagnosticsService townyDiagnosticsService;
 
-    public DatabaseCheckService(DatabaseService databaseService) {
+    public DatabaseCheckService(DatabaseService databaseService, TownyDiagnosticsService townyDiagnosticsService) {
         this.databaseService = databaseService;
+        this.townyDiagnosticsService = townyDiagnosticsService;
     }
 
     public List<String> availableReports() {
@@ -48,6 +51,7 @@ public final class DatabaseCheckService {
                 case "unclean-snapshots" -> checkUncleanSnapshots(ranAt, startedNanos);
                 case "reservations" -> checkReservations(ranAt, startedNanos);
                 case "notifications" -> checkNotifications(ranAt, startedNanos);
+                case "towny-accounts" -> checkTownyAccounts(ranAt, startedNanos);
                 case "stats" -> checkStats(ranAt, startedNanos);
                 default -> finish(
                         normalized.isBlank() ? "unknown" : normalized,
@@ -415,6 +419,20 @@ public final class DatabaseCheckService {
                 statistics,
                 List.of(),
                 findings
+        );
+    }
+
+    private DatabaseCheckReport checkTownyAccounts(Instant ranAt, long startedNanos) {
+        TownyAccountScanResult result = townyDiagnosticsService.scanAccounts();
+        return finish(
+                "towny-accounts",
+                ranAt,
+                startedNanos,
+                result.available() && result.findings().isEmpty(),
+                result.summary(),
+                result.statistics(),
+                result.notes(),
+                result.findings()
         );
     }
 

@@ -26,6 +26,7 @@ import com.earthpol.economyPol.service.NumericalConsistencyService;
 import com.earthpol.economyPol.service.PlayerMoneyLockService;
 import com.earthpol.economyPol.service.ReservationService;
 import com.earthpol.economyPol.service.SchedulerService;
+import com.earthpol.economyPol.service.TownyDiagnosticsService;
 import com.earthpol.economyPol.vault.EconomyVaultAdapter;
 import com.earthpol.economyPol.vault.VaultUnlockedEconomyAdapter;
 import org.bukkit.command.PluginCommand;
@@ -55,6 +56,7 @@ public final class EconomyPol extends JavaPlugin {
     private EnderWalletService enderWalletService;
     private ReservationService reservationService;
     private DatabaseCheckService databaseCheckService;
+    private TownyDiagnosticsService townyDiagnosticsService;
     private EconomyService economyService;
     private EconomyPolAPI economyPolApi;
     private EconomyVaultAdapter vaultAdapter;
@@ -109,6 +111,7 @@ public final class EconomyPol extends JavaPlugin {
         notificationService = new NotificationService(denominationService, notificationRepository, schedulerService, log());
         playerMoneyLockService = new PlayerMoneyLockService();
         reservationService = new ReservationService(fundsRepository, audit());
+        townyDiagnosticsService = new TownyDiagnosticsService();
         enderWalletService = new EnderWalletService(
                 this,
                 enderWalletRepository,
@@ -118,7 +121,7 @@ public final class EconomyPol extends JavaPlugin {
                 audit(),
                 uncleanBoot
         );
-        databaseCheckService = new DatabaseCheckService(dbService);
+        databaseCheckService = new DatabaseCheckService(dbService, townyDiagnosticsService);
         economyService = new EconomyService(
                 accountRepository,
                 fundsRepository,
@@ -210,7 +213,7 @@ public final class EconomyPol extends JavaPlugin {
                 this
         );
         getServer().getPluginManager().registerEvents(new EnderChestLockListener(playerMoneyLockService), this);
-        TownyBootstrapListener townyBootstrapListener = new TownyBootstrapListener(this, economyService, log());
+        TownyBootstrapListener townyBootstrapListener = new TownyBootstrapListener(this, economyService, townyDiagnosticsService, log());
         getServer().getPluginManager().registerEvents(townyBootstrapListener, this);
         townyBootstrapListener.registerIfTownyEnabled();
     }
@@ -228,6 +231,7 @@ public final class EconomyPol extends JavaPlugin {
                 economyService,
                 enderWalletService,
                 databaseCheckService,
+                townyDiagnosticsService,
                 settings,
                 log(),
                 healthcheck()

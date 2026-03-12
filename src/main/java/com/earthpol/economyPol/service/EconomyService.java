@@ -512,6 +512,10 @@ public final class EconomyService {
         return accountRepository.listSharedAccountNames();
     }
 
+    public List<AccountRecord> listSharedAccounts() {
+        return accountRepository.listSharedAccounts();
+    }
+
     public Map<UUID, String> accountNameMap() {
         return accountRepository.listAccountNames();
     }
