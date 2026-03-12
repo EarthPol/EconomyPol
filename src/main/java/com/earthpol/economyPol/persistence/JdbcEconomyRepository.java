@@ -262,6 +262,59 @@ public final class JdbcEconomyRepository {
         });
     }
 
+    public BalanceRecord settleReservedWithdrawal(
+            UUID accountId,
+            long deliveredAmount,
+            long releasedAmount,
+            String deliveredReason,
+            String releasedReason,
+            UUID playerUuid
+    ) {
+        return inTransaction(connection -> {
+            if (deliveredAmount < 0L || releasedAmount < 0L) {
+                throw new IllegalArgumentException("Delivered and released amounts must be non-negative.");
+            }
+            BalanceRecord current = selectBalanceForUpdate(connection, accountId);
+            long totalSettled = deliveredAmount + releasedAmount;
+            if (current.reservedBalance() < totalSettled) {
+                throw new IllegalStateException("Insufficient reserved balance to settle physical withdrawal.");
+            }
+
+            long availableAfterRelease = current.availableBalance() + releasedAmount;
+            long reservedAfterCapture = current.reservedBalance() - deliveredAmount;
+            long finalReserved = reservedAfterCapture - releasedAmount;
+            updateBalance(connection, accountId, availableAfterRelease, finalReserved);
+
+            if (deliveredAmount > 0L) {
+                insertLedger(
+                        connection,
+                        accountId,
+                        null,
+                        playerUuid,
+                        -deliveredAmount,
+                        current.availableBalance(),
+                        reservedAfterCapture,
+                        "RESERVATION_CAPTURE",
+                        deliveredReason
+                );
+            }
+            if (releasedAmount > 0L) {
+                insertLedger(
+                        connection,
+                        accountId,
+                        null,
+                        playerUuid,
+                        releasedAmount,
+                        availableAfterRelease,
+                        finalReserved,
+                        "RESERVATION_RELEASE",
+                        releasedReason
+                );
+            }
+            return new BalanceRecord(availableAfterRelease, finalReserved);
+        });
+    }
+
     public Optional<EnderWalletSnapshot> findEnderWalletSnapshot(UUID playerUuid) {
         return queryOne("""
                 SELECT player_uuid, base_units, state, last_clean_sync_at

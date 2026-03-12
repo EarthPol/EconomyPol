@@ -90,7 +90,7 @@ public final class LiveMoneyService {
             return SpendResult.failure(amount, "Insufficient funds.");
         }
 
-        LiveSourcesSnapshot snapshot = snapshot(player);
+        LiveContainerSnapshot snapshot = captureLiveContainerSnapshot(player);
         long removed = removeFromLiveSources(player, amount);
         if (removed == amount) {
             return SpendResult.success(amount, removed, 0L);
@@ -99,7 +99,7 @@ public final class LiveMoneyService {
         long remaining = amount - removed;
         OverpayCandidate candidate = findSmallestOverpayCandidate(player, remaining);
         if (candidate == null) {
-            restore(player, snapshot);
+            restoreLiveContainerSnapshot(player, snapshot);
             return SpendResult.failure(amount, "Unable to make exact change from live funds.");
         }
 
@@ -108,7 +108,7 @@ public final class LiveMoneyService {
         long change = debited - amount;
         DeliveryResult changeDelivery = deliver(player, change, routingOrder);
         if (changeDelivery.remainder() > 0L) {
-            restore(player, snapshot);
+            restoreLiveContainerSnapshot(player, snapshot);
             return SpendResult.failure(amount, NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE);
         }
         return SpendResult.success(amount, debited, change);
@@ -232,14 +232,14 @@ public final class LiveMoneyService {
         return leftovers;
     }
 
-    private LiveSourcesSnapshot snapshot(Player player) {
+    public LiveContainerSnapshot captureLiveContainerSnapshot(Player player) {
         ItemStack[] inventoryContents = cloneContents(player.getInventory().getContents());
         ItemStack[] enderContents = cloneContents(player.getEnderChest().getContents());
         ItemStack offHand = cloneStack(player.getInventory().getItemInOffHand());
-        return new LiveSourcesSnapshot(inventoryContents, enderContents, offHand);
+        return new LiveContainerSnapshot(inventoryContents, enderContents, offHand);
     }
 
-    private void restore(Player player, LiveSourcesSnapshot snapshot) {
+    public void restoreLiveContainerSnapshot(Player player, LiveContainerSnapshot snapshot) {
         player.getInventory().setContents(cloneContents(snapshot.inventoryContents()));
         player.getEnderChest().setContents(cloneContents(snapshot.enderChestContents()));
         player.getInventory().setItemInOffHand(cloneStack(snapshot.offHand()));
@@ -369,7 +369,7 @@ public final class LiveMoneyService {
         }
     }
 
-    private record LiveSourcesSnapshot(ItemStack[] inventoryContents, ItemStack[] enderChestContents, ItemStack offHand) {}
+    public record LiveContainerSnapshot(ItemStack[] inventoryContents, ItemStack[] enderChestContents, ItemStack offHand) {}
 
     private record OverpayCandidate(OverpaySourceType sourceType, int slot, Denomination denomination) {}
 

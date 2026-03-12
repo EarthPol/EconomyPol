@@ -261,6 +261,9 @@ public final class EconomyService {
     }
 
     private MoneyOperationResult withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(Player player, long amount) {
+        if (amount < 0L) {
+            return MoneyOperationResult.failure(amount, "Cannot withdraw a negative amount.");
+        }
         AccountRecord account = ensurePlayerAccount(player);
         if (!account.playerPolicy().allowSelfWithdraw()) {
             return MoneyOperationResult.failure(amount, "Self-withdraw is disabled.");
@@ -269,27 +272,77 @@ public final class EconomyService {
         if (balance.availableBalance() < amount) {
             return MoneyOperationResult.failure(amount, "Insufficient custodial funds.");
         }
-        repository.changeAvailable(account.accountId(), -amount, "SELF_WITHDRAW", "SELF_WITHDRAW", player.getUniqueId(), null);
-        LiveMoneyService.DeliveryResult deliveryResult = liveMoneyService.deliver(player, amount, settings.routingOrder());
-        if (deliveryResult.remainder() > 0L) {
-            BalanceRecord updatedBalance = repository.changeAvailable(
-                    account.accountId(),
-                    deliveryResult.remainder(),
-                    "SELF_WITHDRAW_REMAINDER",
-                    "SELF_WITHDRAW_REMAINDER",
-                    player.getUniqueId(),
-                    null
-            );
-            notificationService.notifyWithdrawalRetainedInCustodial(
-                    player,
-                    deliveryResult.remainder(),
-                    updatedBalance.availableBalance()
-            );
+        if (amount == 0L) {
+            return MoneyOperationResult.success(0L, 0L, 0L, "Withdraw processed.");
         }
+
+        LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
+        try {
+            repository.reserveAvailable(account.accountId(), amount, "SELF_WITHDRAW_PENDING");
+        } catch (RuntimeException exception) {
+            return MoneyOperationResult.failure(amount, "Insufficient custodial funds.");
+        }
+
+        LiveMoneyService.DeliveryResult deliveryResult;
+        try {
+            deliveryResult = liveMoneyService.deliver(player, amount, settings.routingOrder());
+        } catch (Exception exception) {
+            rollbackCustodialWithdrawal(player, liveSnapshot, account.accountId(), amount, exception);
+            return MoneyOperationResult.failure(amount, "Physical withdrawal failed while delivering money.");
+        }
+
         long delivered = amount - deliveryResult.remainder();
+        BalanceRecord updatedBalance;
+        try {
+            updatedBalance = repository.settleReservedWithdrawal(
+                    account.accountId(),
+                    delivered,
+                    deliveryResult.remainder(),
+                    "SELF_WITHDRAW_CAPTURE",
+                    "SELF_WITHDRAW_REMAINDER",
+                    player.getUniqueId()
+            );
+        } catch (RuntimeException exception) {
+            rollbackCustodialWithdrawal(player, liveSnapshot, account.accountId(), amount, exception);
+            return MoneyOperationResult.failure(amount, "Physical withdrawal failed while finalizing balances.");
+        }
+
+        if (deliveryResult.remainder() > 0L) {
+            try {
+                notificationService.notifyWithdrawalRetainedInCustodial(
+                        player,
+                        deliveryResult.remainder(),
+                        updatedBalance.availableBalance()
+                );
+            } catch (RuntimeException exception) {
+                operationsLog.severe("Failed to send custodial remainder notification to " + player.getUniqueId() + ".", exception);
+            }
+        }
         auditLog.info("self-withdraw player=" + player.getUniqueId() + " requested=" + amount +
                 " delivered=" + delivered + " retained=" + deliveryResult.remainder());
         return MoneyOperationResult.success(amount, delivered, deliveryResult.remainder(), "Withdraw processed.");
+    }
+
+    private void rollbackCustodialWithdrawal(
+            Player player,
+            LiveMoneyService.LiveContainerSnapshot liveSnapshot,
+            UUID accountId,
+            long reservedAmount,
+            Exception exception
+    ) {
+        operationsLog.severe("Failed to convert custodial funds into physical money for " + player.getUniqueId() + ".", exception);
+        try {
+            liveMoneyService.restoreLiveContainerSnapshot(player, liveSnapshot);
+        } catch (RuntimeException restoreException) {
+            operationsLog.severe("Failed to restore live money containers after custodial withdraw rollback for " +
+                    player.getUniqueId() + ".", restoreException);
+        }
+        try {
+            repository.releaseReserved(accountId, reservedAmount, "SELF_WITHDRAW_ROLLBACK");
+        } catch (RuntimeException releaseException) {
+            operationsLog.severe("Failed to release reserved custodial funds after rollback for " +
+                    player.getUniqueId() + ".", releaseException);
+        }
     }
 
     private MoneyOperationResult depositOffline(OfflinePlayer player, long amount, String reason) {
