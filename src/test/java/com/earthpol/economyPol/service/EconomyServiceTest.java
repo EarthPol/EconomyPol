@@ -10,6 +10,7 @@ import com.earthpol.economyPol.model.MoneyRouteTarget;
 import com.earthpol.economyPol.model.PlayerAccountPolicy;
 import com.earthpol.economyPol.repository.AccountRepository;
 import com.earthpol.economyPol.repository.FundsRepository;
+import com.earthpol.economyPol.repository.PlayerRepository;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -61,6 +62,7 @@ final class EconomyServiceTest {
         player.getInventory().setItemInOffHand(new ItemStack(Material.DIRT, 1));
 
         AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
@@ -113,6 +115,7 @@ final class EconomyServiceTest {
 
         EconomyService economyService = new EconomyService(
                 accountRepository,
+                playerRepository,
                 fundsRepository,
                 denominationService,
                 liveMoneyService,
@@ -145,6 +148,7 @@ final class EconomyServiceTest {
         PlayerMock player = server.addPlayer();
 
         AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
@@ -188,6 +192,7 @@ final class EconomyServiceTest {
 
         EconomyService economyService = new EconomyService(
                 accountRepository,
+                playerRepository,
                 fundsRepository,
                 denominationService,
                 liveMoneyService,
@@ -225,6 +230,7 @@ final class EconomyServiceTest {
         PlayerMock player = server.addPlayer();
 
         AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
@@ -260,6 +266,7 @@ final class EconomyServiceTest {
 
         EconomyService economyService = new EconomyService(
                 accountRepository,
+                playerRepository,
                 fundsRepository,
                 denominationService,
                 liveMoneyService,
@@ -285,6 +292,7 @@ final class EconomyServiceTest {
         PlayerMock player = server.addPlayer();
 
         AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
@@ -320,6 +328,7 @@ final class EconomyServiceTest {
 
         EconomyService economyService = new EconomyService(
                 accountRepository,
+                playerRepository,
                 fundsRepository,
                 denominationService,
                 liveMoneyService,
@@ -345,6 +354,7 @@ final class EconomyServiceTest {
         PlayerMock player = server.addPlayer();
 
         AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
@@ -374,6 +384,7 @@ final class EconomyServiceTest {
 
         EconomyService economyService = new EconomyService(
                 accountRepository,
+                playerRepository,
                 fundsRepository,
                 denominationService,
                 liveMoneyService,
@@ -398,6 +409,7 @@ final class EconomyServiceTest {
         PlayerMock player = server.addPlayer();
 
         AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
@@ -424,6 +436,7 @@ final class EconomyServiceTest {
 
         EconomyService economyService = new EconomyService(
                 accountRepository,
+                playerRepository,
                 fundsRepository,
                 denominationService,
                 liveMoneyService,
@@ -449,6 +462,7 @@ final class EconomyServiceTest {
         PlayerMock player = server.addPlayer();
 
         AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
@@ -494,6 +508,7 @@ final class EconomyServiceTest {
 
         EconomyService economyService = new EconomyService(
                 accountRepository,
+                playerRepository,
                 fundsRepository,
                 denominationService,
                 liveMoneyService,

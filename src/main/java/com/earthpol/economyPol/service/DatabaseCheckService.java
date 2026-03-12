@@ -86,6 +86,7 @@ public final class DatabaseCheckService {
         statistics.put("total_accounts", queryLong("SELECT COUNT(*) FROM economy_accounts"));
         statistics.put("player_accounts", queryLong("SELECT COUNT(*) FROM economy_accounts WHERE account_type = 'PLAYER'"));
         statistics.put("shared_accounts", queryLong("SELECT COUNT(*) FROM economy_accounts WHERE account_type = 'SHARED'"));
+        statistics.put("registered_players", queryLong("SELECT COUNT(*) FROM economy_players"));
 
         List<DatabaseCheckFinding> findings = new ArrayList<>();
         findings.addAll(queryFindings(
@@ -107,6 +108,20 @@ public final class DatabaseCheckService {
                         "economy_accounts",
                         "account_id=" + resultSet.getString("account_id"),
                         "Player account must have owner_uuid equal to account_id; owner_uuid=" + resultSet.getString("owner_uuid")
+                )
+        ));
+        findings.addAll(queryFindings(
+                """
+                SELECT a.account_id
+                FROM economy_accounts a
+                LEFT JOIN economy_players p ON p.player_uuid = a.account_id
+                WHERE a.account_type = 'PLAYER'
+                  AND p.player_uuid IS NULL
+                """,
+                resultSet -> new DatabaseCheckFinding(
+                        "economy_accounts",
+                        "account_id=" + resultSet.getString("account_id"),
+                        "Player account is missing its economy_players row"
                 )
         ));
         findings.addAll(queryFindings(
@@ -444,6 +459,7 @@ public final class DatabaseCheckService {
         long totalAccounts = queryLong("SELECT COUNT(*) FROM economy_accounts");
         long playerAccounts = queryLong("SELECT COUNT(*) FROM economy_accounts WHERE account_type = 'PLAYER'");
         long sharedAccounts = queryLong("SELECT COUNT(*) FROM economy_accounts WHERE account_type = 'SHARED'");
+        long registeredPlayers = queryLong("SELECT COUNT(*) FROM economy_players");
         long availableTotal = queryLong("SELECT COALESCE(SUM(available_balance), 0) FROM economy_balances");
         long reservedTotal = queryLong("SELECT COALESCE(SUM(reserved_balance), 0) FROM economy_balances");
         long snapshotTotal = queryLong("SELECT COALESCE(SUM(base_units), 0) FROM economy_ender_wallet_snapshots");
@@ -455,6 +471,7 @@ public final class DatabaseCheckService {
         statistics.put("total_accounts", totalAccounts);
         statistics.put("player_accounts", playerAccounts);
         statistics.put("shared_accounts", sharedAccounts);
+        statistics.put("registered_players", registeredPlayers);
         statistics.put("towny_government_bindings", townyBindings);
         statistics.put("custodial_available_total", availableTotal);
         statistics.put("custodial_reserved_total", reservedTotal);
