@@ -1,9 +1,9 @@
 package com.earthpol.economyPol.service;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.domain.PlayerNotificationRecord;
-import com.earthpol.economyPol.domain.PlayerNotificationType;
-import com.earthpol.economyPol.persistence.NotificationRepository;
+import com.earthpol.economyPol.model.PlayerNotificationRecord;
+import com.earthpol.economyPol.model.PlayerNotificationType;
+import com.earthpol.economyPol.repository.NotificationRepository;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.event.ClickEvent;

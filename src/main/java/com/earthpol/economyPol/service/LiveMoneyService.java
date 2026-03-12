@@ -1,8 +1,8 @@
 package com.earthpol.economyPol.service;
 
 import com.earthpol.economyPol.config.PluginSettings;
-import com.earthpol.economyPol.domain.Denomination;
-import com.earthpol.economyPol.domain.MoneyRouteTarget;
+import com.earthpol.economyPol.model.Denomination;
+import com.earthpol.economyPol.model.MoneyRouteTarget;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;

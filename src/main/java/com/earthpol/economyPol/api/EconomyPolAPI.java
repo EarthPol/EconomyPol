@@ -1,12 +1,12 @@
 package com.earthpol.economyPol.api;
 
-import com.earthpol.economyPol.domain.AccountRecord;
-import com.earthpol.economyPol.domain.BalanceRecord;
-import com.earthpol.economyPol.domain.Denomination;
-import com.earthpol.economyPol.domain.EnderWalletSnapshot;
-import com.earthpol.economyPol.domain.MoneyOperationResult;
-import com.earthpol.economyPol.domain.PlayerBalanceView;
-import com.earthpol.economyPol.domain.ReservationRecord;
+import com.earthpol.economyPol.model.AccountRecord;
+import com.earthpol.economyPol.model.BalanceRecord;
+import com.earthpol.economyPol.model.Denomination;
+import com.earthpol.economyPol.model.EnderWalletSnapshot;
+import com.earthpol.economyPol.model.MoneyOperationResult;
+import com.earthpol.economyPol.model.PlayerBalanceView;
+import com.earthpol.economyPol.model.ReservationRecord;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;

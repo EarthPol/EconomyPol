@@ -1,8 +1,8 @@
 package com.earthpol.economyPol.service;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
-import com.earthpol.economyPol.domain.DatabaseCheckFinding;
-import com.earthpol.economyPol.domain.DatabaseCheckReport;
+import com.earthpol.economyPol.model.DatabaseCheckFinding;
+import com.earthpol.economyPol.model.DatabaseCheckReport;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

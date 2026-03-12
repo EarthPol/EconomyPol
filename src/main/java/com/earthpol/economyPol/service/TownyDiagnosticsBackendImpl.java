@@ -1,12 +1,11 @@
 package com.earthpol.economyPol.service;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.domain.AccountRecord;
-import com.earthpol.economyPol.domain.DatabaseCheckFinding;
+import com.earthpol.economyPol.model.AccountRecord;
+import com.earthpol.economyPol.model.DatabaseCheckFinding;
 import com.palmergames.bukkit.towny.TownyAPI;
 import com.palmergames.bukkit.towny.TownyEconomyHandler;
 import com.palmergames.bukkit.towny.TownySettings;
-import com.palmergames.bukkit.towny.object.Government;
 import com.palmergames.bukkit.towny.object.Nation;
 import com.palmergames.bukkit.towny.object.Town;
 

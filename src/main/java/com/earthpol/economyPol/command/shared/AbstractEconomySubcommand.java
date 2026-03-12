@@ -1,6 +1,6 @@
 package com.earthpol.economyPol.command.shared;
 
-import com.earthpol.economyPol.domain.PlayerBalanceView;
+import com.earthpol.economyPol.model.PlayerBalanceView;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;

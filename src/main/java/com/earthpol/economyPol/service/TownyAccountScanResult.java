@@ -1,6 +1,6 @@
 package com.earthpol.economyPol.service;
 
-import com.earthpol.economyPol.domain.DatabaseCheckFinding;
+import com.earthpol.economyPol.model.DatabaseCheckFinding;
 
 import java.util.List;
 import java.util.Map;
