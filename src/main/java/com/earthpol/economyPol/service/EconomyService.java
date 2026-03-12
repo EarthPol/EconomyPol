@@ -143,6 +143,34 @@ public final class EconomyService {
     }
 
     public boolean hasEnough(OfflinePlayer player, long amount) {
+        // Towny can pre-check has()/hasEnough() and then continue even if the later withdraw fails.
+        // In FAIL mode we work around that by simulating live spendability here so "enough" means
+        // the player can actually complete the spend with the currently available change space.
+        if (settings.changeOverflowPolicy() == PluginSettings.ChangeOverflowPolicy.FAIL && player.isOnline() && player.getPlayer() != null) {
+            Player onlinePlayer = player.getPlayer();
+            if (playerMoneyLockService.isLocked(player.getUniqueId())) {
+                return false;
+            }
+            Optional<LiveMoneyService.SpendabilityResult> spendabilityOptional = schedulerService.callOnPlayerEntityScheduler(
+                    onlinePlayer,
+                    () -> liveMoneyService.canSpendFromLiveSources(
+                            onlinePlayer,
+                            amount,
+                            settings.routingOrder(),
+                            settings.changeOverflowPolicy()
+                    ),
+                    "has-enough-live-spendability"
+            );
+            if (spendabilityOptional.isEmpty()) {
+                return false;
+            }
+            LiveMoneyService.SpendabilityResult spendability = spendabilityOptional.get();
+            if (!spendability.success() &&
+                    LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE.equals(spendability.message())) {
+                notificationService.notifyNotEnoughRoomForChange(onlinePlayer);
+            }
+            return spendability.success();
+        }
         return getBalance(player) >= amount;
     }
 
@@ -159,25 +187,15 @@ public final class EconomyService {
                 return MoneyOperationResult.failure(amount, "Player money is locked during wallet sync.");
             }
             Player onlinePlayer = player.getPlayer();
-            Optional<LiveMoneyService.SpendResult> spendResultOptional = schedulerService.callOnPlayerEntityScheduler(
+            Optional<MoneyOperationResult> withdrawResultOptional = schedulerService.callOnPlayerEntityScheduler(
                     onlinePlayer,
-                    () -> liveMoneyService.spendFromLiveSources(onlinePlayer, amount, settings.routingOrder()),
+                    () -> withdrawOnlinePlayerOnPlayerEntityScheduler(onlinePlayer, amount, reason),
                     "withdraw-player-live"
             );
-            if (spendResultOptional.isEmpty()) {
+            if (withdrawResultOptional.isEmpty()) {
                 return MoneyOperationResult.failure(amount, "Player money could not be accessed safely.");
             }
-            LiveMoneyService.SpendResult spendResult = spendResultOptional.get();
-            if (!spendResult.success()) {
-                if (LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE.equals(spendResult.message())) {
-                    notificationService.notifyNotEnoughRoomForChange(onlinePlayer);
-                }
-                return MoneyOperationResult.failure(amount, spendResult.message());
-            }
-            auditLog.info("player-withdraw player=" + player.getUniqueId() + " amount=" + amount +
-                    " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount() +
-                    " reason=" + reason);
-            return MoneyOperationResult.success(amount, amount, 0L, "Funds withdrawn.");
+            return withdrawResultOptional.get();
         }
 
         MoneyOperationResult walletDebit = enderWalletService.debitOffline(player.getUniqueId(), amount);
@@ -248,7 +266,13 @@ public final class EconomyService {
         }
         long available = liveMoneyService.scanPlayerMoney(player);
         long requested = amount <= 0L ? available : amount;
-        LiveMoneyService.SpendResult spendResult = liveMoneyService.spendFromLiveSources(player, requested, settings.routingOrder());
+        LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
+        LiveMoneyService.SpendResult spendResult = liveMoneyService.spendFromLiveSources(
+                player,
+                requested,
+                settings.routingOrder(),
+                settings.changeOverflowPolicy()
+        );
         if (!spendResult.success()) {
             if (requested <= 0L) {
                 return MoneyOperationResult.failure(requested, "No live money was available to deposit.");
@@ -258,10 +282,34 @@ public final class EconomyService {
         if (requested <= 0L) {
             return MoneyOperationResult.failure(requested, "No live money was available to deposit.");
         }
-        fundsRepository.changeAvailable(account.accountId(), requested, "SELF_DEPOSIT", "SELF_DEPOSIT", player.getUniqueId(), null);
+        long totalCredited = requested + spendResult.changeRoutedToCustodial();
+        BalanceRecord updatedBalance;
+        try {
+            updatedBalance = fundsRepository.changeAvailable(
+                    account.accountId(),
+                    totalCredited,
+                    "SELF_DEPOSIT",
+                    "SELF_DEPOSIT",
+                    player.getUniqueId(),
+                    null
+            );
+        } catch (RuntimeException exception) {
+            operationsLog.severe("Failed to deposit live player money into custodial for " + player.getUniqueId() + ".", exception);
+            liveMoneyService.restoreLiveContainerSnapshot(player, liveSnapshot);
+            return MoneyOperationResult.failure(requested, "Physical deposit failed while finalizing custodial balance.");
+        }
+        if (spendResult.changeRoutedToCustodial() > 0L) {
+            notificationService.notifyChangeRoutedToCustodial(
+                    player,
+                    spendResult.changeRoutedToCustodial(),
+                    updatedBalance.availableBalance()
+            );
+        }
         auditLog.info("self-deposit player=" + player.getUniqueId() + " amount=" + requested +
-                " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount());
-        return MoneyOperationResult.success(requested, requested, 0L, "Funds deposited.");
+                " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount() +
+                " change_routed_to_custodial=" + spendResult.changeRoutedToCustodial() +
+                " total_credited=" + totalCredited);
+        return MoneyOperationResult.success(requested, totalCredited, 0L, "Funds deposited.");
     }
 
     // withdrawCustodialAsPhysicalMoney is the explicit conversion path from custodial storage
@@ -376,6 +424,48 @@ public final class EconomyService {
         return MoneyOperationResult.success(amount, amount, 0L, "Funds credited to custodial.");
     }
 
+    private MoneyOperationResult withdrawOnlinePlayerOnPlayerEntityScheduler(Player player, long amount, String reason) {
+        LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
+        LiveMoneyService.SpendResult spendResult = liveMoneyService.spendFromLiveSources(
+                player,
+                amount,
+                settings.routingOrder(),
+                settings.changeOverflowPolicy()
+        );
+        if (!spendResult.success()) {
+            if (LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE.equals(spendResult.message())) {
+                notificationService.notifyNotEnoughRoomForChange(player);
+            }
+            return MoneyOperationResult.failure(amount, spendResult.message());
+        }
+
+        if (spendResult.changeRoutedToCustodial() > 0L) {
+            try {
+                BalanceRecord updatedBalance = creditCustodial(
+                        player.getUniqueId(),
+                        player.getName(),
+                        spendResult.changeRoutedToCustodial(),
+                        "LIVE_CHANGE_OVERFLOW"
+                );
+                notificationService.notifyChangeRoutedToCustodial(
+                        player,
+                        spendResult.changeRoutedToCustodial(),
+                        updatedBalance.availableBalance()
+                );
+            } catch (RuntimeException exception) {
+                operationsLog.severe("Failed to route returned change into custodial for " + player.getUniqueId() + ".", exception);
+                liveMoneyService.restoreLiveContainerSnapshot(player, liveSnapshot);
+                return MoneyOperationResult.failure(amount, "Failed to route change to custodial.");
+            }
+        }
+
+        auditLog.info("player-withdraw player=" + player.getUniqueId() + " amount=" + amount +
+                " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount() +
+                " change_routed_to_custodial=" + spendResult.changeRoutedToCustodial() +
+                " reason=" + reason);
+        return MoneyOperationResult.success(amount, amount, 0L, "Funds withdrawn.");
+    }
+
     public BalanceRecord creditCustodial(UUID playerUuid, String playerName, long amount, String reason) {
         AccountRecord account = accountRepository.ensurePlayerAccount(playerUuid, playerName, settings.playerPolicy());
         return fundsRepository.changeAvailable(account.accountId(), amount, "CUSTODIAL_CREDIT", reason, playerUuid, null);
@@ -466,7 +556,14 @@ public final class EconomyService {
     }
 
     public boolean hasEnough(UUID accountId, long amount) {
-        return getBalance(accountId) >= amount;
+        Optional<AccountRecord> account = accountRepository.findAccount(accountId);
+        if (account.isEmpty()) {
+            return false;
+        }
+        if (account.get().accountType() == AccountType.PLAYER) {
+            return hasEnough(Bukkit.getOfflinePlayer(accountId), amount);
+        }
+        return fundsRepository.getBalance(accountId).availableBalance() >= amount;
     }
 
     public MoneyOperationResult withdrawAccount(UUID accountId, long amount, String reason) {

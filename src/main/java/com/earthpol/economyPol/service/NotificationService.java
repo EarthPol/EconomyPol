@@ -119,6 +119,23 @@ public final class NotificationService {
         ), "notify-custodial-reminder");
     }
 
+    public void notifyChangeRoutedToCustodial(Player player, long changeAmount, long custodialBalance) {
+        if (player == null || changeAmount <= 0L) {
+            return;
+        }
+        send(player, "Change Routed to Custodial", List.of(
+                detail("Change moved to custodial: ", changeAmount),
+                detail("Custodial balance: ", custodialBalance),
+                withdrawHint("Some returned change could not fit in your inventory or ender chest.")
+        ), () -> queueNotification(
+                player.getUniqueId(),
+                PlayerNotificationType.CHANGE_ROUTED_TO_CUSTODIAL,
+                changeAmount,
+                custodialBalance,
+                false
+        ), "notify-change-routed");
+    }
+
     public void queueOfflineCreditToCustodial(java.util.UUID playerUuid, long creditedAmount, long custodialBalance) {
         if (playerUuid == null || creditedAmount <= 0L) {
             return;
@@ -249,6 +266,14 @@ public final class NotificationService {
                             detail("Credited to custodial: ", amount(notification.primaryAmount())),
                             detail("Custodial balance: ", amount(notification.secondaryAmount())),
                             withdrawHint("Money received while you were offline was stored safely in custodial.")
+                    )
+            );
+            case CHANGE_ROUTED_TO_CUSTODIAL -> buildMessage(
+                    "Change Routed to Custodial",
+                    List.of(
+                            detail("Change moved to custodial: ", amount(notification.primaryAmount())),
+                            detail("Custodial balance: ", amount(notification.secondaryAmount())),
+                            withdrawHint("Some returned change could not fit in your inventory or ender chest.")
                     )
             );
             case NOT_ENOUGH_ROOM_FOR_CHANGE -> buildMessage(

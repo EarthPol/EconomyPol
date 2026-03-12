@@ -364,7 +364,8 @@ public final class DatabaseCheckService {
         ));
         statistics.put("overflow_notifications", queryLong(
                 "SELECT COUNT(*) FROM economy_player_notifications WHERE notification_type IN (" +
-                        "'INCOMING_OVERFLOW_TO_CUSTODIAL', 'CUSTODIAL_WITHDRAWAL_RETAINED', 'WALLET_OVERFLOW_TO_CUSTODIAL')"
+                        "'INCOMING_OVERFLOW_TO_CUSTODIAL', 'CUSTODIAL_WITHDRAWAL_RETAINED', " +
+                        "'WALLET_OVERFLOW_TO_CUSTODIAL', 'CHANGE_ROUTED_TO_CUSTODIAL')"
         ));
         statistics.put("change_space_notifications", queryLong(
                 "SELECT COUNT(*) FROM economy_player_notifications WHERE notification_type = 'NOT_ENOUGH_ROOM_FOR_CHANGE'"
@@ -381,6 +382,7 @@ public final class DatabaseCheckService {
                     'WALLET_OVERFLOW_TO_CUSTODIAL',
                     'CUSTODIAL_BALANCE_REMINDER',
                     'OFFLINE_CREDIT_TO_CUSTODIAL',
+                    'CHANGE_ROUTED_TO_CUSTODIAL',
                     'NOT_ENOUGH_ROOM_FOR_CHANGE'
                 )
                 """,

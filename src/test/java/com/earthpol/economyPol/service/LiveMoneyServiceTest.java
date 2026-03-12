@@ -58,7 +58,8 @@ final class LiveMoneyServiceTest {
         LiveMoneyService.SpendResult result = service.spendFromLiveSources(
                 player,
                 10L,
-                List.of(MoneyRouteTarget.INVENTORY, MoneyRouteTarget.ENDER_CHEST, MoneyRouteTarget.CUSTODIAL_ACCOUNT)
+                List.of(MoneyRouteTarget.INVENTORY, MoneyRouteTarget.ENDER_CHEST, MoneyRouteTarget.CUSTODIAL_ACCOUNT),
+                PluginSettings.ChangeOverflowPolicy.FAIL
         );
 
         assertTrue(result.success());
@@ -85,13 +86,40 @@ final class LiveMoneyServiceTest {
         LiveMoneyService.SpendResult result = service.spendFromLiveSources(
                 player,
                 10L,
-                List.of(MoneyRouteTarget.INVENTORY, MoneyRouteTarget.CUSTODIAL_ACCOUNT)
+                List.of(MoneyRouteTarget.INVENTORY, MoneyRouteTarget.CUSTODIAL_ACCOUNT),
+                PluginSettings.ChangeOverflowPolicy.FAIL
         );
 
         assertFalse(result.success());
         assertEquals("Not enough room to return change.", result.message());
         assertEquals(Material.GOLD_BLOCK, player.getInventory().getItem(0).getType());
         assertEquals(81L, service.scanPlayerMoney(player));
+    }
+
+    @Test
+    void spendFromLiveSourcesRoutesUnplaceableChangeToCustodialWhenConfigured() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, false)
+        );
+        PlayerMock player = server.addPlayer();
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            player.getInventory().setItem(slot, new ItemStack(Material.STONE, 64));
+        }
+        player.getInventory().setItem(0, new ItemStack(Material.GOLD_BLOCK, 1));
+
+        LiveMoneyService.SpendResult result = service.spendFromLiveSources(
+                player,
+                10L,
+                List.of(MoneyRouteTarget.INVENTORY, MoneyRouteTarget.CUSTODIAL_ACCOUNT),
+                PluginSettings.ChangeOverflowPolicy.CUSTODIAL
+        );
+
+        assertTrue(result.success());
+        assertEquals(71L, result.changeAmount());
+        assertEquals(8L, result.changeRoutedToCustodial());
+        assertEquals(63L, service.scanPlayerMoney(player));
+        assertEquals(Material.GOLD_INGOT, player.getInventory().getItem(0).getType());
     }
 
     @Test

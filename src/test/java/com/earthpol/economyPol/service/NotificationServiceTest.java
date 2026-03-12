@@ -113,6 +113,18 @@ final class NotificationServiceTest {
     }
 
     @Test
+    void changeRoutedToCustodialNotificationExplainsReturnedChange() {
+        Player player = mock(Player.class);
+
+        notificationService.notifyChangeRoutedToCustodial(player, 71L, 90L);
+
+        String message = capturePlainText(player);
+        assertTrue(message.contains("Change Routed to Custodial"));
+        assertTrue(message.contains("Change moved to custodial: 71 Gold Coins"));
+        assertTrue(message.contains("Custodial balance: 90 Gold Coins"));
+    }
+
+    @Test
     void notEnoughRoomForChangeNotificationExplainsCanceledTransaction() {
         Player player = mock(Player.class);
 

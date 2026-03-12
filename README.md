@@ -118,6 +118,7 @@ For players:
 - online player: removes live physical money from inventory/offhand/ender chest
 - offline player: debits the frozen offline ender-wallet snapshot
 - custodial is not auto-spent
+- if `routing.change-overflow-policy` is `CUSTODIAL`, unplaceable returned change is credited to custodial instead of canceling the spend
 
 For shared accounts:
 
@@ -181,6 +182,7 @@ routing:
     - INVENTORY
     - ENDER_CHEST
     - CUSTODIAL_ACCOUNT
+  change-overflow-policy: CUSTODIAL
 ```
 
 Validation rules:
@@ -188,6 +190,17 @@ Validation rules:
 - routing order must not be empty
 - targets must not repeat
 - `CUSTODIAL_ACCOUNT` must be last
+
+Returned change from live-money spends also has a configurable overflow policy:
+
+- `FAIL`
+  - if physical change cannot fully fit, the spend is canceled and the original physical money state is restored
+  - stricter and more physical
+  - can expose compatibility bugs in third-party plugins that pre-check balance and then ignore failed withdraws
+- `CUSTODIAL`
+  - if physical change cannot fully fit, only the unplaceable remainder is credited to player custodial
+  - more compatible with Towny, shops, and other Vault consumers
+  - means some returned change may become custodial money until the player explicitly withdraws it as physical cash
 
 Routing applies to:
 
@@ -442,6 +455,7 @@ routing:
     - INVENTORY
     - ENDER_CHEST
     - CUSTODIAL_ACCOUNT
+  change-overflow-policy: CUSTODIAL
 
 wallet:
   managed-ender-wallet-enabled: true
@@ -491,6 +505,18 @@ logging:
 
 - the Java `RoundingMode` used when `numeric.decimal-handling` is `ROUND`
 - default is `HALF_UP`
+
+#### `routing.change-overflow-policy`
+
+- controls what happens when a live-money spend must make change and the physical change does not fully fit
+- `FAIL`
+  - restores the original physical money state and cancels the transaction
+  - stricter and more physical
+  - may expose compatibility bugs in plugins that ignore failed withdraws after a successful balance check
+- `CUSTODIAL`
+  - credits only the unplaceable part of the returned change to player custodial
+  - more compatible with Towny, shops, and other Vault consumers
+  - means some returned change becomes non-physical until explicitly withdrawn
 
 #### `cache.balancetop-ttl-seconds`
 

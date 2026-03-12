@@ -21,6 +21,7 @@ public final class PluginSettings {
     private final NumericSettings numeric;
     private final PlayerAccountPolicy playerPolicy;
     private final List<MoneyRouteTarget> routingOrder;
+    private final ChangeOverflowPolicy changeOverflowPolicy;
     private final WalletSettings wallet;
     private final CacheSettings cache;
     private final LoggingSettings logging;
@@ -31,6 +32,7 @@ public final class PluginSettings {
             NumericSettings numeric,
             PlayerAccountPolicy playerPolicy,
             List<MoneyRouteTarget> routingOrder,
+            ChangeOverflowPolicy changeOverflowPolicy,
             WalletSettings wallet,
             CacheSettings cache,
             LoggingSettings logging
@@ -40,6 +42,7 @@ public final class PluginSettings {
         this.numeric = numeric;
         this.playerPolicy = playerPolicy;
         this.routingOrder = List.copyOf(routingOrder);
+        this.changeOverflowPolicy = changeOverflowPolicy;
         this.wallet = wallet;
         this.cache = cache;
         this.logging = logging;
@@ -97,6 +100,9 @@ public final class PluginSettings {
             routingOrder.add(MoneyRouteTarget.valueOf(routeName.toUpperCase()));
         }
         validateRoutingOrder(routingOrder);
+        ChangeOverflowPolicy changeOverflowPolicy = ChangeOverflowPolicy.valueOf(
+                config.getString("routing.change-overflow-policy", "CUSTODIAL").toUpperCase(Locale.ROOT)
+        );
 
         WalletSettings wallet = new WalletSettings(
                 config.getBoolean("wallet.managed-ender-wallet-enabled", true),
@@ -116,7 +122,7 @@ public final class PluginSettings {
                 config.getString("logging.operations-log-name", "operations")
         );
 
-        return new PluginSettings(database, currency, numeric, playerPolicy, routingOrder, wallet, cache, logging);
+        return new PluginSettings(database, currency, numeric, playerPolicy, routingOrder, changeOverflowPolicy, wallet, cache, logging);
     }
 
     private static List<ConfigurationSection> getSectionList(FileConfiguration config, String path) {
@@ -185,6 +191,10 @@ public final class PluginSettings {
         return routingOrder;
     }
 
+    public ChangeOverflowPolicy changeOverflowPolicy() {
+        return changeOverflowPolicy;
+    }
+
     public WalletSettings wallet() {
         return wallet;
     }
@@ -237,5 +247,10 @@ public final class PluginSettings {
         REJECT,
         ROUND,
         TRUNCATE
+    }
+
+    public enum ChangeOverflowPolicy {
+        FAIL,
+        CUSTODIAL
     }
 }

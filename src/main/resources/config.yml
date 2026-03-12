@@ -45,6 +45,17 @@ routing:
     - INVENTORY
     - ENDER_CHEST
     - CUSTODIAL_ACCOUNT
+  # What to do when a live-money spend must break a larger denomination and the
+  # returned change does not fully fit in the configured physical destinations.
+  # FAIL: cancel the transaction and restore the original physical money state.
+  #       This is stricter and feels more physical, but can expose compatibility
+  #       bugs in plugins that pre-check balance and then ignore failed withdraws.
+  # CUSTODIAL: route the unplaceable part of the returned change into the
+  #            player's custodial account instead of canceling the spend.
+  #            This is more compatible with Towny/shops and avoids failures
+  #            caused only by full storage, but some change becomes custodial
+  #            money until the player explicitly withdraws it as physical cash.
+  change-overflow-policy: CUSTODIAL
 
 wallet:
   managed-ender-wallet-enabled: true
