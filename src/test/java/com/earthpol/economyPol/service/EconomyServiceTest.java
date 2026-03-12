@@ -219,7 +219,7 @@ final class EconomyServiceTest {
     }
 
     @Test
-    void withdrawPlayerDoesNotSendDirectChangeNotificationForVaultTriggeredFailures() {
+    void withdrawPlayerSendsDirectChangeNotificationForVaultTriggeredFailures() {
         PlayerMock player = server.addPlayer();
 
         AccountRepository accountRepository = mock(AccountRepository.class);
@@ -273,7 +273,7 @@ final class EconomyServiceTest {
 
         assertFalse(result.success());
         assertEquals(LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE, result.message());
-        verify(notificationService, never()).notifyNotEnoughRoomForChange(player);
+        verify(notificationService).notifyNotEnoughRoomForChange(player);
     }
 
     @Test
