@@ -263,12 +263,14 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
             return;
         }
 
-        operationsLog.warn("Towny deleted a government but EconomyPol could not find a matching shared account. " +
-                "government_type=" + governmentType +
+        // Towny removes government accounts through the economy provider before it fires the delete event.
+        // If nothing is left here, cleanup already happened and this is a normal no-op.
+        operationsLog.info("towny-delete-successfully-completed government_type=" + governmentType +
                 " government_uuid=" + governmentUuid +
                 " government_name=" + governmentName +
                 " expected_bank_account_uuid=" + fallbackBankUuid +
-                " expected_bank_account_name=" + expectedBankName);
+                " expected_bank_account_name=" + expectedBankName +
+                " reason=account_already_removed");
     }
 
     private InspectionSnapshot inspectAccounts() {
