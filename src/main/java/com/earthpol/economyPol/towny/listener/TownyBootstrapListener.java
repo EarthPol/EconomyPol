@@ -1,9 +1,10 @@
-package com.earthpol.economyPol.listener;
+package com.earthpol.economyPol.towny.listener;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.service.EconomyService;
-import com.earthpol.economyPol.service.TownyDiagnosticsBackendImpl;
-import com.earthpol.economyPol.service.TownyDiagnosticsService;
+import com.earthpol.economyPol.towny.TownyIntegrationBackend;
+import com.earthpol.economyPol.towny.TownyService;
+import com.earthpol.economyPol.towny.repository.TownyGovernmentRepository;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginEnableEvent;
@@ -13,20 +14,23 @@ import org.bukkit.plugin.PluginManager;
 public final class TownyBootstrapListener implements Listener {
 
     private final Plugin plugin;
+    private final TownyService townyService;
     private final EconomyService economyService;
-    private final TownyDiagnosticsService townyDiagnosticsService;
+    private final TownyGovernmentRepository townyGovernmentRepository;
     private final EnhancedLogger operationsLog;
     private boolean townyLifecycleRegistered;
 
     public TownyBootstrapListener(
             Plugin plugin,
+            TownyService townyService,
             EconomyService economyService,
-            TownyDiagnosticsService townyDiagnosticsService,
+            TownyGovernmentRepository townyGovernmentRepository,
             EnhancedLogger operationsLog
     ) {
         this.plugin = plugin;
+        this.townyService = townyService;
         this.economyService = economyService;
-        this.townyDiagnosticsService = townyDiagnosticsService;
+        this.townyGovernmentRepository = townyGovernmentRepository;
         this.operationsLog = operationsLog;
     }
 
@@ -38,10 +42,11 @@ public final class TownyBootstrapListener implements Listener {
         if (!pluginManager.isPluginEnabled("Towny")) {
             return;
         }
-        pluginManager.registerEvents(new TownyLifecycleListener(economyService, operationsLog), plugin);
-        townyDiagnosticsService.setBackend(new TownyDiagnosticsBackendImpl(economyService, operationsLog));
+        townyService.activate(new TownyIntegrationBackend(economyService, townyGovernmentRepository, operationsLog));
+        townyService.synchronizeAllGovernments();
+        pluginManager.registerEvents(new TownyLifecycleListener(townyService), plugin);
         townyLifecycleRegistered = true;
-        operationsLog.info("Registered Towny lifecycle listener and diagnostics backend.");
+        operationsLog.info("Registered Towny lifecycle listener and synchronized Towny government bindings.");
     }
 
     @EventHandler

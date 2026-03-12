@@ -26,7 +26,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
                 FROM economy_balances
                 WHERE account_id = ?
                 """,
-                statement -> statement.setString(1, uuid(accountId)),
+                statement -> statement.setObject(1, uuid(accountId)),
                 resultSet -> new BalanceRecord(resultSet.getLong("available_balance"), resultSet.getLong("reserved_balance"))
         ).orElse(new BalanceRecord(0L, 0L));
     }
@@ -171,10 +171,10 @@ public final class FundsRepository extends AbstractRepositorySupport {
                 FROM economy_reservations
                 WHERE reservation_id = ?
                 """,
-                statement -> statement.setString(1, uuid(reservationId)),
+                statement -> statement.setObject(1, uuid(reservationId)),
                 resultSet -> new ReservationRecord(
-                        parseUuid(resultSet.getString("reservation_id")),
-                        parseUuid(resultSet.getString("account_id")),
+                        parseUuid(resultSet.getObject("reservation_id")),
+                        parseUuid(resultSet.getObject("account_id")),
                         resultSet.getLong("amount"),
                         ReservationStatus.valueOf(resultSet.getString("status")),
                         resultSet.getString("reason"),
@@ -207,7 +207,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
                 WHERE account_id = ?
                 FOR UPDATE
                 """)) {
-            statement.setString(1, uuid(accountId));
+            statement.setObject(1, uuid(accountId));
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
                     return new BalanceRecord(0L, 0L);
@@ -223,7 +223,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
                 VALUES (?, 0, 0, ?)
                 ON DUPLICATE KEY UPDATE updated_at = updated_at
                 """)) {
-            statement.setString(1, uuid(accountId));
+            statement.setObject(1, uuid(accountId));
             statement.setLong(2, System.currentTimeMillis());
             statement.executeUpdate();
         }
@@ -238,7 +238,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
             statement.setLong(1, available);
             statement.setLong(2, reserved);
             statement.setLong(3, System.currentTimeMillis());
-            statement.setString(4, uuid(accountId));
+            statement.setObject(4, uuid(accountId));
             statement.executeUpdate();
         }
     }
@@ -260,9 +260,9 @@ public final class FundsRepository extends AbstractRepositorySupport {
                     delta, available_balance, reserved_balance, entry_type, reason, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
-            statement.setString(1, uuid(accountId));
-            statement.setString(2, uuid(relatedAccountId));
-            statement.setString(3, uuid(playerUuid));
+            statement.setObject(1, uuid(accountId));
+            statement.setObject(2, uuid(relatedAccountId));
+            statement.setObject(3, uuid(playerUuid));
             statement.setLong(4, delta);
             if (available == null) {
                 statement.setNull(5, java.sql.Types.BIGINT);

@@ -1,4 +1,4 @@
-package com.earthpol.economyPol.service;
+package com.earthpol.economyPol.towny.model;
 
 import java.time.Instant;
 import java.util.ArrayList;

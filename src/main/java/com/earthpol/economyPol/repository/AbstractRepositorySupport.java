@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -104,7 +105,9 @@ public abstract class AbstractRepositorySupport {
             Object parameter = parameters[index];
             int jdbcIndex = index + 1;
             if (parameter == null) {
-                statement.setNull(jdbcIndex, java.sql.Types.VARCHAR);
+                statement.setObject(jdbcIndex, null);
+            } else if (parameter instanceof UUID uuid) {
+                statement.setObject(jdbcIndex, uuid);
             } else if (parameter instanceof String string) {
                 statement.setString(jdbcIndex, string);
             } else if (parameter instanceof Boolean bool) {
@@ -126,12 +129,22 @@ public abstract class AbstractRepositorySupport {
         }
     }
 
-    protected static String uuid(UUID uuid) {
-        return uuid == null ? null : uuid.toString();
+    protected static UUID uuid(UUID uuid) {
+        return uuid;
     }
 
-    protected static UUID parseUuid(String value) {
-        return value == null ? null : UUID.fromString(value);
+    protected static UUID parseUuid(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof UUID uuid) {
+            return uuid;
+        }
+        if (value instanceof byte[] bytes && bytes.length == 16) {
+            ByteBuffer buffer = ByteBuffer.wrap(bytes);
+            return new UUID(buffer.getLong(), buffer.getLong());
+        }
+        return UUID.fromString(value.toString());
     }
 
     protected static Long nullableLong(ResultSet resultSet, String columnName) throws SQLException {

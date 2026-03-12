@@ -30,10 +30,9 @@ Implemented today:
 
 Not implemented yet:
 
-- Towny-specific shared-account binding/sync layer
 - PlaceholderAPI support
 - GUI banking/teller interfaces
-- Admin repair commands for malformed data
+- broader admin repair commands for malformed data
 - Rich transaction history commands
 
 ## Core Model
@@ -411,14 +410,15 @@ Available database check reports:
 
 `/economypol admin check` prints a chat-friendly report and also writes the full report to `healthcheck.log`.
 
-`towny-accounts` inspects Towny town/nation shared-account rows for:
+`towny-accounts` inspects the explicit `economy_towny_governments` binding table and Towny-managed shared accounts for:
 
-- orphaned deleted-government rows still present in EconomyPol
-- UUID mismatches against Towny's canonical government account UUID
-- owner UUID mismatches
-- missing canonical shared-account rows
+- orphaned binding rows whose Towny government no longer exists
+- binding/account UUID mismatches against Towny's current bank account UUID
+- owner/name mismatches on the bound shared account row
+- missing binding rows for current Towny governments
+- legacy Towny-style shared-account rows left behind without a binding
 
-`/economypol admin cleanup towny-orphans` removes only orphaned Towny town/nation shared-account rows. It does not attempt to rewrite UUID-mismatch rows or repair missing canonical rows automatically.
+`/economypol admin cleanup towny-orphans` removes only orphaned Towny binding rows and legacy unbound Towny-style shared-account rows. It does not attempt to rewrite UUID-mismatch rows or repair missing canonical rows automatically.
 
 ## Permissions
 
@@ -679,24 +679,29 @@ PlayerBalanceView view = api.getPlayerBalanceView(playerUuid);
 
 ## Towny Compatibility
 
-Current Towny compatibility is through VaultUnlocked and Vault service registration.
+Current Towny compatibility is through VaultUnlocked/Vault service registration plus an explicit Towny binding layer in EconomyPol.
 
 That means:
 
 - Towny can use EconomyPol as an economy provider
-- shared accounts already exist as a plugin concept
+- Towny towns and nations are synchronized into EconomyPol shared accounts
+- EconomyPol stores explicit Towny government bindings with:
+  - raw government UUID
+  - current Towny bank account UUID
+  - government type
+  - cached government and bank names
+- Towny create/rename/delete lifecycle events are synchronized into EconomyPol
 - VaultUnlocked UUID/shared-account support is available
 
 What is **not** implemented yet:
 
-- a Towny-specific binding/sync layer for town, nation, and server accounts
-- persistent metadata that says a shared account is specifically a Towny town or nation
-- Towny rename/create/delete synchronization
+- Towny server-account binding
+- automatic repair of UUID-mismatch rows caused by historic legacy data or Towny UUID-policy changes
 
 So the current state is:
 
-- Towny compatibility path exists
-- Towny-specific account lifecycle integration is still a future addition
+- Towny town/nation lifecycle integration is implemented
+- Towny server-account binding is still future work
 
 ## Build and Runtime Requirements
 

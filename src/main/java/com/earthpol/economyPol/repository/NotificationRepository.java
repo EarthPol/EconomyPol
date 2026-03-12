@@ -45,10 +45,10 @@ public final class NotificationRepository extends AbstractRepositorySupport {
                 WHERE player_uuid = ?
                 ORDER BY created_at ASC, notification_id ASC
                 """,
-                statement -> statement.setString(1, uuid(playerUuid)),
+                statement -> statement.setObject(1, uuid(playerUuid)),
                 resultSet -> new PlayerNotificationRecord(
                         resultSet.getLong("notification_id"),
-                        parseUuid(resultSet.getString("player_uuid")),
+                        parseUuid(resultSet.getObject("player_uuid")),
                         PlayerNotificationType.valueOf(resultSet.getString("notification_type")),
                         nullableLong(resultSet, "primary_amount"),
                         nullableLong(resultSet, "secondary_amount"),

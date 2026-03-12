@@ -7,7 +7,7 @@ import com.earthpol.economyPol.config.PluginSettings;
 import com.earthpol.economyPol.service.DatabaseCheckService;
 import com.earthpol.economyPol.service.EconomyService;
 import com.earthpol.economyPol.service.EnderWalletService;
-import com.earthpol.economyPol.service.TownyDiagnosticsService;
+import com.earthpol.economyPol.towny.TownyService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
@@ -32,7 +32,7 @@ public final class EconomyCommand implements TabExecutor {
             EconomyService economyService,
             EnderWalletService enderWalletService,
             DatabaseCheckService databaseCheckService,
-            TownyDiagnosticsService townyDiagnosticsService,
+            TownyService townyService,
             PluginSettings settings,
             EnhancedLogger logger,
             EnhancedLogger healthcheckLogger
@@ -41,7 +41,7 @@ public final class EconomyCommand implements TabExecutor {
                 economyService,
                 enderWalletService,
                 databaseCheckService,
-                townyDiagnosticsService,
+                townyService,
                 settings,
                 logger,
                 healthcheckLogger

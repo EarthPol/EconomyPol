@@ -38,7 +38,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 uuid(playerUuid),
                 AccountType.PLAYER.name(),
                 uuid(playerUuid),
-                playerName == null ? uuid(playerUuid) : playerName,
+                playerName == null ? playerUuid.toString() : playerName,
                 policy.allowSelfDeposit(),
                 policy.allowExternalCredit(),
                 policy.allowSelfWithdraw(),
@@ -46,7 +46,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 now
         );
         ensureBalanceRow(playerUuid);
-        return new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerName == null ? uuid(playerUuid) : playerName, policy);
+        return new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerName == null ? playerUuid.toString() : playerName, policy);
     }
 
     public AccountRecord ensureSharedAccount(String name, UUID ownerUuid) {
@@ -89,7 +89,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 FROM economy_accounts
                 WHERE account_id = ?
                 """,
-                statement -> statement.setString(1, uuid(accountId)),
+                statement -> statement.setObject(1, uuid(accountId)),
                 this::readAccount
         );
     }
@@ -102,7 +102,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 WHERE owner_uuid = ? AND account_type = ?
                 """,
                 statement -> {
-                    statement.setString(1, uuid(playerUuid));
+                    statement.setObject(1, uuid(playerUuid));
                     statement.setString(2, AccountType.PLAYER.name());
                 },
                 this::readAccount
@@ -132,7 +132,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 WHERE account_id = ? AND account_type = ?
                 """,
                 statement -> {
-                    statement.setString(1, uuid(accountId));
+                    statement.setObject(1, uuid(accountId));
                     statement.setString(2, AccountType.SHARED.name());
                 },
                 this::readAccount
@@ -180,7 +180,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 statement -> {
                 },
                 resultSet -> {
-                    names.put(parseUuid(resultSet.getString("account_id")), resultSet.getString("account_name"));
+                    names.put(parseUuid(resultSet.getObject("account_id")), resultSet.getString("account_name"));
                     return null;
                 }
         );
@@ -250,8 +250,8 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 WHERE account_id = ? AND member_uuid = ?
                 """,
                 statement -> {
-                    statement.setString(1, uuid(accountId));
-                    statement.setString(2, uuid(memberUuid));
+                    statement.setObject(1, uuid(accountId));
+                    statement.setObject(2, uuid(memberUuid));
                 },
                 resultSet -> resultSet.getString("membership_role")
         );
@@ -259,9 +259,9 @@ public final class AccountRepository extends AbstractRepositorySupport {
 
     private AccountRecord readAccount(ResultSet resultSet) throws SQLException {
         return new AccountRecord(
-                parseUuid(resultSet.getString("account_id")),
+                parseUuid(resultSet.getObject("account_id")),
                 AccountType.valueOf(resultSet.getString("account_type")),
-                parseUuid(resultSet.getString("owner_uuid")),
+                parseUuid(resultSet.getObject("owner_uuid")),
                 resultSet.getString("account_name"),
                 new PlayerAccountPolicy(
                         resultSet.getBoolean("allow_self_deposit"),

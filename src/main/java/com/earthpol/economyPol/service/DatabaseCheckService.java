@@ -3,6 +3,8 @@ package com.earthpol.economyPol.service;
 import com.earthpol.earthPolLib.database.DatabaseService;
 import com.earthpol.economyPol.model.DatabaseCheckFinding;
 import com.earthpol.economyPol.model.DatabaseCheckReport;
+import com.earthpol.economyPol.towny.TownyService;
+import com.earthpol.economyPol.towny.model.TownyAccountScanResult;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -28,11 +30,11 @@ public final class DatabaseCheckService {
     );
 
     private final DatabaseService databaseService;
-    private final TownyDiagnosticsService townyDiagnosticsService;
+    private final TownyService townyService;
 
-    public DatabaseCheckService(DatabaseService databaseService, TownyDiagnosticsService townyDiagnosticsService) {
+    public DatabaseCheckService(DatabaseService databaseService, TownyService townyService) {
         this.databaseService = databaseService;
-        this.townyDiagnosticsService = townyDiagnosticsService;
+        this.townyService = townyService;
     }
 
     public List<String> availableReports() {
@@ -423,7 +425,7 @@ public final class DatabaseCheckService {
     }
 
     private DatabaseCheckReport checkTownyAccounts(Instant ranAt, long startedNanos) {
-        TownyAccountScanResult result = townyDiagnosticsService.scanAccounts();
+        TownyAccountScanResult result = townyService.scanAccounts();
         return finish(
                 "towny-accounts",
                 ranAt,
@@ -447,10 +449,12 @@ public final class DatabaseCheckService {
         long activeReservations = queryLong("SELECT COUNT(*) FROM economy_reservations WHERE status = 'ACTIVE'");
         long ledgerEntries = queryLong("SELECT COUNT(*) FROM economy_ledger_entries");
         long pendingNotifications = queryLong("SELECT COUNT(*) FROM economy_player_notifications");
+        long townyBindings = queryLong("SELECT COUNT(*) FROM economy_towny_governments");
 
         statistics.put("total_accounts", totalAccounts);
         statistics.put("player_accounts", playerAccounts);
         statistics.put("shared_accounts", sharedAccounts);
+        statistics.put("towny_government_bindings", townyBindings);
         statistics.put("custodial_available_total", availableTotal);
         statistics.put("custodial_reserved_total", reservedTotal);
         statistics.put("snapshot_base_units_total", snapshotTotal);

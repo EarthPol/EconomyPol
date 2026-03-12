@@ -2,7 +2,7 @@ package com.earthpol.economyPol.command.admin;
 
 import com.earthpol.economyPol.command.shared.AbstractEconomySubcommand;
 import com.earthpol.economyPol.command.shared.CommandDependencies;
-import com.earthpol.economyPol.service.TownyCleanupResult;
+import com.earthpol.economyPol.towny.model.TownyCleanupResult;
 import org.bukkit.command.CommandSender;
 
 import java.util.List;
@@ -32,7 +32,7 @@ public final class CleanupSubcommand extends AbstractEconomySubcommand {
             return true;
         }
 
-        TownyCleanupResult result = dependencies.townyDiagnosticsService().cleanupOrphanedAccounts();
+        TownyCleanupResult result = dependencies.townyService().cleanupOrphanedAccounts();
         dependencies.healthcheckLogger().info(result.toString());
         for (String line : result.toChatLines()) {
             sender.sendMessage(line);

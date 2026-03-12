@@ -24,9 +24,9 @@ public final class EnderWalletRepository extends AbstractRepositorySupport {
                 FROM economy_ender_wallet_snapshots
                 WHERE player_uuid = ?
                 """,
-                statement -> statement.setString(1, uuid(playerUuid)),
+                statement -> statement.setObject(1, uuid(playerUuid)),
                 resultSet -> new EnderWalletSnapshot(
-                        parseUuid(resultSet.getString("player_uuid")),
+                        parseUuid(resultSet.getObject("player_uuid")),
                         resultSet.getLong("base_units"),
                         OfflineEnderWalletState.valueOf(resultSet.getString("state")),
                         nullableLong(resultSet, "last_clean_sync_at")
@@ -64,7 +64,7 @@ public final class EnderWalletRepository extends AbstractRepositorySupport {
                         """,
                 statement -> statement.setString(1, OfflineEnderWalletState.FROZEN.name()),
                 resultSet -> new EnderWalletSnapshot(
-                        parseUuid(resultSet.getString("player_uuid")),
+                        parseUuid(resultSet.getObject("player_uuid")),
                         resultSet.getLong("base_units"),
                         OfflineEnderWalletState.valueOf(resultSet.getString("state")),
                         nullableLong(resultSet, "last_clean_sync_at")
@@ -85,7 +85,7 @@ public final class EnderWalletRepository extends AbstractRepositorySupport {
                 try (ResultSet resultSet = select.executeQuery()) {
                     while (resultSet.next()) {
                         staleSnapshots.add(new EnderWalletSnapshot(
-                                parseUuid(resultSet.getString("player_uuid")),
+                                parseUuid(resultSet.getObject("player_uuid")),
                                 resultSet.getLong("base_units"),
                                 OfflineEnderWalletState.valueOf(resultSet.getString("state")),
                                 nullableLong(resultSet, "last_clean_sync_at")
