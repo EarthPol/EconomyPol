@@ -56,6 +56,22 @@ public final class EnderWalletRepository extends AbstractRepositorySupport {
         update("DELETE FROM economy_ender_wallet_snapshots WHERE player_uuid = ?", uuid(playerUuid));
     }
 
+    public List<EnderWalletSnapshot> listFrozenEnderWalletSnapshots() {
+        return queryList("""
+                        SELECT player_uuid, base_units, state, last_clean_sync_at
+                        FROM economy_ender_wallet_snapshots
+                        WHERE state = ?
+                        """,
+                statement -> statement.setString(1, OfflineEnderWalletState.FROZEN.name()),
+                resultSet -> new EnderWalletSnapshot(
+                        parseUuid(resultSet.getString("player_uuid")),
+                        resultSet.getLong("base_units"),
+                        OfflineEnderWalletState.valueOf(resultSet.getString("state")),
+                        nullableLong(resultSet, "last_clean_sync_at")
+                )
+        );
+    }
+
     public List<EnderWalletSnapshot> markStaleSnapshotsDisabled() {
         return inTransaction(connection -> {
             List<EnderWalletSnapshot> staleSnapshots = new ArrayList<>();

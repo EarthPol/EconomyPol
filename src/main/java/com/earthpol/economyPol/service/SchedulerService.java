@@ -2,6 +2,7 @@ package com.earthpol.economyPol.service;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -72,5 +73,35 @@ public class SchedulerService {
             action.run();
             return Boolean.TRUE;
         }, operation).isPresent();
+    }
+
+    public boolean runOnCommandSenderContext(CommandSender sender, Runnable action, String operation) {
+        if (sender instanceof Player player) {
+            return runOnPlayerEntityScheduler(player, action, operation);
+        }
+        try {
+            Bukkit.getGlobalRegionScheduler().execute(plugin, action);
+            return true;
+        } catch (Throwable throwable) {
+            operationsLog.severe("Failed to schedule command-sender callback. operation=" + operation +
+                    " sender=" + sender.getName(), throwable);
+            return false;
+        }
+    }
+
+    public boolean runAsync(Runnable action, String operation) {
+        try {
+            Bukkit.getAsyncScheduler().runNow(plugin, task -> {
+                try {
+                    action.run();
+                } catch (Throwable throwable) {
+                    operationsLog.severe("Async scheduler task failed. operation=" + operation, throwable);
+                }
+            });
+            return true;
+        } catch (Throwable throwable) {
+            operationsLog.severe("Failed to schedule async task. operation=" + operation, throwable);
+            return false;
+        }
     }
 }

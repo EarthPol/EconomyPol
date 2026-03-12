@@ -67,6 +67,10 @@ public final class EconomyService {
         return liveMoneyService;
     }
 
+    public SchedulerService schedulerService() {
+        return schedulerService;
+    }
+
     public ReservationService reservationService() {
         return reservationService;
     }
@@ -124,6 +128,14 @@ public final class EconomyService {
 
     public long getBalance(OfflinePlayer player) {
         return balanceView(player).spendable();
+    }
+
+    public long scanOnlinePlayerMoney(Player player) {
+        return schedulerService.callOnPlayerEntityScheduler(
+                player,
+                () -> liveMoneyService.scanPlayerMoney(player),
+                "balancetop-live-scan"
+        ).orElse(0L);
     }
 
     public long getCustodialAvailable(OfflinePlayer player) {

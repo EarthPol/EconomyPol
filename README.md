@@ -364,14 +364,19 @@ Current queue table:
 ### Player Commands
 
 - `/economypol balance`
+- `/economypol balancetop`
+- `/economypol baltop`
 - `/economypol deposit <amount|all>`
 - `/economypol withdraw <amount>`
 - `/economypol normalizewallet`
+- `/baltop`
 
 Notes:
 
 - `/economypol withdraw` means “withdraw custodial as physical money”
 - `/economypol deposit` means “store physical money into custodial”
+- `/economypol balancetop` shows the cached top player balances from online live money plus offline frozen ender-wallet snapshots
+- `/economypol baltop` and `/baltop` are aliases for the same cached leaderboard
 - `/economypol normalizewallet` normalizes the current ender chest money layout
 
 ### Admin Commands
@@ -443,6 +448,9 @@ wallet:
   include-live-player-inventory: true
   include-live-ender-chest: true
 
+cache:
+  balancetop-ttl-seconds: 60
+
 logging:
   debug: false
   audit-log-name: audit
@@ -483,6 +491,12 @@ logging:
 
 - the Java `RoundingMode` used when `numeric.decimal-handling` is `ROUND`
 - default is `HALF_UP`
+
+#### `cache.balancetop-ttl-seconds`
+
+- controls how long the cached `/economypol balancetop` leaderboard stays fresh
+- when stale, the next request rebuilds the cache by scanning all online players plus frozen offline ender-wallet snapshots
+- player custodial balances are not part of this leaderboard
 
 ## Database Schema
 

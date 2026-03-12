@@ -54,6 +54,10 @@ public final class EnderWalletService {
         return Optional.empty();
     }
 
+    public List<EnderWalletSnapshot> listFrozenSnapshots() {
+        return repository.listFrozenEnderWalletSnapshots();
+    }
+
     public void snapshotOnQuit(Player player) {
         if (!plugin.settings().wallet().managedEnderWalletEnabled()) {
             return;

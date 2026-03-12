@@ -51,6 +51,10 @@ wallet:
   include-live-player-inventory: true
   include-live-ender-chest: true
 
+cache:
+  # How long /economypol balancetop stays fresh before it is rebuilt on the next request.
+  balancetop-ttl-seconds: 60
+
 logging:
   debug: false
   audit-log-name: audit

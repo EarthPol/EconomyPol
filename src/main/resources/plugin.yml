@@ -11,8 +11,11 @@ softdepend:
 commands:
   economypol:
     description: EconomyPol player and admin economy utilities
-    usage: /economypol <balance|deposit|withdraw|normalizewallet|admin>
+    usage: /economypol <balance|balancetop|baltop|deposit|withdraw|normalizewallet|admin>
     aliases: [ecopol]
+  baltop:
+    description: Show the cached top player balances
+    usage: /baltop
 permissions:
   economypol.use:
     default: true

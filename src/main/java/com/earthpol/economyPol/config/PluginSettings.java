@@ -22,6 +22,7 @@ public final class PluginSettings {
     private final PlayerAccountPolicy playerPolicy;
     private final List<MoneyRouteTarget> routingOrder;
     private final WalletSettings wallet;
+    private final CacheSettings cache;
     private final LoggingSettings logging;
 
     private PluginSettings(
@@ -31,6 +32,7 @@ public final class PluginSettings {
             PlayerAccountPolicy playerPolicy,
             List<MoneyRouteTarget> routingOrder,
             WalletSettings wallet,
+            CacheSettings cache,
             LoggingSettings logging
     ) {
         this.database = database;
@@ -39,6 +41,7 @@ public final class PluginSettings {
         this.playerPolicy = playerPolicy;
         this.routingOrder = List.copyOf(routingOrder);
         this.wallet = wallet;
+        this.cache = cache;
         this.logging = logging;
     }
 
@@ -101,13 +104,19 @@ public final class PluginSettings {
                 config.getBoolean("wallet.include-live-ender-chest", true)
         );
 
+        long balanceTopTtlSeconds = config.getLong("cache.balancetop-ttl-seconds", 60L);
+        if (balanceTopTtlSeconds <= 0L) {
+            throw new IllegalArgumentException("cache.balancetop-ttl-seconds must be positive.");
+        }
+        CacheSettings cache = new CacheSettings(balanceTopTtlSeconds);
+
         LoggingSettings logging = new LoggingSettings(
                 config.getBoolean("logging.debug", false),
                 config.getString("logging.audit-log-name", "audit"),
                 config.getString("logging.operations-log-name", "operations")
         );
 
-        return new PluginSettings(database, currency, numeric, playerPolicy, routingOrder, wallet, logging);
+        return new PluginSettings(database, currency, numeric, playerPolicy, routingOrder, wallet, cache, logging);
     }
 
     private static List<ConfigurationSection> getSectionList(FileConfiguration config, String path) {
@@ -180,6 +189,10 @@ public final class PluginSettings {
         return wallet;
     }
 
+    public CacheSettings cache() {
+        return cache;
+    }
+
     public LoggingSettings logging() {
         return logging;
     }
@@ -208,6 +221,10 @@ public final class PluginSettings {
             boolean managedEnderWalletEnabled,
             boolean includeLivePlayerInventory,
             boolean includeLiveEnderChest
+    ) {}
+
+    public record CacheSettings(
+            long balanceTopTtlSeconds
     ) {}
 
     public record LoggingSettings(

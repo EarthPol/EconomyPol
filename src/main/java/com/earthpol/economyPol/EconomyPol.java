@@ -212,9 +212,13 @@ public final class EconomyPol extends JavaPlugin {
     }
 
     private void registerCommands() {
-        PluginCommand command = getCommand("economypol");
-        if (command == null) {
+        PluginCommand economyCommand = getCommand("economypol");
+        PluginCommand balanceTopCommand = getCommand("baltop");
+        if (economyCommand == null) {
             throw new IllegalStateException("economypol command is missing from plugin.yml");
+        }
+        if (balanceTopCommand == null) {
+            throw new IllegalStateException("baltop command is missing from plugin.yml");
         }
         EconomyCommand executor = new EconomyCommand(
                 economyService,
@@ -224,8 +228,10 @@ public final class EconomyPol extends JavaPlugin {
                 log(),
                 healthcheck()
         );
-        command.setExecutor(executor);
-        command.setTabCompleter(executor);
+        economyCommand.setExecutor(executor);
+        economyCommand.setTabCompleter(executor);
+        balanceTopCommand.setExecutor(executor);
+        balanceTopCommand.setTabCompleter(executor);
     }
 
     private Path runtimeMarkerPath() {
