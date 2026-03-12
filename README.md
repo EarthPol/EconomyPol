@@ -118,6 +118,7 @@ For players:
 - online player: removes live physical money from inventory/offhand/ender chest
 - offline player: debits the frozen offline ender-wallet snapshot
 - custodial is not auto-spent
+- if `routing.change-overflow-policy` is `CUSTODIAL`, unplaceable returned change is credited to custodial instead of canceling the spend
 
 For shared accounts:
 
@@ -181,6 +182,7 @@ routing:
     - INVENTORY
     - ENDER_CHEST
     - CUSTODIAL_ACCOUNT
+  change-overflow-policy: CUSTODIAL
 ```
 
 Validation rules:
@@ -188,6 +190,17 @@ Validation rules:
 - routing order must not be empty
 - targets must not repeat
 - `CUSTODIAL_ACCOUNT` must be last
+
+Returned change from live-money spends also has a configurable overflow policy:
+
+- `FAIL`
+  - if physical change cannot fully fit, the spend is canceled and the original physical money state is restored
+  - stricter and more physical
+  - can expose compatibility bugs in third-party plugins that pre-check balance and then ignore failed withdraws
+- `CUSTODIAL`
+  - if physical change cannot fully fit, only the unplaceable remainder is credited to player custodial
+  - more compatible with Towny, shops, and other Vault consumers
+  - means some returned change may become custodial money until the player explicitly withdraws it as physical cash
 
 Routing applies to:
 
@@ -321,14 +334,24 @@ The player is money-locked while sync runs.
 During sync:
 
 - snapshot state becomes `SYNCING`
-- current top-level ender chest money is normalized
-- snapshot value plus normalized live ender value is materialized into the ender chest
+- the current top-level ender chest contents are cloned
+- a theoretical final chest layout is computed from that clone
+- only the frozen snapshot value is materialized back into top-level ender chest slots
+- existing top-level money items are cleared and replaced as part of that planned layout
 - overflow or malformed leftovers are moved to custodial
 - the snapshot row is deleted after success
+
+If join sync fails after the snapshot was moved to `SYNCING`:
+
+- the original top-level ender chest contents are restored
+- the original `FROZEN` snapshot row is restored
+- the restored frozen snapshot is safe while the player is still online because online player balance and spending ignore frozen snapshots
+- that restored snapshot acts as a dormant recovery record until the player logs out again or a later sync succeeds
 
 If the server had an unclean shutdown:
 
 - stale syncing snapshots are marked `DISABLED_UNCLEAN`
+- startup logs emit severe entries describing each quarantined snapshot row
 - offline ender-wallet behavior is disabled until the player returns
 
 ## Notifications
@@ -354,15 +377,20 @@ Current queue table:
 ### Player Commands
 
 - `/economypol balance`
+- `/economypol balancetop`
+- `/economypol baltop`
 - `/economypol deposit <amount|all>`
 - `/economypol withdraw <amount>`
-- `/economypol syncwallet`
+- `/economypol normalizewallet`
+- `/baltop`
 
 Notes:
 
 - `/economypol withdraw` means “withdraw custodial as physical money”
 - `/economypol deposit` means “store physical money into custodial”
-- `/economypol syncwallet` normalizes the current ender chest money layout
+- `/economypol balancetop` shows the cached top player balances from online live money plus offline frozen ender-wallet snapshots
+- `/economypol baltop` and `/baltop` are aliases for the same cached leaderboard
+- `/economypol normalizewallet` normalizes the current ender chest money layout
 
 ### Admin Commands
 
@@ -374,6 +402,7 @@ Available database check reports:
 - `accounts`
 - `balances`
 - `snapshots`
+- `unclean-snapshots`
 - `reservations`
 - `notifications`
 - `stats`
@@ -426,11 +455,15 @@ routing:
     - INVENTORY
     - ENDER_CHEST
     - CUSTODIAL_ACCOUNT
+  change-overflow-policy: CUSTODIAL
 
 wallet:
   managed-ender-wallet-enabled: true
   include-live-player-inventory: true
   include-live-ender-chest: true
+
+cache:
+  balancetop-ttl-seconds: 60
 
 logging:
   debug: false
@@ -472,6 +505,24 @@ logging:
 
 - the Java `RoundingMode` used when `numeric.decimal-handling` is `ROUND`
 - default is `HALF_UP`
+
+#### `routing.change-overflow-policy`
+
+- controls what happens when a live-money spend must make change and the physical change does not fully fit
+- `FAIL`
+  - restores the original physical money state and cancels the transaction
+  - stricter and more physical
+  - may expose compatibility bugs in plugins that ignore failed withdraws after a successful balance check
+- `CUSTODIAL`
+  - credits only the unplaceable part of the returned change to player custodial
+  - more compatible with Towny, shops, and other Vault consumers
+  - means some returned change becomes non-physical until explicitly withdrawn
+
+#### `cache.balancetop-ttl-seconds`
+
+- controls how long the cached `/economypol balancetop` leaderboard stays fresh
+- when stale, the next request rebuilds the cache by scanning all online players plus frozen offline ender-wallet snapshots
+- player custodial balances are not part of this leaderboard
 
 ## Database Schema
 
@@ -547,6 +598,7 @@ Current checks look for malformed or inconsistent rows in:
 - accounts
 - balances
 - snapshots
+- unclean snapshots
 - reservations
 - notifications
 

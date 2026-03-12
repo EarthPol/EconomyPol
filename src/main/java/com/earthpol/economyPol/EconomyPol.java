@@ -7,10 +7,14 @@ import com.earthpol.economyPol.api.EconomyPolAPI;
 import com.earthpol.economyPol.api.EconomyPolApiProvider;
 import com.earthpol.economyPol.command.EconomyCommand;
 import com.earthpol.economyPol.config.PluginSettings;
+import com.earthpol.economyPol.domain.EnderWalletSnapshot;
 import com.earthpol.economyPol.listener.EnderChestLockListener;
 import com.earthpol.economyPol.listener.PlayerLifecycleListener;
 import com.earthpol.economyPol.logging.EconomyLoggers;
-import com.earthpol.economyPol.persistence.JdbcEconomyRepository;
+import com.earthpol.economyPol.persistence.AccountRepository;
+import com.earthpol.economyPol.persistence.EnderWalletRepository;
+import com.earthpol.economyPol.persistence.FundsRepository;
+import com.earthpol.economyPol.persistence.NotificationRepository;
 import com.earthpol.economyPol.service.DatabaseCheckService;
 import com.earthpol.economyPol.service.DenominationService;
 import com.earthpol.economyPol.service.EconomyService;
@@ -30,13 +34,17 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 public final class EconomyPol extends JavaPlugin {
 
     private PluginSettings settings;
     private EconomyLoggers loggers;
     private DatabaseService dbService;
-    private JdbcEconomyRepository repository;
+    private AccountRepository accountRepository;
+    private FundsRepository fundsRepository;
+    private EnderWalletRepository enderWalletRepository;
+    private NotificationRepository notificationRepository;
     private DenominationService denominationService;
     private NumericalConsistencyService numericalConsistencyService;
     private LiveMoneyService liveMoneyService;
@@ -87,19 +95,22 @@ public final class EconomyPol extends JavaPlugin {
             return;
         }
 
-        repository = new JdbcEconomyRepository(dbService, log(), audit());
-        repository.markStaleSnapshotsDisabled();
+        accountRepository = new AccountRepository(dbService, log(), audit());
+        fundsRepository = new FundsRepository(dbService, log(), audit());
+        enderWalletRepository = new EnderWalletRepository(dbService, log(), audit());
+        notificationRepository = new NotificationRepository(dbService, log(), audit());
+        logRecoveredUncleanSnapshots(enderWalletRepository.markStaleSnapshotsDisabled());
 
         denominationService = new DenominationService(settings.currency(), log());
         numericalConsistencyService = new NumericalConsistencyService(settings.numeric(), denominationService);
         liveMoneyService = new LiveMoneyService(denominationService, settings.wallet());
         schedulerService = new SchedulerService(this, log());
-        notificationService = new NotificationService(denominationService, repository, schedulerService, log());
+        notificationService = new NotificationService(denominationService, notificationRepository, schedulerService, log());
         playerMoneyLockService = new PlayerMoneyLockService();
-        reservationService = new ReservationService(repository, audit());
+        reservationService = new ReservationService(fundsRepository, audit());
         enderWalletService = new EnderWalletService(
                 this,
-                repository,
+                enderWalletRepository,
                 playerMoneyLockService,
                 notificationService,
                 schedulerService,
@@ -108,7 +119,8 @@ public final class EconomyPol extends JavaPlugin {
         );
         databaseCheckService = new DatabaseCheckService(dbService);
         economyService = new EconomyService(
-                repository,
+                accountRepository,
+                fundsRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -200,9 +212,13 @@ public final class EconomyPol extends JavaPlugin {
     }
 
     private void registerCommands() {
-        PluginCommand command = getCommand("economypol");
-        if (command == null) {
+        PluginCommand economyCommand = getCommand("economypol");
+        PluginCommand balanceTopCommand = getCommand("baltop");
+        if (economyCommand == null) {
             throw new IllegalStateException("economypol command is missing from plugin.yml");
+        }
+        if (balanceTopCommand == null) {
+            throw new IllegalStateException("baltop command is missing from plugin.yml");
         }
         EconomyCommand executor = new EconomyCommand(
                 economyService,
@@ -212,8 +228,10 @@ public final class EconomyPol extends JavaPlugin {
                 log(),
                 healthcheck()
         );
-        command.setExecutor(executor);
-        command.setTabCompleter(executor);
+        economyCommand.setExecutor(executor);
+        economyCommand.setTabCompleter(executor);
+        balanceTopCommand.setExecutor(executor);
+        balanceTopCommand.setTabCompleter(executor);
     }
 
     private Path runtimeMarkerPath() {
@@ -240,6 +258,21 @@ public final class EconomyPol extends JavaPlugin {
             if (loggers != null) {
                 log().warn("Failed to delete runtime marker: " + exception.getMessage());
             }
+        }
+    }
+
+    private void logRecoveredUncleanSnapshots(List<EnderWalletSnapshot> recoveredSnapshots) {
+        if (recoveredSnapshots.isEmpty()) {
+            return;
+        }
+        log().severe("Startup recovery quarantined " + recoveredSnapshots.size() +
+                " managed ender-wallet snapshot(s) left in SYNCING from a previous unclean shutdown. " +
+                "They were marked DISABLED_UNCLEAN to prevent ambiguous offline wallet use. " +
+                "Run '/economypol admin check unclean-snapshots' for details.");
+        for (EnderWalletSnapshot snapshot : recoveredSnapshots) {
+            log().severe("unclean-snapshot player=" + snapshot.playerUuid() +
+                    " base_units=" + snapshot.baseUnits() +
+                    " last_clean_sync_at=" + snapshot.lastCleanSyncAt());
         }
     }
 }

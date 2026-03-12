@@ -7,8 +7,9 @@ import com.earthpol.economyPol.domain.EnderWalletSnapshot;
 import com.earthpol.economyPol.domain.MoneyOperationResult;
 import com.earthpol.economyPol.domain.MoneyRouteTarget;
 import com.earthpol.economyPol.domain.OfflineEnderWalletState;
-import com.earthpol.economyPol.persistence.JdbcEconomyRepository;
+import com.earthpol.economyPol.persistence.EnderWalletRepository;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,7 +18,7 @@ import java.util.UUID;
 public final class EnderWalletService {
 
     private final EconomyPol plugin;
-    private final JdbcEconomyRepository repository;
+    private final EnderWalletRepository repository;
     private final PlayerMoneyLockService playerMoneyLockService;
     private final NotificationService notificationService;
     private final SchedulerService schedulerService;
@@ -26,7 +27,7 @@ public final class EnderWalletService {
 
     public EnderWalletService(
             EconomyPol plugin,
-            JdbcEconomyRepository repository,
+            EnderWalletRepository repository,
             PlayerMoneyLockService playerMoneyLockService,
             NotificationService notificationService,
             SchedulerService schedulerService,
@@ -51,6 +52,10 @@ public final class EnderWalletService {
             return Optional.of(new EnderWalletSnapshot(playerUuid, 0L, OfflineEnderWalletState.DISABLED_UNCLEAN, null));
         }
         return Optional.empty();
+    }
+
+    public List<EnderWalletSnapshot> listFrozenSnapshots() {
+        return repository.listFrozenEnderWalletSnapshots();
     }
 
     public void snapshotOnQuit(Player player) {
@@ -93,55 +98,64 @@ public final class EnderWalletService {
 
     private long syncSnapshotOnJoinLocked(Player player) {
         Optional<EnderWalletSnapshot> snapshotOptional = findSnapshot(player.getUniqueId());
-        if (snapshotOptional.isEmpty()) {
-            playerMoneyLockService.unlock(player.getUniqueId());
-            return 0L;
-        }
-        EnderWalletSnapshot snapshot = snapshotOptional.get();
-        if (snapshot.state() == OfflineEnderWalletState.DISABLED_UNCLEAN) {
-            auditLogger.warn("ender-wallet-disabled player=" + player.getUniqueId() + " reason=unclean_boot");
-            playerMoneyLockService.unlock(player.getUniqueId());
-            return 0L;
-        }
-        if (snapshot.state() != OfflineEnderWalletState.FROZEN) {
-            playerMoneyLockService.unlock(player.getUniqueId());
-            return 0L;
-        }
-
         try {
-            repository.upsertEnderWalletSnapshot(new EnderWalletSnapshot(
+            if (snapshotOptional.isEmpty()) {
+                return 0L;
+            }
+
+            EnderWalletSnapshot snapshot = snapshotOptional.get();
+            if (snapshot.state() == OfflineEnderWalletState.DISABLED_UNCLEAN) {
+                auditLogger.warn("ender-wallet-disabled player=" + player.getUniqueId() + " reason=unclean_boot");
+                return 0L;
+            }
+            if (snapshot.state() != OfflineEnderWalletState.FROZEN) {
+                return 0L;
+            }
+
+            EnderWalletSnapshot syncingSnapshot = new EnderWalletSnapshot(
                     snapshot.playerUuid(),
                     snapshot.baseUnits(),
                     OfflineEnderWalletState.SYNCING,
                     snapshot.lastCleanSyncAt()
-            ));
+            );
+            repository.upsertEnderWalletSnapshot(syncingSnapshot);
 
-            LiveMoneyService.NormalizationResult normalization = plugin.economyService().liveMoneyService().normalizeEnderChest(player);
-            long targetValue = snapshot.baseUnits() + normalization.normalizedValue();
-            LiveMoneyService.DeliveryResult delivery = plugin.economyService().liveMoneyService()
-                    .deliver(player, targetValue, List.of(MoneyRouteTarget.ENDER_CHEST));
+            ItemStack[] originalContents = cloneContents(player.getEnderChest().getContents());
+            LiveMoneyService.ManagedEnderWalletSyncPlan plan = plugin.economyService()
+                    .liveMoneyService()
+                    .planManagedEnderWalletSync(originalContents, snapshot.baseUnits());
 
-            long overflow = delivery.remainder() + normalization.overflow();
-            if (overflow > 0L) {
-                BalanceRecord updatedBalance = plugin.economyService().creditCustodial(
-                        player.getUniqueId(),
-                        player.getName(),
-                        overflow,
-                        "ENDER_WALLET_OVERFLOW"
-                );
-                notificationService.notifyWalletOverflowToCustodial(
-                        player,
-                        overflow,
-                        updatedBalance.availableBalance(),
-                        normalization.malformedStacksFound()
-                );
+            try {
+                player.getEnderChest().setContents(cloneContents(plan.targetContents()));
+
+                long overflow = plan.overflow();
+                if (overflow > 0L) {
+                    BalanceRecord updatedBalance = plugin.economyService().creditCustodial(
+                            player.getUniqueId(),
+                            player.getName(),
+                            overflow,
+                            "ENDER_WALLET_OVERFLOW"
+                    );
+                    notificationService.notifyWalletOverflowToCustodial(
+                            player,
+                            overflow,
+                            updatedBalance.availableBalance(),
+                            plan.malformedStacksFound()
+                    );
+                }
+                repository.deleteEnderWalletSnapshot(player.getUniqueId());
+                if (plan.malformedStacksFound()) {
+                    plugin.log().warn("Malformed money stacks were found for " + player.getName() + ". Overflow moved to custodial.");
+                }
+                auditLogger.info("ender-wallet-sync player=" + player.getUniqueId() +
+                        " snapshot_amount=" + snapshot.baseUnits() +
+                        " existing_top_level_money=" + plan.existingTopLevelMoneyValue() +
+                        " overflow=" + overflow);
+                return overflow;
+            } catch (Exception exception) {
+                rollbackJoinSync(player, snapshot, originalContents, exception);
+                return 0L;
             }
-            repository.deleteEnderWalletSnapshot(player.getUniqueId());
-            if (normalization.malformedStacksFound()) {
-                plugin.log().warn("Malformed money stacks were found for " + player.getName() + ". Overflow moved to custodial.");
-            }
-            auditLogger.info("ender-wallet-sync player=" + player.getUniqueId() + " amount=" + targetValue + " overflow=" + overflow);
-            return overflow;
         } finally {
             playerMoneyLockService.unlock(player.getUniqueId());
         }
@@ -208,5 +222,39 @@ public final class EnderWalletService {
         ));
         auditLogger.info("ender-wallet-credit player=" + playerUuid + " amount=" + amount);
         return MoneyOperationResult.success(amount, amount, 0L, "Offline ender wallet credited.");
+    }
+
+    private void rollbackJoinSync(
+            Player player,
+            EnderWalletSnapshot frozenSnapshot,
+            ItemStack[] originalContents,
+            Exception exception
+    ) {
+        plugin.log().severe("Failed to sync managed ender wallet for " + player.getName() + ".", exception);
+        try {
+            player.getEnderChest().setContents(cloneContents(originalContents));
+        } catch (Exception restoreException) {
+            plugin.log().severe("Failed to restore ender chest after sync rollback for " + player.getName() + ".", restoreException);
+        }
+        try {
+            repository.upsertEnderWalletSnapshot(frozenSnapshot);
+        } catch (Exception revertException) {
+            plugin.log().severe("Failed to restore ender-wallet snapshot state for " + player.getName() + ".", revertException);
+        }
+        auditLogger.warn("ender-wallet-sync-rollback player=" + player.getUniqueId() +
+                " amount=" + frozenSnapshot.baseUnits() +
+                " reason=" + exception.getClass().getSimpleName());
+    }
+
+    private static ItemStack[] cloneContents(ItemStack[] contents) {
+        ItemStack[] clone = new ItemStack[contents.length];
+        for (int index = 0; index < contents.length; index++) {
+            clone[index] = cloneStack(contents[index]);
+        }
+        return clone;
+    }
+
+    private static ItemStack cloneStack(ItemStack itemStack) {
+        return itemStack == null ? null : itemStack.clone();
     }
 }

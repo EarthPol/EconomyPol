@@ -3,7 +3,7 @@ package com.earthpol.economyPol.service;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.domain.PlayerNotificationRecord;
 import com.earthpol.economyPol.domain.PlayerNotificationType;
-import com.earthpol.economyPol.persistence.JdbcEconomyRepository;
+import com.earthpol.economyPol.persistence.NotificationRepository;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -20,13 +20,13 @@ public final class NotificationService {
     private static final String WITHDRAW_COMMAND = "/economypol withdraw <amount>";
 
     private final DenominationService denominationService;
-    private final JdbcEconomyRepository repository;
+    private final NotificationRepository repository;
     private final SchedulerService schedulerService;
     private final EnhancedLogger operationsLog;
 
     public NotificationService(
             DenominationService denominationService,
-            JdbcEconomyRepository repository,
+            NotificationRepository repository,
             SchedulerService schedulerService,
             EnhancedLogger operationsLog
     ) {
@@ -119,6 +119,23 @@ public final class NotificationService {
         ), "notify-custodial-reminder");
     }
 
+    public void notifyChangeRoutedToCustodial(Player player, long changeAmount, long custodialBalance) {
+        if (player == null || changeAmount <= 0L) {
+            return;
+        }
+        send(player, "Change Routed to Custodial", List.of(
+                detail("Change moved to custodial: ", changeAmount),
+                detail("Custodial balance: ", custodialBalance),
+                withdrawHint("Some returned change could not fit in your inventory or ender chest.")
+        ), () -> queueNotification(
+                player.getUniqueId(),
+                PlayerNotificationType.CHANGE_ROUTED_TO_CUSTODIAL,
+                changeAmount,
+                custodialBalance,
+                false
+        ), "notify-change-routed");
+    }
+
     public void queueOfflineCreditToCustodial(java.util.UUID playerUuid, long creditedAmount, long custodialBalance) {
         if (playerUuid == null || creditedAmount <= 0L) {
             return;
@@ -131,6 +148,24 @@ public final class NotificationService {
                 null,
                 false
         );
+    }
+
+    public void notifyNotEnoughRoomForChange(Player player) {
+        if (player == null) {
+            return;
+        }
+        send(player, "Not Enough Room For Change", List.of(
+                Component.text(
+                        "This transaction was canceled because you do not have enough space in your inventory and/or ender chest to receive your change back.",
+                        NamedTextColor.GRAY
+                )
+        ), () -> queueNotification(
+                player.getUniqueId(),
+                PlayerNotificationType.NOT_ENOUGH_ROOM_FOR_CHANGE,
+                null,
+                null,
+                false
+        ), "notify-not-enough-room-for-change");
     }
 
     public int deliverPendingNotifications(Player player) {
@@ -231,6 +266,23 @@ public final class NotificationService {
                             detail("Credited to custodial: ", amount(notification.primaryAmount())),
                             detail("Custodial balance: ", amount(notification.secondaryAmount())),
                             withdrawHint("Money received while you were offline was stored safely in custodial.")
+                    )
+            );
+            case CHANGE_ROUTED_TO_CUSTODIAL -> buildMessage(
+                    "Change Routed to Custodial",
+                    List.of(
+                            detail("Change moved to custodial: ", amount(notification.primaryAmount())),
+                            detail("Custodial balance: ", amount(notification.secondaryAmount())),
+                            withdrawHint("Some returned change could not fit in your inventory or ender chest.")
+                    )
+            );
+            case NOT_ENOUGH_ROOM_FOR_CHANGE -> buildMessage(
+                    "Not Enough Room For Change",
+                    List.of(
+                            Component.text(
+                                    "This transaction was canceled because you do not have enough space in your inventory and/or ender chest to receive your change back.",
+                                    NamedTextColor.GRAY
+                            )
                     )
             );
         };

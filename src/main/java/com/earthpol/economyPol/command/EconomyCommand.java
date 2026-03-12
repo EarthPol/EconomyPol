@@ -21,6 +21,9 @@ import java.util.stream.Stream;
 
 public final class EconomyCommand implements TabExecutor {
 
+    private static final String BALANCE_TOP_COMMAND = "balancetop";
+    private static final String BALANCE_TOP_ALIAS = "baltop";
+
     private final Map<String, EconomySubcommand> playerCommands;
     private final Map<String, EconomySubcommand> adminCommands;
 
@@ -46,6 +49,11 @@ public final class EconomyCommand implements TabExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (isDirectBalanceTopCommand(command, label)) {
+            EconomySubcommand balanceTop = playerCommands.get(BALANCE_TOP_COMMAND);
+            return balanceTop != null && balanceTop.execute(sender, args);
+        }
+
         if (args.length == 0) {
             sendRootUsage(sender);
             return true;
@@ -65,6 +73,14 @@ public final class EconomyCommand implements TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (isDirectBalanceTopCommand(command, alias)) {
+            EconomySubcommand balanceTop = playerCommands.get(BALANCE_TOP_COMMAND);
+            if (balanceTop == null) {
+                return List.of();
+            }
+            return balanceTop.tabComplete(sender, args);
+        }
+
         if (args.length == 1) {
             Stream<String> rootCommands = playerCommands.keySet().stream();
             if (hasAdminAccess(sender)) {
@@ -134,9 +150,13 @@ public final class EconomyCommand implements TabExecutor {
     private static Map<String, EconomySubcommand> registerPlayerCommands(CommandDependencies dependencies) {
         Map<String, EconomySubcommand> commands = new LinkedHashMap<>();
         register(commands, new com.earthpol.economyPol.command.player.BalanceSubcommand(dependencies));
+        com.earthpol.economyPol.command.player.BalanceTopSubCommand balanceTopSubcommand =
+                new com.earthpol.economyPol.command.player.BalanceTopSubCommand(dependencies);
+        register(commands, balanceTopSubcommand);
+        commands.put(BALANCE_TOP_ALIAS, balanceTopSubcommand);
         register(commands, new com.earthpol.economyPol.command.player.DepositSubcommand(dependencies));
         register(commands, new com.earthpol.economyPol.command.player.WithdrawSubcommand(dependencies));
-        register(commands, new com.earthpol.economyPol.command.player.SyncWalletSubcommand(dependencies));
+        register(commands, new com.earthpol.economyPol.command.player.NormalizeWalletSubcommand(dependencies));
         return Collections.unmodifiableMap(new LinkedHashMap<>(commands));
     }
 
@@ -149,5 +169,11 @@ public final class EconomyCommand implements TabExecutor {
 
     private static void register(Map<String, EconomySubcommand> commands, EconomySubcommand subcommand) {
         commands.put(subcommand.name(), subcommand);
+    }
+
+    private static boolean isDirectBalanceTopCommand(Command command, String label) {
+        String commandName = command.getName().toLowerCase(Locale.ROOT);
+        String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
+        return BALANCE_TOP_ALIAS.equals(commandName) || BALANCE_TOP_ALIAS.equals(normalizedLabel);
     }
 }

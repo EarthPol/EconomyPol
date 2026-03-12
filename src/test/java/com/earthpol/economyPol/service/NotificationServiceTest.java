@@ -5,7 +5,7 @@ import com.earthpol.economyPol.config.PluginSettings;
 import com.earthpol.economyPol.domain.Denomination;
 import com.earthpol.economyPol.domain.PlayerNotificationRecord;
 import com.earthpol.economyPol.domain.PlayerNotificationType;
-import com.earthpol.economyPol.persistence.JdbcEconomyRepository;
+import com.earthpol.economyPol.persistence.NotificationRepository;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
 final class NotificationServiceTest {
 
     private NotificationService notificationService;
-    private JdbcEconomyRepository repository;
+    private NotificationRepository repository;
     private SchedulerService schedulerService;
 
     @BeforeEach
@@ -50,7 +50,7 @@ final class NotificationServiceTest {
                 ),
                 null
         );
-        repository = mock(JdbcEconomyRepository.class);
+        repository = mock(NotificationRepository.class);
         schedulerService = mock(SchedulerService.class);
         doAnswer(invocation -> {
             Runnable action = invocation.getArgument(1);
@@ -110,6 +110,30 @@ final class NotificationServiceTest {
                 isNull(),
                 eq(false)
         );
+    }
+
+    @Test
+    void changeRoutedToCustodialNotificationExplainsReturnedChange() {
+        Player player = mock(Player.class);
+
+        notificationService.notifyChangeRoutedToCustodial(player, 71L, 90L);
+
+        String message = capturePlainText(player);
+        assertTrue(message.contains("Change Routed to Custodial"));
+        assertTrue(message.contains("Change moved to custodial: 71 Gold Coins"));
+        assertTrue(message.contains("Custodial balance: 90 Gold Coins"));
+    }
+
+    @Test
+    void notEnoughRoomForChangeNotificationExplainsCanceledTransaction() {
+        Player player = mock(Player.class);
+
+        notificationService.notifyNotEnoughRoomForChange(player);
+
+        String message = capturePlainText(player);
+        assertTrue(message.contains("Not Enough Room For Change"));
+        assertTrue(message.contains("This transaction was canceled because you do not have enough space"));
+        assertTrue(message.contains("inventory and/or ender chest"));
     }
 
     @Test

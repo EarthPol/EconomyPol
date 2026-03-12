@@ -3,22 +3,25 @@ package com.earthpol.economyPol.command.player;
 import com.earthpol.economyPol.command.shared.AbstractEconomySubcommand;
 import com.earthpol.economyPol.command.shared.CommandDependencies;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 
-public final class SyncWalletSubcommand extends AbstractEconomySubcommand {
+public final class BalanceTopSubCommand extends AbstractEconomySubcommand {
 
-    public SyncWalletSubcommand(CommandDependencies dependencies) {
+    private static final int TOP_COUNT = 10;
+    private final BalanceTopCache cache;
+
+    public BalanceTopSubCommand(CommandDependencies dependencies) {
         super(dependencies);
+        this.cache = new BalanceTopCache(dependencies, TOP_COUNT);
     }
 
     @Override
     public String name() {
-        return "syncwallet";
+        return "balancetop";
     }
 
     @Override
     public String usage() {
-        return "/economypol syncwallet";
+        return "/economypol balancetop";
     }
 
     @Override
@@ -27,12 +30,8 @@ public final class SyncWalletSubcommand extends AbstractEconomySubcommand {
             sender.sendMessage(usage());
             return true;
         }
-        Player player = requirePlayer(sender, "Only players can sync their ender wallet.");
-        if (player == null) {
-            return true;
-        }
-        dependencies.enderWalletService().normalizeOnlineEnderWallet(player);
-        sender.sendMessage("Ender wallet normalized.");
+        cache.request(sender);
         return true;
     }
+
 }
