@@ -1,7 +1,8 @@
 package com.earthpol.economyPol.service;
 
-import com.earthpol.economyPol.config.PluginSettings;
-import com.earthpol.economyPol.domain.Denomination;
+import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.model.Denomination;
+import com.earthpol.economyPol.economy.service.DenominationService;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;

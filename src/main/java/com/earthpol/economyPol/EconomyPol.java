@@ -3,28 +3,32 @@ package com.earthpol.economyPol;
 import com.earthpol.earthPolLib.database.DatabaseService;
 import com.earthpol.earthPolLib.database.flyway.FlywaySupport;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.api.EconomyPolAPI;
-import com.earthpol.economyPol.api.EconomyPolApiProvider;
-import com.earthpol.economyPol.command.EconomyCommand;
-import com.earthpol.economyPol.config.PluginSettings;
-import com.earthpol.economyPol.domain.EnderWalletSnapshot;
-import com.earthpol.economyPol.listener.EnderChestLockListener;
-import com.earthpol.economyPol.listener.PlayerLifecycleListener;
-import com.earthpol.economyPol.logging.EconomyLoggers;
-import com.earthpol.economyPol.persistence.AccountRepository;
-import com.earthpol.economyPol.persistence.EnderWalletRepository;
-import com.earthpol.economyPol.persistence.FundsRepository;
-import com.earthpol.economyPol.persistence.NotificationRepository;
-import com.earthpol.economyPol.service.DatabaseCheckService;
-import com.earthpol.economyPol.service.DenominationService;
-import com.earthpol.economyPol.service.EconomyService;
-import com.earthpol.economyPol.service.EnderWalletService;
-import com.earthpol.economyPol.service.LiveMoneyService;
-import com.earthpol.economyPol.service.NotificationService;
-import com.earthpol.economyPol.service.NumericalConsistencyService;
-import com.earthpol.economyPol.service.PlayerMoneyLockService;
-import com.earthpol.economyPol.service.ReservationService;
-import com.earthpol.economyPol.service.SchedulerService;
+import com.earthpol.economyPol.economy.api.EconomyPolAPI;
+import com.earthpol.economyPol.economy.api.EconomyPolApiProvider;
+import com.earthpol.economyPol.economy.command.EconomyCommand;
+import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
+import com.earthpol.economyPol.economy.listener.EnderChestLockListener;
+import com.earthpol.economyPol.economy.listener.PlayerLifecycleListener;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.repository.AccountRepository;
+import com.earthpol.economyPol.economy.repository.EnderWalletRepository;
+import com.earthpol.economyPol.economy.repository.FundsRepository;
+import com.earthpol.economyPol.economy.repository.NotificationRepository;
+import com.earthpol.economyPol.economy.repository.PlayerRepository;
+import com.earthpol.economyPol.economy.service.DatabaseCheckService;
+import com.earthpol.economyPol.economy.service.DenominationService;
+import com.earthpol.economyPol.economy.service.EconomyService;
+import com.earthpol.economyPol.economy.service.EnderWalletService;
+import com.earthpol.economyPol.economy.service.LiveMoneyService;
+import com.earthpol.economyPol.economy.service.NotificationService;
+import com.earthpol.economyPol.economy.service.NumericalConsistencyService;
+import com.earthpol.economyPol.economy.service.PlayerMoneyLockService;
+import com.earthpol.economyPol.economy.service.ReservationService;
+import com.earthpol.economyPol.economy.service.SchedulerService;
+import com.earthpol.economyPol.towny.TownyService;
+import com.earthpol.economyPol.towny.listener.TownyBootstrapListener;
+import com.earthpol.economyPol.towny.repository.TownyGovernmentRepository;
 import com.earthpol.economyPol.vault.EconomyVaultAdapter;
 import com.earthpol.economyPol.vault.VaultUnlockedEconomyAdapter;
 import org.bukkit.command.PluginCommand;
@@ -42,9 +46,11 @@ public final class EconomyPol extends JavaPlugin {
     private EconomyLoggers loggers;
     private DatabaseService dbService;
     private AccountRepository accountRepository;
+    private PlayerRepository playerRepository;
     private FundsRepository fundsRepository;
     private EnderWalletRepository enderWalletRepository;
     private NotificationRepository notificationRepository;
+    private TownyGovernmentRepository townyGovernmentRepository;
     private DenominationService denominationService;
     private NumericalConsistencyService numericalConsistencyService;
     private LiveMoneyService liveMoneyService;
@@ -54,6 +60,7 @@ public final class EconomyPol extends JavaPlugin {
     private EnderWalletService enderWalletService;
     private ReservationService reservationService;
     private DatabaseCheckService databaseCheckService;
+    private TownyService townyService;
     private EconomyService economyService;
     private EconomyPolAPI economyPolApi;
     private EconomyVaultAdapter vaultAdapter;
@@ -96,9 +103,11 @@ public final class EconomyPol extends JavaPlugin {
         }
 
         accountRepository = new AccountRepository(dbService, log(), audit());
+        playerRepository = new PlayerRepository(dbService, log(), audit());
         fundsRepository = new FundsRepository(dbService, log(), audit());
         enderWalletRepository = new EnderWalletRepository(dbService, log(), audit());
         notificationRepository = new NotificationRepository(dbService, log(), audit());
+        townyGovernmentRepository = new TownyGovernmentRepository(dbService, log(), audit());
         logRecoveredUncleanSnapshots(enderWalletRepository.markStaleSnapshotsDisabled());
 
         denominationService = new DenominationService(settings.currency(), log());
@@ -108,6 +117,7 @@ public final class EconomyPol extends JavaPlugin {
         notificationService = new NotificationService(denominationService, notificationRepository, schedulerService, log());
         playerMoneyLockService = new PlayerMoneyLockService();
         reservationService = new ReservationService(fundsRepository, audit());
+        townyService = new TownyService();
         enderWalletService = new EnderWalletService(
                 this,
                 enderWalletRepository,
@@ -117,9 +127,10 @@ public final class EconomyPol extends JavaPlugin {
                 audit(),
                 uncleanBoot
         );
-        databaseCheckService = new DatabaseCheckService(dbService);
+        databaseCheckService = new DatabaseCheckService(dbService, townyService);
         economyService = new EconomyService(
                 accountRepository,
+                playerRepository,
                 fundsRepository,
                 denominationService,
                 liveMoneyService,
@@ -209,6 +220,15 @@ public final class EconomyPol extends JavaPlugin {
                 this
         );
         getServer().getPluginManager().registerEvents(new EnderChestLockListener(playerMoneyLockService), this);
+        TownyBootstrapListener townyBootstrapListener = new TownyBootstrapListener(
+                this,
+                townyService,
+                economyService,
+                townyGovernmentRepository,
+                log()
+        );
+        getServer().getPluginManager().registerEvents(townyBootstrapListener, this);
+        townyBootstrapListener.registerIfTownyEnabled();
     }
 
     private void registerCommands() {
@@ -224,6 +244,7 @@ public final class EconomyPol extends JavaPlugin {
                 economyService,
                 enderWalletService,
                 databaseCheckService,
+                townyService,
                 settings,
                 log(),
                 healthcheck()

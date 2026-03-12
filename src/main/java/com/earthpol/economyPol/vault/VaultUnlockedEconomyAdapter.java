@@ -2,12 +2,10 @@ package com.earthpol.economyPol.vault;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.EconomyPol;
-import com.earthpol.economyPol.config.PluginSettings;
-import com.earthpol.economyPol.domain.AccountRecord;
-import com.earthpol.economyPol.domain.AccountType;
-import com.earthpol.economyPol.domain.MoneyOperationResult;
-import com.earthpol.economyPol.service.EconomyService;
-import com.earthpol.economyPol.service.NumericalConsistencyService;
+import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.model.MoneyOperationResult;
+import com.earthpol.economyPol.economy.service.EconomyService;
+import com.earthpol.economyPol.economy.service.NumericalConsistencyService;
 import net.milkbowl.vault2.economy.AccountPermission;
 import net.milkbowl.vault2.economy.Economy;
 import net.milkbowl.vault2.economy.EconomyResponse;
@@ -135,7 +133,9 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
             economyService.ensurePlayerAccount(accountID, name);
             return true;
         }
-        return economyService.createSharedAccount(accountID, name, null);
+        // Generic shared-account creation does not supply a separate human owner.
+        // Use the shared account UUID itself as the stable non-null owner identity.
+        return economyService.createSharedAccount(accountID, name, accountID);
     }
 
     @Override
