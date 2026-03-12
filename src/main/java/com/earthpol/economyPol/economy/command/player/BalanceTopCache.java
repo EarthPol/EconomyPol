@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-final class BalanceTopCache {
+public final class BalanceTopCache {
 
     private static final Comparator<BalanceTopEntry> ENTRY_ORDER = Comparator
             .comparingLong(BalanceTopEntry::balance).reversed()
@@ -41,7 +41,7 @@ final class BalanceTopCache {
     private volatile CachedBalanceTop cachedSnapshot;
     private volatile boolean rebuildRunning;
 
-    BalanceTopCache(CommandDependencies dependencies, int maxEntries) {
+    public BalanceTopCache(CommandDependencies dependencies, int maxEntries) {
         this.economyService = dependencies.economyService();
         this.enderWalletService = dependencies.enderWalletService();
         this.schedulerService = dependencies.economyService().schedulerService();
@@ -51,7 +51,7 @@ final class BalanceTopCache {
         this.ttlMillis = TimeUnit.SECONDS.toMillis(dependencies.settings().cache().balanceTopTtlSeconds());
     }
 
-    void request(CommandSender sender) {
+    public void request(CommandSender sender) {
         CachedBalanceTop freshSnapshot = currentFreshSnapshot();
         if (freshSnapshot != null) {
             sendSnapshot(sender, freshSnapshot);
