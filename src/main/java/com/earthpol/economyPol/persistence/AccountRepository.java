@@ -55,6 +55,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
     }
 
     public AccountRecord ensureSharedAccount(UUID accountId, String name, UUID ownerUuid) {
+        UUID resolvedOwnerUuid = ownerUuid == null ? accountId : ownerUuid;
         long now = System.currentTimeMillis();
         update("""
                 INSERT INTO economy_accounts (
@@ -64,11 +65,12 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     owner_uuid = VALUES(owner_uuid),
+                    account_name = VALUES(account_name),
                     updated_at = VALUES(updated_at)
                 """,
                 uuid(accountId),
                 AccountType.SHARED.name(),
-                uuid(ownerUuid),
+                uuid(resolvedOwnerUuid),
                 name,
                 true,
                 true,
@@ -77,7 +79,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 now
         );
         ensureBalanceRow(accountId);
-        return new AccountRecord(accountId, AccountType.SHARED, ownerUuid, name, new PlayerAccountPolicy(true, true, true));
+        return new AccountRecord(accountId, AccountType.SHARED, resolvedOwnerUuid, name, new PlayerAccountPolicy(true, true, true));
     }
 
     public Optional<AccountRecord> findAccount(UUID accountId) {

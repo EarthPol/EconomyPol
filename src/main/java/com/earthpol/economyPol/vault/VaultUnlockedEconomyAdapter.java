@@ -135,7 +135,9 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
             economyService.ensurePlayerAccount(accountID, name);
             return true;
         }
-        return economyService.createSharedAccount(accountID, name, null);
+        // Generic shared-account creation does not supply a separate human owner.
+        // Use the shared account UUID itself as the stable non-null owner identity.
+        return economyService.createSharedAccount(accountID, name, accountID);
     }
 
     @Override

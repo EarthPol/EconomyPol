@@ -10,6 +10,7 @@ import com.earthpol.economyPol.config.PluginSettings;
 import com.earthpol.economyPol.domain.EnderWalletSnapshot;
 import com.earthpol.economyPol.listener.EnderChestLockListener;
 import com.earthpol.economyPol.listener.PlayerLifecycleListener;
+import com.earthpol.economyPol.listener.TownyBootstrapListener;
 import com.earthpol.economyPol.logging.EconomyLoggers;
 import com.earthpol.economyPol.persistence.AccountRepository;
 import com.earthpol.economyPol.persistence.EnderWalletRepository;
@@ -209,6 +210,9 @@ public final class EconomyPol extends JavaPlugin {
                 this
         );
         getServer().getPluginManager().registerEvents(new EnderChestLockListener(playerMoneyLockService), this);
+        TownyBootstrapListener townyBootstrapListener = new TownyBootstrapListener(this, economyService, log());
+        getServer().getPluginManager().registerEvents(townyBootstrapListener, this);
+        townyBootstrapListener.registerIfTownyEnabled();
     }
 
     private void registerCommands() {
