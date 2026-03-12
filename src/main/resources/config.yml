@@ -22,7 +22,7 @@ numeric:
   # REJECT: fail on any fractional amount such as 5.5
   # ROUND: round to a whole number using rounding-mode
   # TRUNCATE: cut toward zero; 5.9 -> 5, -5.9 -> -5
-  decimal-handling: REJECT
+  decimal-handling: TRUNCATE
   # Used only when decimal-handling is ROUND.
   # Any java.math.RoundingMode enum name is valid.
   # Common choices:
