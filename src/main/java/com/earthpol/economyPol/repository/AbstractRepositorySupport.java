@@ -1,4 +1,4 @@
-package com.earthpol.economyPol.persistence;
+package com.earthpol.economyPol.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;

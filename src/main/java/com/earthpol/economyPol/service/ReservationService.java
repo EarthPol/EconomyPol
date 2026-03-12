@@ -1,9 +1,9 @@
 package com.earthpol.economyPol.service;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.domain.ReservationRecord;
-import com.earthpol.economyPol.domain.ReservationStatus;
-import com.earthpol.economyPol.persistence.FundsRepository;
+import com.earthpol.economyPol.model.ReservationRecord;
+import com.earthpol.economyPol.model.ReservationStatus;
+import com.earthpol.economyPol.repository.FundsRepository;
 
 import java.util.Optional;
 import java.util.UUID;

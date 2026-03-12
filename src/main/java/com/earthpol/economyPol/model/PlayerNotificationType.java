@@ -1,4 +1,4 @@
-package com.earthpol.economyPol.domain;
+package com.earthpol.economyPol.model;
 
 public enum PlayerNotificationType {
     INCOMING_OVERFLOW_TO_CUSTODIAL,

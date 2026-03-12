@@ -3,9 +3,9 @@ package com.earthpol.economyPol.vault;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.EconomyPol;
 import com.earthpol.economyPol.config.PluginSettings;
-import com.earthpol.economyPol.domain.AccountRecord;
-import com.earthpol.economyPol.domain.AccountType;
-import com.earthpol.economyPol.domain.MoneyOperationResult;
+import com.earthpol.economyPol.model.AccountRecord;
+import com.earthpol.economyPol.model.AccountType;
+import com.earthpol.economyPol.model.MoneyOperationResult;
 import com.earthpol.economyPol.service.EconomyService;
 import com.earthpol.economyPol.service.NumericalConsistencyService;
 import net.milkbowl.vault.economy.AbstractEconomy;
@@ -221,7 +221,7 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
 
     @Override
     public EconomyResponse deleteBank(String name) {
-        Optional<com.earthpol.economyPol.domain.AccountRecord> bank = economyService.findSharedAccount(name);
+        Optional<com.earthpol.economyPol.model.AccountRecord> bank = economyService.findSharedAccount(name);
         if (bank.isEmpty()) {
             return new EconomyResponse(0D, 0D, EconomyResponse.ResponseType.FAILURE, "Bank does not exist.");
         }
@@ -325,7 +325,7 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
 
     @Override
     public EconomyResponse isBankOwner(String name, OfflinePlayer player) {
-        Optional<com.earthpol.economyPol.domain.AccountRecord> bank = economyService.findSharedAccount(name);
+        Optional<com.earthpol.economyPol.model.AccountRecord> bank = economyService.findSharedAccount(name);
         boolean owner = bank.isPresent() && player != null && player.getUniqueId().equals(bank.get().ownerUuid());
         return new EconomyResponse(0D, economyService.bankBalance(name), owner ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE, owner ? "" : "Not owner.");
     }

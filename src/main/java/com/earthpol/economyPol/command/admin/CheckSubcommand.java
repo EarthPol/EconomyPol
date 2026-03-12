@@ -2,7 +2,7 @@ package com.earthpol.economyPol.command.admin;
 
 import com.earthpol.economyPol.command.shared.AbstractEconomySubcommand;
 import com.earthpol.economyPol.command.shared.CommandDependencies;
-import com.earthpol.economyPol.domain.DatabaseCheckReport;
+import com.earthpol.economyPol.model.DatabaseCheckReport;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 

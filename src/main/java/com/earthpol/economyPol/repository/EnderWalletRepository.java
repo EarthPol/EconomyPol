@@ -1,9 +1,9 @@
-package com.earthpol.economyPol.persistence;
+package com.earthpol.economyPol.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.domain.EnderWalletSnapshot;
-import com.earthpol.economyPol.domain.OfflineEnderWalletState;
+import com.earthpol.economyPol.model.EnderWalletSnapshot;
+import com.earthpol.economyPol.model.OfflineEnderWalletState;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;

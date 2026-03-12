@@ -1,10 +1,10 @@
-package com.earthpol.economyPol.persistence;
+package com.earthpol.economyPol.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.domain.BalanceRecord;
-import com.earthpol.economyPol.domain.ReservationRecord;
-import com.earthpol.economyPol.domain.ReservationStatus;
+import com.earthpol.economyPol.model.BalanceRecord;
+import com.earthpol.economyPol.model.ReservationRecord;
+import com.earthpol.economyPol.model.ReservationStatus;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

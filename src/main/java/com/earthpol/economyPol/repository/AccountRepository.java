@@ -1,10 +1,10 @@
-package com.earthpol.economyPol.persistence;
+package com.earthpol.economyPol.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.domain.AccountRecord;
-import com.earthpol.economyPol.domain.AccountType;
-import com.earthpol.economyPol.domain.PlayerAccountPolicy;
+import com.earthpol.economyPol.model.AccountRecord;
+import com.earthpol.economyPol.model.AccountType;
+import com.earthpol.economyPol.model.PlayerAccountPolicy;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

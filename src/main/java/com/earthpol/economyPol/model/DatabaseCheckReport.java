@@ -1,4 +1,4 @@
-package com.earthpol.economyPol.domain;
+package com.earthpol.economyPol.model;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;

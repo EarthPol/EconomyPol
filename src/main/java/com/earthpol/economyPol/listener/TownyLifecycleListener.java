@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.listener;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.economyPol.domain.AccountRecord;
+import com.earthpol.economyPol.model.AccountRecord;
 import com.earthpol.economyPol.service.EconomyService;
 import com.palmergames.bukkit.towny.TownyEconomyHandler;
 import com.palmergames.bukkit.towny.TownySettings;

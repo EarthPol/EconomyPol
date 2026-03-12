@@ -1,8 +1,8 @@
 package com.earthpol.economyPol.config;
 
-import com.earthpol.economyPol.domain.Denomination;
-import com.earthpol.economyPol.domain.MoneyRouteTarget;
-import com.earthpol.economyPol.domain.PlayerAccountPolicy;
+import com.earthpol.economyPol.model.Denomination;
+import com.earthpol.economyPol.model.MoneyRouteTarget;
+import com.earthpol.economyPol.model.PlayerAccountPolicy;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;

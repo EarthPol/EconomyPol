@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.command.player;
 
 import com.earthpol.economyPol.command.shared.CommandDependencies;
-import com.earthpol.economyPol.domain.EnderWalletSnapshot;
+import com.earthpol.economyPol.model.EnderWalletSnapshot;
 import com.earthpol.economyPol.service.DenominationService;
 import com.earthpol.economyPol.service.EconomyService;
 import com.earthpol.economyPol.service.EnderWalletService;

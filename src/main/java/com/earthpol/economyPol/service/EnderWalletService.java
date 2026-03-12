@@ -2,12 +2,11 @@ package com.earthpol.economyPol.service;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.EconomyPol;
-import com.earthpol.economyPol.domain.BalanceRecord;
-import com.earthpol.economyPol.domain.EnderWalletSnapshot;
-import com.earthpol.economyPol.domain.MoneyOperationResult;
-import com.earthpol.economyPol.domain.MoneyRouteTarget;
-import com.earthpol.economyPol.domain.OfflineEnderWalletState;
-import com.earthpol.economyPol.persistence.EnderWalletRepository;
+import com.earthpol.economyPol.model.BalanceRecord;
+import com.earthpol.economyPol.model.EnderWalletSnapshot;
+import com.earthpol.economyPol.model.MoneyOperationResult;
+import com.earthpol.economyPol.model.OfflineEnderWalletState;
+import com.earthpol.economyPol.repository.EnderWalletRepository;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
