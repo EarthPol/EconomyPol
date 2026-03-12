@@ -8,6 +8,7 @@ It is designed to let players hold and move real money items while still providi
 - Legacy Vault compatibility for older plugins
 - Database-backed custodial storage and shared accounts
 - A managed offline ender-wallet snapshot for offline spending support
+- Explicit Towny government bindings for town and nation bank accounts
 - Audit logging, health checks, and a native API for EconomyPol-specific behavior
 
 This README describes the plugin as it is currently implemented.
@@ -20,11 +21,14 @@ Implemented today:
 
 - Discrete denomination-based currency
 - Player accounts and shared accounts
+- Player registration rows with foreign-keyed player-owned economy data
 - Custodial balances and reservations
 - VaultUnlocked v2 provider
 - Legacy Vault provider
 - Managed offline ender-wallet snapshots
 - Persistent offline player notifications
+- Folia-safe scheduler coordination for player-bound inventory work
+- Towny government binding and lifecycle synchronization
 - Database health checks
 - Native `EconomyPolAPI`
 
@@ -238,7 +242,7 @@ Fractional money does not exist.
 - all storage uses integers
 - Vault/VaultUnlocked fractional digit metadata is hardcoded to `0`
 - external decimal requests are normalized through `NumericalConsistencyService`
-- the default policy is `REJECT`, but operators can switch to `ROUND` or `TRUNCATE`
+- the default policy is `TRUNCATE`, but operators can switch to `REJECT` or `ROUND`
 
 ## Numeric Consistency
 
@@ -269,7 +273,7 @@ The default config is:
 
 ```yaml
 numeric:
-  decimal-handling: REJECT
+  decimal-handling: TRUNCATE
   rounding-mode: HALF_UP
 ```
 
@@ -364,6 +368,8 @@ It sends formatted messages for:
 - ender-wallet overflow moved to custodial
 - custodial balance reminders
 - offline custodial credits
+- change routed to custodial because not all physical change fit
+- strict spend failures caused by not enough room to return change
 
 Offline notifications are persisted in the database and delivered on next login.
 
@@ -378,6 +384,7 @@ Current queue table:
 - `/economypol balance`
 - `/economypol balancetop`
 - `/economypol baltop`
+- `/ecopol ...`
 - `/economypol deposit <amount|all>`
 - `/economypol withdraw <amount>`
 - `/economypol normalizewallet`
@@ -389,6 +396,7 @@ Notes:
 - `/economypol deposit` means “store physical money into custodial”
 - `/economypol balancetop` shows the cached top player balances from online live money plus offline frozen ender-wallet snapshots
 - `/economypol baltop` and `/baltop` are aliases for the same cached leaderboard
+- `/ecopol` is an alias for `/economypol`
 - `/economypol normalizewallet` normalizes the current ender chest money layout
 
 ### Admin Commands
@@ -453,7 +461,7 @@ currency:
       base-units: 81
 
 numeric:
-  decimal-handling: REJECT
+  decimal-handling: TRUNCATE
   rounding-mode: HALF_UP
 
 players:
@@ -511,6 +519,7 @@ logging:
 - `REJECT` fails on non-whole values
 - `ROUND` rounds using `numeric.rounding-mode`
 - `TRUNCATE` truncates toward zero
+- current default is `TRUNCATE`
 
 #### `numeric.rounding-mode`
 
@@ -534,6 +543,7 @@ logging:
 - controls how long the cached `/economypol balancetop` leaderboard stays fresh
 - when stale, the next request rebuilds the cache by scanning all online players plus frozen offline ender-wallet snapshots
 - player custodial balances are not part of this leaderboard
+- if a rebuild is already running, later requesters are queued and all receive the rebuilt snapshot when it completes
 
 ## Database Schema
 
@@ -541,14 +551,24 @@ Current migrations:
 
 - `V1__init.sql`
 
+Schema conventions:
+
+- UUID columns use MariaDB native `UUID`
+- time columns use `TIMESTAMP(3)`
+- the schema is written for MariaDB, which matches EarthPolLib's current database support
+
 Main tables:
 
 - `economy_players`
-  - registered player identity rows
+  - registered player identity rows keyed by `player_uuid`
+  - populated automatically when a player joins
 - `economy_accounts`
   - player and shared accounts
 - `economy_towny_governments`
-  - Towny government to bank-account bindings
+  - explicit Towny government to bank-account bindings
+  - `government_uuid` is the raw Towny town or nation UUID and the row primary key
+  - `account_id` is the EconomyPol shared account bound to that government
+  - `bank_account_uuid` is the Towny bank UUID Towny actually uses when calling EconomyPol
 - `economy_account_members`
   - shared account member relationships
 - `economy_balances`
@@ -645,6 +665,7 @@ It supports:
 - UUID-based accounts
 - shared accounts
 - integer-only money handling with configurable decimal coercion at the API boundary
+- Towny-compatible shared-account access when Towny is running in modern mode
 
 ### Legacy Vault
 
@@ -655,6 +676,8 @@ EconomyPol also registers:
 This exists for older plugins that still depend on the original Vault API.
 
 Legacy Vault now uses the same numeric policy as VaultUnlocked through `NumericalConsistencyService`, so decimal behavior is consistent across both provider surfaces.
+At runtime the VaultUnlocked plugin is still discovered by Bukkit as `Vault`, so EconomyPol declares `softdepend: [Vault]`.
+EconomyPol also declares `loadbefore: [Towny, Quickshop-Hikari]` so the provider is registered before those plugins initialize.
 
 ### EconomyPolAPI
 
@@ -697,6 +720,81 @@ That means:
 - Towny create/rename/delete lifecycle events are synchronized into EconomyPol
 - VaultUnlocked UUID/shared-account support is available
 
+### How Towny Bindings Work
+
+Towny has two relevant identities for a government-backed bank:
+
+- the raw Towny government UUID for the `Town` or `Nation`
+- the Towny bank account UUID that Towny passes to the economy provider
+
+The bank account UUID is the economy-facing identity. The bank account name changes when the town or nation is renamed, but the UUID normally stays stable unless Towny's own UUID policy or repair tooling changes it.
+
+EconomyPol stores both explicitly in `economy_towny_governments`.
+
+Important columns:
+
+- `government_uuid`
+  - the real Towny object UUID
+  - primary key of the binding row
+- `government_type`
+  - `TOWN` or `NATION`
+- `account_id`
+  - the EconomyPol shared account bound to that government
+- `bank_account_uuid`
+  - the UUID Towny currently uses when calling EconomyPol
+- `government_name`
+  - cached Towny town or nation name
+- `bank_account_name`
+  - cached Towny bank account name such as `town-BustunTown`
+
+In the healthy state:
+
+- `account_id == bank_account_uuid`
+
+EconomyPol stores both fields separately so it can detect mismatches instead of silently rewriting the binding.
+
+### Towny Synchronization Flow
+
+When Towny enables:
+
+- EconomyPol's `TownyBootstrapListener` notices the `PluginEnableEvent`
+- `TownyService` activates the Towny integration backend
+- EconomyPol synchronizes all current towns and nations
+- each government is reconciled through `syncGovernment(...)`
+
+For each town or nation, sync:
+
+- reads the raw government UUID, current Towny bank account UUID, government name, and bank account name
+- ensures the matching EconomyPol shared account exists for the bank account UUID
+- updates the shared account name to match Towny
+- sets the shared account owner metadata to the bank account UUID
+- upserts the `economy_towny_governments` binding row
+
+Towny lifecycle events then keep that binding current:
+
+- new town or nation -> refresh binding
+- rename town or nation -> refresh cached names and shared-account name
+- delete town or nation -> delete the shared account and cascade-delete the binding row
+
+### Bank UUID Mismatches
+
+A bank-account UUID mismatch means the binding row says one EconomyPol account is bound to a Towny government, but Towny currently derives or uses a different bank UUID for that same government.
+
+Common causes:
+
+- Towny's NPC/account UUID version policy changed
+- a Towny admin UUID repair/reset path changed the bank UUID
+- stale legacy Towny-style shared-account rows exist from before explicit bindings were added
+- manual database edits or old buggy rows
+
+Current EconomyPol behavior is intentionally conservative:
+
+- `syncGovernment(...)` logs a severe mismatch and refuses to silently rebind the government to a different account
+- `/economypol admin check towny-accounts` reports the mismatch
+- `/economypol admin cleanup towny-orphans` removes only true orphan rows and legacy unbound rows, not live UUID mismatches
+
+This avoids accidentally pointing a Towny government at the wrong balance history.
+
 What is **not** implemented yet:
 
 - Towny server-account binding
@@ -712,7 +810,8 @@ So the current state is:
 - Java 21
 - Paper `1.21.x`
 - VaultUnlocked available at runtime for the standard EarthPol deployment
-- MySQL/MariaDB-compatible database access through the configured JDBC layer
+- MariaDB through the configured JDBC layer
+- Towny `0.102.x` optional but supported
 
 Build commands used during development:
 
@@ -733,3 +832,4 @@ Important caveats:
 - Offline player spending only works through the frozen ender-wallet snapshot.
 - Notifications are queued for offline players, but there is not yet a full inbox/history UI.
 - Health checks report problems but do not repair them.
+- Towny bank UUID mismatches are reported and blocked from silent rebinding instead of being auto-fixed.
