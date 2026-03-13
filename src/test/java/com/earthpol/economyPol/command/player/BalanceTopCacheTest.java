@@ -6,7 +6,7 @@ import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
 import com.earthpol.economyPol.economy.model.OfflineEnderWalletState;
-import com.earthpol.economyPol.economy.service.admin.DatabaseCheckService;
+import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;

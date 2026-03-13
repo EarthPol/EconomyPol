@@ -16,7 +16,7 @@ import com.earthpol.economyPol.economy.repository.EnderWalletRepository;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
 import com.earthpol.economyPol.economy.repository.NotificationRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
-import com.earthpol.economyPol.economy.service.admin.DatabaseCheckService;
+import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;

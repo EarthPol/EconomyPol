@@ -7,7 +7,7 @@ import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.command.shared.EconomySubcommand;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.command.player.*;
-import com.earthpol.economyPol.economy.service.admin.DatabaseCheckService;
+import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
 import com.earthpol.economyPol.towny.TownyService;
