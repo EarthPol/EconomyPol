@@ -14,10 +14,10 @@ import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.model.ReservationRecord;
 import com.earthpol.economyPol.economy.model.ReservationStatus;
-import com.earthpol.economyPol.economy.service.DenominationService;
+import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.EconomyService;
-import com.earthpol.economyPol.economy.service.EnderWalletService;
-import com.earthpol.economyPol.economy.service.ReservationService;
+import com.earthpol.economyPol.economy.service.player.EnderWalletService;
+import com.earthpol.economyPol.economy.service.support.ReservationService;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -241,3 +241,4 @@ final class EconomyPolApiProviderTest {
         return offlinePlayer -> offlinePlayer != null && uuid.equals(offlinePlayer.getUniqueId());
     }
 }
+

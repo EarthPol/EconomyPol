@@ -1,8 +1,8 @@
 package com.earthpol.economyPol.economy.listener;
 
-import com.earthpol.economyPol.economy.service.EnderWalletService;
+import com.earthpol.economyPol.economy.service.player.EnderWalletService;
 import com.earthpol.economyPol.economy.service.EconomyService;
-import com.earthpol.economyPol.economy.service.NotificationService;
+import com.earthpol.economyPol.economy.service.player.NotificationService;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -43,3 +43,4 @@ public final class PlayerLifecycleListener implements Listener {
         enderWalletService.snapshotOnQuit(event.getPlayer());
     }
 }
+

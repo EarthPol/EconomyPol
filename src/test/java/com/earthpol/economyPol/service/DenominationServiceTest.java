@@ -2,7 +2,7 @@ package com.earthpol.economyPol.service;
 
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.Denomination;
-import com.earthpol.economyPol.economy.service.DenominationService;
+import com.earthpol.economyPol.economy.service.support.DenominationService;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
@@ -67,3 +67,4 @@ final class DenominationServiceTest {
         assertTrue(denominationService.isMoney(new ItemStack(Material.GOLD_BLOCK, 1)));
     }
 }
+

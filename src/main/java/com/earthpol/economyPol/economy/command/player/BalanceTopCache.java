@@ -2,10 +2,10 @@ package com.earthpol.economyPol.economy.command.player;
 
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
-import com.earthpol.economyPol.economy.service.DenominationService;
+import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.EconomyService;
-import com.earthpol.economyPol.economy.service.EnderWalletService;
-import com.earthpol.economyPol.economy.service.SchedulerService;
+import com.earthpol.economyPol.economy.service.player.EnderWalletService;
+import com.earthpol.economyPol.economy.service.support.SchedulerService;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -249,3 +249,4 @@ public final class BalanceTopCache {
         }
     }
 }
+

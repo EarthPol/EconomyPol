@@ -1,4 +1,4 @@
-package com.earthpol.economyPol.economy.service;
+package com.earthpol.economyPol.economy.service.support;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.config.PluginSettings;
@@ -99,3 +99,5 @@ public final class DenominationService {
         return currencySettings.pluralName();
     }
 }
+
+

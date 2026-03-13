@@ -1,4 +1,4 @@
-package com.earthpol.economyPol.economy.service;
+package com.earthpol.economyPol.economy.service.player;
 
 import java.util.Set;
 import java.util.UUID;
@@ -20,3 +20,5 @@ public final class PlayerMoneyLockService {
         return lockedPlayers.contains(playerUuid);
     }
 }
+
+

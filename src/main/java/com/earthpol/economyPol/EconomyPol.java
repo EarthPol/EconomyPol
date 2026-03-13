@@ -16,16 +16,16 @@ import com.earthpol.economyPol.economy.repository.EnderWalletRepository;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
 import com.earthpol.economyPol.economy.repository.NotificationRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
-import com.earthpol.economyPol.economy.service.DatabaseCheckService;
-import com.earthpol.economyPol.economy.service.DenominationService;
+import com.earthpol.economyPol.economy.service.admin.DatabaseCheckService;
+import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.EconomyService;
-import com.earthpol.economyPol.economy.service.EnderWalletService;
-import com.earthpol.economyPol.economy.service.LiveMoneyService;
-import com.earthpol.economyPol.economy.service.NotificationService;
-import com.earthpol.economyPol.economy.service.NumericalConsistencyService;
-import com.earthpol.economyPol.economy.service.PlayerMoneyLockService;
-import com.earthpol.economyPol.economy.service.ReservationService;
-import com.earthpol.economyPol.economy.service.SchedulerService;
+import com.earthpol.economyPol.economy.service.player.EnderWalletService;
+import com.earthpol.economyPol.economy.service.money.LiveMoneyService;
+import com.earthpol.economyPol.economy.service.player.NotificationService;
+import com.earthpol.economyPol.economy.service.support.NumericalConsistencyService;
+import com.earthpol.economyPol.economy.service.player.PlayerMoneyLockService;
+import com.earthpol.economyPol.economy.service.support.ReservationService;
+import com.earthpol.economyPol.economy.service.support.SchedulerService;
 import com.earthpol.economyPol.towny.TownyService;
 import com.earthpol.economyPol.towny.listener.TownyBootstrapListener;
 import com.earthpol.economyPol.towny.repository.TownyGovernmentRepository;
@@ -39,6 +39,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+
+// TODO: Add built-in TNE migrator, or write a custom script for it. In python perhaps?
+// TODO: Split up config file and try to have most config be with ReloadableConfiguration
+// configs: database.yml(no reload), currency.yml(no reload), rest of configs: config.yml
+// todo: Better logging, more logging configuration
+// todo: touch up UI and notification delivery
 
 public final class EconomyPol extends JavaPlugin {
 
@@ -297,3 +303,4 @@ public final class EconomyPol extends JavaPlugin {
         }
     }
 }
+

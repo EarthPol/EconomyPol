@@ -1,4 +1,4 @@
-package com.earthpol.economyPol.economy.service;
+package com.earthpol.economyPol.economy.service.support;
 
 import com.earthpol.economyPol.economy.config.PluginSettings;
 
@@ -110,3 +110,5 @@ public final class NumericalConsistencyService {
         }
     }
 }
+
+

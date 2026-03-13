@@ -6,9 +6,9 @@ import com.earthpol.economyPol.economy.model.Denomination;
 import com.earthpol.economyPol.economy.model.PlayerNotificationRecord;
 import com.earthpol.economyPol.economy.model.PlayerNotificationType;
 import com.earthpol.economyPol.economy.repository.NotificationRepository;
-import com.earthpol.economyPol.economy.service.DenominationService;
-import com.earthpol.economyPol.economy.service.NotificationService;
-import com.earthpol.economyPol.economy.service.SchedulerService;
+import com.earthpol.economyPol.economy.service.support.DenominationService;
+import com.earthpol.economyPol.economy.service.player.NotificationService;
+import com.earthpol.economyPol.economy.service.support.SchedulerService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
@@ -163,3 +163,4 @@ final class NotificationServiceTest {
         return PlainTextComponentSerializer.plainText().serialize(captor.getValue());
     }
 }
+

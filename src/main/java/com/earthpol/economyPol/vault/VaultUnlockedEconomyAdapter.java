@@ -5,7 +5,7 @@ import com.earthpol.economyPol.EconomyPol;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.service.EconomyService;
-import com.earthpol.economyPol.economy.service.NumericalConsistencyService;
+import com.earthpol.economyPol.economy.service.support.NumericalConsistencyService;
 import net.milkbowl.vault2.economy.AccountPermission;
 import net.milkbowl.vault2.economy.Economy;
 import net.milkbowl.vault2.economy.EconomyResponse;
@@ -406,3 +406,4 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
         return sanitized;
     }
 }
+

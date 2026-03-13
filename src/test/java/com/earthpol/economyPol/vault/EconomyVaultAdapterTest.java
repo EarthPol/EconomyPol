@@ -7,9 +7,9 @@ import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
-import com.earthpol.economyPol.economy.service.DenominationService;
+import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.EconomyService;
-import com.earthpol.economyPol.economy.service.NumericalConsistencyService;
+import com.earthpol.economyPol.economy.service.support.NumericalConsistencyService;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.OfflinePlayer;
 import org.junit.jupiter.api.Test;
@@ -145,3 +145,4 @@ final class EconomyVaultAdapterTest {
         );
     }
 }
+

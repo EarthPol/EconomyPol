@@ -7,9 +7,9 @@ import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.command.shared.EconomySubcommand;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.command.player.*;
-import com.earthpol.economyPol.economy.service.DatabaseCheckService;
+import com.earthpol.economyPol.economy.service.admin.DatabaseCheckService;
 import com.earthpol.economyPol.economy.service.EconomyService;
-import com.earthpol.economyPol.economy.service.EnderWalletService;
+import com.earthpol.economyPol.economy.service.player.EnderWalletService;
 import com.earthpol.economyPol.towny.TownyService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -184,3 +184,4 @@ public final class EconomyCommand implements TabExecutor {
         return BALANCE_TOP_ALIAS.equals(commandName) || BALANCE_TOP_ALIAS.equals(normalizedLabel);
     }
 }
+

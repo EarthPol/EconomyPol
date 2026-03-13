@@ -1,6 +1,6 @@
 package com.earthpol.economyPol.economy.listener;
 
-import com.earthpol.economyPol.economy.service.PlayerMoneyLockService;
+import com.earthpol.economyPol.economy.service.player.PlayerMoneyLockService;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -26,3 +26,4 @@ public final class EnderChestLockListener implements Listener {
         }
     }
 }
+

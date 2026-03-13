@@ -7,7 +7,7 @@ import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.service.EconomyService;
-import com.earthpol.economyPol.economy.service.NumericalConsistencyService;
+import com.earthpol.economyPol.economy.service.support.NumericalConsistencyService;
 import net.milkbowl.vault.economy.AbstractEconomy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.Bukkit;
@@ -406,3 +406,4 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
         return new EconomyResponse(amount, 0D, EconomyResponse.ResponseType.FAILURE, message);
     }
 }
+

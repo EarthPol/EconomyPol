@@ -1,4 +1,4 @@
-package com.earthpol.economyPol.economy.service;
+package com.earthpol.economyPol.economy.service.support;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.model.ReservationRecord;
@@ -45,3 +45,5 @@ public final class ReservationService {
         return true;
     }
 }
+
+

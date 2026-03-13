@@ -1,4 +1,4 @@
-package com.earthpol.economyPol.economy.service;
+package com.earthpol.economyPol.economy.service.admin;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
 import com.earthpol.economyPol.economy.model.DatabaseCheckFinding;
@@ -544,3 +544,5 @@ public final class DatabaseCheckService {
         T map(ResultSet resultSet) throws SQLException;
     }
 }
+
+
