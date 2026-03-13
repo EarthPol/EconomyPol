@@ -18,7 +18,7 @@ public final class WithdrawSubcommand extends AbstractEconomySubcommand {
 
     @Override
     public String usage() {
-        return "/economypol withdraw <amount>";
+        return "/economypol withdraw [amount]";
     }
 
     @Override
@@ -27,13 +27,52 @@ public final class WithdrawSubcommand extends AbstractEconomySubcommand {
         if (player == null) {
             return true;
         }
-        if (args.length != 1) {
+        boolean admin = player.hasPermission("economypol.admin");
+        if (args.length > 1) {
             sender.sendMessage(usage());
             return true;
         }
+
+        if (!admin) {
+            if (args.length == 0 || isAllAlias(args[0])) {
+                var result = dependencies.economyService().withdrawMaxCustodialToInventory(player);
+                sender.sendMessage(result.message() + " Withdrawn: " +
+                        dependencies.economyService().denominationService().format(result.processedAmount()) +
+                        ", custodial remaining: " +
+                        dependencies.economyService().denominationService().format(
+                                dependencies.economyService().getCustodialAvailable(player)
+                        ));
+                return true;
+            }
+            sender.sendMessage("Specific withdrawal amounts require economypol.admin. Use /economypol withdraw to physicalize as much money as fits in your inventory.");
+            return true;
+        }
+
+        if (args.length == 0 || isAllAlias(args[0])) {
+            var result = dependencies.economyService().withdrawMaxCustodialToInventory(player);
+            sender.sendMessage(result.message() + " Withdrawn: " +
+                    dependencies.economyService().denominationService().format(result.processedAmount()) +
+                    ", custodial remaining: " +
+                    dependencies.economyService().denominationService().format(
+                            dependencies.economyService().getCustodialAvailable(player)
+                    ));
+            return true;
+        }
+
         long amount = parseAmount(args[0]);
+        if (amount < 0L) {
+            sender.sendMessage(usage());
+            return true;
+        }
         var result = dependencies.economyService().withdrawCustodialAsPhysicalMoney(player, amount);
-        sender.sendMessage(result.message() + " Delivered: " + result.processedAmount() + ", retained: " + result.remainder());
+        sender.sendMessage(result.message() + " Delivered: " +
+                dependencies.economyService().denominationService().format(result.processedAmount()) +
+                ", retained: " +
+                dependencies.economyService().denominationService().format(result.remainder()));
         return true;
+    }
+
+    private boolean isAllAlias(String raw) {
+        return "all".equalsIgnoreCase(raw) || "max".equalsIgnoreCase(raw);
     }
 }

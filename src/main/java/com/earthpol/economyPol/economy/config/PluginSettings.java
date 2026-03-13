@@ -7,7 +7,6 @@ import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -85,8 +84,7 @@ public final class PluginSettings {
         );
 
         NumericSettings numeric = new NumericSettings(
-                DecimalHandlingMode.valueOf(config.getString("numeric.decimal-handling", "REJECT").toUpperCase(Locale.ROOT)),
-                RoundingMode.valueOf(config.getString("numeric.rounding-mode", "HALF_UP").toUpperCase(Locale.ROOT))
+                DecimalHandlingMode.valueOf(config.getString("numeric.decimal-handling", "REJECT").toUpperCase(Locale.ROOT))
         );
 
         PlayerAccountPolicy playerPolicy = new PlayerAccountPolicy(
@@ -223,8 +221,7 @@ public final class PluginSettings {
     ) {}
 
     public record NumericSettings(
-            DecimalHandlingMode decimalHandlingMode,
-            RoundingMode roundingMode
+            DecimalHandlingMode decimalHandlingMode
     ) {}
 
     public record WalletSettings(
@@ -245,7 +242,6 @@ public final class PluginSettings {
 
     public enum DecimalHandlingMode {
         REJECT,
-        ROUND,
         TRUNCATE
     }
 

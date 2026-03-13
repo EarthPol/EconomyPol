@@ -15,6 +15,7 @@ import com.earthpol.economyPol.economy.service.support.SchedulerService;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -222,6 +223,15 @@ public final class PlayerEconomyService {
         ).orElse(MoneyOperationResult.failure(amount, "Player money could not be accessed safely."));
     }
 
+    public MoneyOperationResult withdrawMaxCustodialToInventory(Player player) {
+        long requestedAmount = Math.max(0L, getCustodialAvailable(player));
+        return schedulerService.callOnPlayerEntityScheduler(
+                player,
+                () -> withdrawMaxCustodialToInventoryOnPlayerEntityScheduler(player),
+                "withdraw-max-custodial-to-inventory"
+        ).orElse(MoneyOperationResult.failure(requestedAmount, "Player money could not be accessed safely."));
+    }
+
     public BalanceRecord creditCustodial(UUID playerUuid, String playerName, long amount, String reason) {
         AccountRecord account = accountRegistryService.ensurePlayerAccount(playerUuid, playerName);
         return fundsRepository.changeAvailable(account.accountId(), amount, "CUSTODIAL_CREDIT", reason, playerUuid, null);
@@ -289,6 +299,41 @@ public final class PlayerEconomyService {
     // converts money stored in the "overflow" account into real money in the player's inventory/ender chest.
     // This is not automatic so custodial overflow does not become silently spendable.
     private MoneyOperationResult withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(Player player, long amount) {
+        LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
+        return withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(player, amount, liveSnapshot, settings.routingOrder());
+    }
+
+    private MoneyOperationResult withdrawMaxCustodialToInventoryOnPlayerEntityScheduler(Player player) {
+        AccountRecord account = accountRegistryService.ensurePlayerAccount(player);
+        if (!account.playerPolicy().allowSelfWithdraw()) {
+            return MoneyOperationResult.failure(0L, "Self-withdraw is disabled.");
+        }
+
+        BalanceRecord balance = fundsRepository.getBalance(account.accountId());
+        if (balance.availableBalance() <= 0L) {
+            return MoneyOperationResult.failure(0L, "Insufficient custodial funds.");
+        }
+
+        LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
+        long maxWithdrawable = liveMoneyService.maxDeliverableToInventory(liveSnapshot, balance.availableBalance());
+        if (maxWithdrawable <= 0L) {
+            return MoneyOperationResult.failure(balance.availableBalance(), "No room in your inventory to withdraw physical money.");
+        }
+
+        return withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(
+                player,
+                maxWithdrawable,
+                liveSnapshot,
+                List.of(com.earthpol.economyPol.economy.model.MoneyRouteTarget.INVENTORY)
+        );
+    }
+
+    private MoneyOperationResult withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(
+            Player player,
+            long amount,
+            LiveMoneyService.LiveContainerSnapshot liveSnapshot,
+            List<com.earthpol.economyPol.economy.model.MoneyRouteTarget> routingOrder
+    ) {
         if (amount < 0L) {
             return MoneyOperationResult.failure(amount, "Cannot withdraw a negative amount.");
         }
@@ -304,7 +349,6 @@ public final class PlayerEconomyService {
             return MoneyOperationResult.success(0L, 0L, 0L, "Withdraw processed.");
         }
 
-        LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
         try {
             fundsRepository.reserveAvailable(account.accountId(), amount, "SELF_WITHDRAW_PENDING");
         } catch (RuntimeException exception) {
@@ -313,7 +357,7 @@ public final class PlayerEconomyService {
 
         LiveMoneyService.DeliveryResult deliveryResult;
         try {
-            deliveryResult = liveMoneyService.deliver(player, amount, settings.routingOrder());
+            deliveryResult = liveMoneyService.deliver(player, amount, routingOrder);
         } catch (Exception exception) {
             rollbackCustodialWithdrawal(player, liveSnapshot, account.accountId(), amount, exception);
             return MoneyOperationResult.failure(amount, "Physical withdrawal failed while delivering money.");
@@ -430,5 +474,4 @@ public final class PlayerEconomyService {
         return MoneyOperationResult.success(amount, amount, 0L, "Funds withdrawn.");
     }
 }
-
 

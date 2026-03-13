@@ -14,7 +14,6 @@ import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.OfflinePlayer;
 import org.junit.jupiter.api.Test;
 
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -137,7 +136,7 @@ final class EconomyVaultAdapterTest {
                 mock(EconomyPol.class),
                 economyService,
                 new NumericalConsistencyService(
-                        new PluginSettings.NumericSettings(PluginSettings.DecimalHandlingMode.REJECT, RoundingMode.HALF_UP),
+                        new PluginSettings.NumericSettings(PluginSettings.DecimalHandlingMode.REJECT),
                         new DenominationService(new PluginSettings.CurrencySettings("Gold Coin", "Gold Coins", List.of()), null)
                 ),
                 new PluginSettings.CurrencySettings("Gold Coin", "Gold Coins", List.of()),

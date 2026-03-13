@@ -1,5 +1,6 @@
 package com.earthpol.economyPol.economy.service.money;
 
+import com.earthpol.economyPol.economy.model.Denomination;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import org.bukkit.Material;
@@ -43,6 +44,40 @@ final class LiveMoneyDeliveryService {
         }
 
         return new LiveMoneyService.DeliveryResult(deliveredToInventory, deliveredToEnder, remaining);
+    }
+
+    long maxDeliverableToInventory(LiveMoneyService.LiveContainerSnapshot snapshot, long maxAmount) {
+        if (maxAmount <= 0L) {
+            return 0L;
+        }
+
+        List<Denomination> denominations = denominationService.descending();
+        long[] existingStackCapacity = new long[denominations.size()];
+        int emptySlots = 0;
+        for (ItemStack itemStack : snapshot.inventoryContents()) {
+            if (itemStack == null || itemStack.getType() == Material.AIR) {
+                emptySlots++;
+                continue;
+            }
+            for (int index = 0; index < denominations.size(); index++) {
+                Denomination denomination = denominations.get(index);
+                if (denomination.material() != itemStack.getType()) {
+                    continue;
+                }
+                int freeItems = itemStack.getMaxStackSize() - itemStack.getAmount();
+                if (freeItems > 0) {
+                    existingStackCapacity[index] += freeItems;
+                }
+                break;
+            }
+        }
+        return maxDeliverableToInventory(
+                denominations,
+                existingStackCapacity,
+                emptySlots,
+                Math.max(0L, maxAmount),
+                0
+        );
     }
 
     LiveMoneyService.DeliveryResult deliver(LiveMoneySimulatedState simulatedState, long amount, List<MoneyRouteTarget> routingOrder) {
@@ -133,6 +168,66 @@ final class LiveMoneyDeliveryService {
         return leftovers;
     }
 
+    private long maxDeliverableToInventory(
+            List<Denomination> denominations,
+            long[] existingStackCapacity,
+            int remainingSlots,
+            long remainingAmount,
+            int denominationIndex
+    ) {
+        if (remainingAmount <= 0L || denominationIndex >= denominations.size()) {
+            return 0L;
+        }
+
+        Denomination denomination = denominations.get(denominationIndex);
+        long denominationValue = denomination.baseUnits();
+        int maxStackSize = denomination.material().getMaxStackSize();
+        long maxItemsByAmount = remainingAmount / denominationValue;
+        if (maxItemsByAmount <= 0L) {
+            return 0L;
+        }
+
+        long freeExistingItems = existingStackCapacity[denominationIndex];
+        if (denominationIndex == denominations.size() - 1) {
+            long itemCount = Math.min(maxItemsByAmount, freeExistingItems + ((long) remainingSlots * maxStackSize));
+            return itemCount * denominationValue;
+        }
+
+        long additionalItemsNeeded = Math.max(0L, maxItemsByAmount - freeExistingItems);
+        int maxUsefulSlots = (int) Math.min(
+                remainingSlots,
+                additionalItemsNeeded == 0L ? 0L : ((additionalItemsNeeded + maxStackSize - 1L) / maxStackSize)
+        );
+
+        long best = 0L;
+        long previousItemCount = Long.MIN_VALUE;
+        for (int slotsUsed = maxUsefulSlots; slotsUsed >= 0; slotsUsed--) {
+            long itemCapacity = freeExistingItems + ((long) slotsUsed * maxStackSize);
+            long itemCount = Math.min(maxItemsByAmount, itemCapacity);
+            if (itemCount == previousItemCount) {
+                continue;
+            }
+            previousItemCount = itemCount;
+
+            long currentValue = itemCount * denominationValue;
+            long lowerValue = maxDeliverableToInventory(
+                    denominations,
+                    existingStackCapacity,
+                    remainingSlots - slotsUsed,
+                    remainingAmount - currentValue,
+                    denominationIndex + 1
+            );
+            long total = currentValue + lowerValue;
+            if (total > best) {
+                best = total;
+                if (best == remainingAmount) {
+                    return best;
+                }
+            }
+        }
+        return best;
+    }
+
     private List<ItemStack> addToContents(ItemStack[] contents, List<ItemStack> itemStacks) {
         List<ItemStack> leftovers = new ArrayList<>();
         for (ItemStack itemStack : itemStacks) {
@@ -185,5 +280,4 @@ final class LiveMoneyDeliveryService {
         return leftovers;
     }
 }
-
 

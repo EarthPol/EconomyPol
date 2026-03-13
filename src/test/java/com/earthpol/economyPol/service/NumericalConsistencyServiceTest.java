@@ -8,7 +8,6 @@ import org.bukkit.Material;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,7 +18,7 @@ final class NumericalConsistencyServiceTest {
 
     @Test
     void rejectModeRefusesFractionalAmounts() {
-        NumericalConsistencyService service = newService(PluginSettings.DecimalHandlingMode.REJECT, RoundingMode.HALF_UP);
+        NumericalConsistencyService service = newService(PluginSettings.DecimalHandlingMode.REJECT);
 
         NumericalConsistencyService.ConversionResult result = service.toWholeUnits(new BigDecimal("5.5"));
 
@@ -28,20 +27,8 @@ final class NumericalConsistencyServiceTest {
     }
 
     @Test
-    void roundModeUsesConfiguredRoundingMode() {
-        NumericalConsistencyService service = newService(PluginSettings.DecimalHandlingMode.ROUND, RoundingMode.HALF_UP);
-
-        NumericalConsistencyService.ConversionResult result = service.toWholeUnits(new BigDecimal("5.5"));
-
-        assertTrue(result.success());
-        assertEquals(6L, result.units());
-        assertTrue(result.coerced());
-        assertEquals("6 Gold Coins", service.format(new BigDecimal("5.5")));
-    }
-
-    @Test
     void truncateModeTruncatesTowardZero() {
-        NumericalConsistencyService service = newService(PluginSettings.DecimalHandlingMode.TRUNCATE, RoundingMode.HALF_UP);
+        NumericalConsistencyService service = newService(PluginSettings.DecimalHandlingMode.TRUNCATE);
 
         NumericalConsistencyService.ConversionResult positive = service.toWholeUnits(new BigDecimal("5.9"));
         NumericalConsistencyService.ConversionResult negative = service.toWholeUnits(new BigDecimal("-5.9"));
@@ -54,7 +41,7 @@ final class NumericalConsistencyServiceTest {
 
     @Test
     void wholeNumberConversionsRemainExact() {
-        NumericalConsistencyService service = newService(PluginSettings.DecimalHandlingMode.REJECT, RoundingMode.HALF_UP);
+        NumericalConsistencyService service = newService(PluginSettings.DecimalHandlingMode.REJECT);
 
         NumericalConsistencyService.ConversionResult result = service.toWholeUnits(12.0D);
 
@@ -65,10 +52,7 @@ final class NumericalConsistencyServiceTest {
         assertEquals(12D, service.toDouble(12L));
     }
 
-    private static NumericalConsistencyService newService(
-            PluginSettings.DecimalHandlingMode handlingMode,
-            RoundingMode roundingMode
-    ) {
+    private static NumericalConsistencyService newService(PluginSettings.DecimalHandlingMode handlingMode) {
         DenominationService denominationService = new DenominationService(
                 new PluginSettings.CurrencySettings(
                         "Gold Coin",
@@ -82,7 +66,7 @@ final class NumericalConsistencyServiceTest {
                 null
         );
         return new NumericalConsistencyService(
-                new PluginSettings.NumericSettings(handlingMode, roundingMode),
+                new PluginSettings.NumericSettings(handlingMode),
                 denominationService
         );
     }

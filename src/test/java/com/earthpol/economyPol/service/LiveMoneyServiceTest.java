@@ -161,5 +161,39 @@ final class LiveMoneyServiceTest {
         assertEquals(Material.STONE, plan.targetContents()[0].getType());
         assertEquals(Material.DIAMOND, plan.targetContents()[1].getType());
     }
+
+    @Test
+    void maxDeliverableToInventoryFindsBestSingleSlotWithdrawalValue() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            player.getInventory().setItem(slot, new ItemStack(Material.STONE, 64));
+        }
+        player.getInventory().setItem(0, null);
+
+        long maxDeliverable = service.maxDeliverableToInventory(player, 128L);
+
+        assertEquals(126L, maxDeliverable);
+    }
+
+    @Test
+    void maxDeliverableToInventoryUsesExistingPartialMoneyStacks() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            player.getInventory().setItem(slot, new ItemStack(Material.STONE, 64));
+        }
+        player.getInventory().setItem(5, new ItemStack(Material.GOLD_INGOT, 60));
+
+        long maxDeliverable = service.maxDeliverableToInventory(player, 100L);
+
+        assertEquals(36L, maxDeliverable);
+    }
 }
 

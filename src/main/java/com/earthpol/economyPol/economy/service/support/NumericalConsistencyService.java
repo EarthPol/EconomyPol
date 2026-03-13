@@ -33,8 +33,7 @@ public final class NumericalConsistencyService {
             }
             return switch (settings.decimalHandlingMode()) {
                 case REJECT -> ConversionResult.failure(FRACTIONAL_UNSUPPORTED);
-                case ROUND -> coerce(amount, settings.roundingMode());
-                case TRUNCATE -> coerce(amount, RoundingMode.DOWN);
+                case TRUNCATE -> truncate(amount);
             };
         } catch (ArithmeticException exception) {
             return ConversionResult.failure(OUT_OF_RANGE);
@@ -82,9 +81,9 @@ public final class NumericalConsistencyService {
         return 0;
     }
 
-    private ConversionResult coerce(BigDecimal amount, RoundingMode roundingMode) {
+    private ConversionResult truncate(BigDecimal amount) {
         try {
-            return ConversionResult.success(amount.setScale(0, roundingMode).longValueExact(), true);
+            return ConversionResult.success(amount.setScale(0, RoundingMode.DOWN).longValueExact(), true);
         } catch (ArithmeticException exception) {
             return ConversionResult.failure(OUT_OF_RANGE);
         }

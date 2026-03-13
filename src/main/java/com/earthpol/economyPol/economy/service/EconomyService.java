@@ -167,6 +167,10 @@ public final class EconomyService {
         return playerEconomyService.withdrawCustodialAsPhysicalMoney(player, amount);
     }
 
+    public MoneyOperationResult withdrawMaxCustodialToInventory(Player player) {
+        return playerEconomyService.withdrawMaxCustodialToInventory(player);
+    }
+
     public BalanceRecord creditCustodial(UUID playerUuid, String playerName, long amount, String reason) {
         return playerEconomyService.creditCustodial(playerUuid, playerName, amount, reason);
     }

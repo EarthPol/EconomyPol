@@ -137,7 +137,9 @@ It:
 - routes the payout through configured destinations
 - returns any undeliverable remainder back into custodial
 
-This is what `/economypol withdraw <amount>` does.
+Admin users can still use this path directly with `/economypol withdraw <amount>`.
+
+For normal players, `/economypol withdraw` now withdraws the maximum exact amount that can fit into the player inventory and leaves the rest in custodial. This is intentionally more restrictive than generic economy behavior so players are encouraged to physicalize and manage carried money.
 
 ### Depositing To a Player
 
@@ -242,7 +244,7 @@ Fractional money does not exist.
 - all storage uses integers
 - Vault/VaultUnlocked fractional digit metadata is hardcoded to `0`
 - external decimal requests are normalized through `NumericalConsistencyService`
-- the default policy is `TRUNCATE`, but operators can switch to `REJECT` or `ROUND`
+- the default policy is `TRUNCATE`, and operators can switch to `REJECT`
 
 ## Numeric Consistency
 
@@ -261,10 +263,6 @@ Current supported policies:
   - non-whole values fail with an error
   - example: `5.5` is rejected
   - this is the safest mode for a strict discrete item economy
-- `ROUND`
-  - non-whole values are rounded using the configured Java `RoundingMode`
-  - example with `HALF_UP`: `5.5 -> 6`
-  - example with `FLOOR`: `5.9 -> 5`, `-5.1 -> -6`
 - `TRUNCATE`
   - non-whole values are truncated toward zero
   - example: `5.9 -> 5`, `-5.9 -> -5`
@@ -274,14 +272,12 @@ The default config is:
 ```yaml
 numeric:
   decimal-handling: TRUNCATE
-  rounding-mode: HALF_UP
 ```
 
 Notes:
 
-- `rounding-mode` is only used when `decimal-handling` is `ROUND`
 - `TRUNCATE` always truncates toward zero
-- even when decimals are rounded or truncated at the API boundary, the stored economy remains integer-only
+- even when decimals are truncated at the API boundary, the stored economy remains integer-only
 
 ## Player Balance Semantics
 
@@ -386,13 +382,16 @@ Current queue table:
 - `/economypol baltop`
 - `/ecopol ...`
 - `/economypol deposit <amount|all>`
-- `/economypol withdraw <amount>`
+- `/economypol withdraw`
+- `/economypol withdraw <amount>` with `economypol.admin`
 - `/economypol normalizewallet`
 - `/baltop`
 
 Notes:
 
 - `/economypol withdraw` means “withdraw custodial as physical money”
+- for normal players, `/economypol withdraw` means “withdraw the maximum exact amount that fits in inventory”
+- specifying a withdraw amount is restricted to `economypol.admin`
 - `/economypol deposit` means “store physical money into custodial”
 - `/economypol balancetop` shows the cached top player balances from online live money plus offline frozen ender-wallet snapshots
 - `/economypol baltop` and `/baltop` are aliases for the same cached leaderboard
@@ -462,7 +461,6 @@ currency:
 
 numeric:
   decimal-handling: TRUNCATE
-  rounding-mode: HALF_UP
 
 players:
   allow-self-deposit: false
@@ -517,14 +515,8 @@ logging:
 
 - controls how Vault and VaultUnlocked decimal inputs are converted into integer base units
 - `REJECT` fails on non-whole values
-- `ROUND` rounds using `numeric.rounding-mode`
 - `TRUNCATE` truncates toward zero
 - current default is `TRUNCATE`
-
-#### `numeric.rounding-mode`
-
-- the Java `RoundingMode` used when `numeric.decimal-handling` is `ROUND`
-- default is `HALF_UP`
 
 #### `routing.change-overflow-policy`
 

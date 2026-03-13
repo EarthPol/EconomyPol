@@ -78,6 +78,14 @@ public final class LiveMoneyService {
         return deliveryService.deliver(player, amount, routingOrder);
     }
 
+    public long maxDeliverableToInventory(Player player, long maxAmount) {
+        return deliveryService.maxDeliverableToInventory(snapshotService.captureLiveContainerSnapshot(player), maxAmount);
+    }
+
+    public long maxDeliverableToInventory(LiveContainerSnapshot snapshot, long maxAmount) {
+        return deliveryService.maxDeliverableToInventory(snapshot, maxAmount);
+    }
+
     public NormalizationResult normalizeEnderChest(Player player) {
         return deliveryService.normalizeEnderChest(player);
     }
@@ -137,5 +145,4 @@ public final class LiveMoneyService {
         }
     }
 }
-
 

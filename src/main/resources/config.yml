@@ -20,20 +20,8 @@ currency:
 numeric:
   # How non-whole external amounts from Vault/VaultUnlocked are handled.
   # REJECT: fail on any fractional amount such as 5.5
-  # ROUND: round to a whole number using rounding-mode
   # TRUNCATE: cut toward zero; 5.9 -> 5, -5.9 -> -5
   decimal-handling: TRUNCATE
-  # Used only when decimal-handling is ROUND.
-  # Any java.math.RoundingMode enum name is valid.
-  # Common choices:
-  # HALF_UP: 5.5 -> 6, -5.5 -> -6
-  # HALF_DOWN: 5.5 -> 5, -5.5 -> -5
-  # HALF_EVEN: 4.5 -> 4, 5.5 -> 6
-  # UP: away from zero
-  # DOWN: toward zero
-  # CEILING: toward positive infinity
-  # FLOOR: toward negative infinity
-  rounding-mode: HALF_UP
 
 players:
   allow-self-deposit: false
