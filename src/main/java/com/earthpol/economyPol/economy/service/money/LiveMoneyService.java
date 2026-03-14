@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Public facade for live physical money behavior. Focused helper services own
@@ -20,12 +21,23 @@ public final class LiveMoneyService {
     private final LiveMoneyDeliveryService deliveryService;
     private final LiveMoneySpendingService spendingService;
 
+    public LiveMoneyService(DenominationService denominationService, PluginSettings settings) {
+        this(denominationService, settings::wallet);
+    }
+
     public LiveMoneyService(DenominationService denominationService, PluginSettings.WalletSettings walletSettings) {
-        this.snapshotService = new LiveMoneySnapshotService(denominationService, walletSettings);
+        this(denominationService, () -> walletSettings);
+    }
+
+    private LiveMoneyService(
+            DenominationService denominationService,
+            Supplier<PluginSettings.WalletSettings> walletSettingsSupplier
+    ) {
+        this.snapshotService = new LiveMoneySnapshotService(denominationService, walletSettingsSupplier);
         this.deliveryService = new LiveMoneyDeliveryService(denominationService, snapshotService);
         this.spendingService = new LiveMoneySpendingService(
                 denominationService,
-                walletSettings,
+                walletSettingsSupplier,
                 snapshotService,
                 deliveryService
         );
@@ -145,4 +157,3 @@ public final class LiveMoneyService {
         }
     }
 }
-

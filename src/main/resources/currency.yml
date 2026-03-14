@@ -1,0 +1,9 @@
+singular-name: Gold Coin
+plural-name: Gold Coins
+denominations:
+  - material: GOLD_NUGGET
+    base-units: 1
+  - material: GOLD_INGOT
+    base-units: 9
+  - material: GOLD_BLOCK
+    base-units: 81

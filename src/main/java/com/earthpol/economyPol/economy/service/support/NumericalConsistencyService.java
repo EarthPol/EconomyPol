@@ -4,6 +4,7 @@ import com.earthpol.economyPol.economy.config.PluginSettings;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.function.Supplier;
 
 public final class NumericalConsistencyService {
 
@@ -11,14 +12,28 @@ public final class NumericalConsistencyService {
     private static final String NON_FINITE_UNSUPPORTED = "Amount must be a finite number.";
     private static final String OUT_OF_RANGE = "Amount is out of range.";
 
-    private final PluginSettings.NumericSettings settings;
+    private final Supplier<PluginSettings.NumericSettings> settingsSupplier;
     private final DenominationService denominationService;
+
+    public NumericalConsistencyService(
+            PluginSettings settings,
+            DenominationService denominationService
+    ) {
+        this(settings::numeric, denominationService);
+    }
 
     public NumericalConsistencyService(
             PluginSettings.NumericSettings settings,
             DenominationService denominationService
     ) {
-        this.settings = settings;
+        this(() -> settings, denominationService);
+    }
+
+    private NumericalConsistencyService(
+            Supplier<PluginSettings.NumericSettings> settingsSupplier,
+            DenominationService denominationService
+    ) {
+        this.settingsSupplier = settingsSupplier;
         this.denominationService = denominationService;
     }
 
@@ -31,7 +46,7 @@ public final class NumericalConsistencyService {
             if (normalized.scale() <= 0) {
                 return ConversionResult.success(normalized.longValueExact(), false);
             }
-            return switch (settings.decimalHandlingMode()) {
+            return switch (settingsSupplier.get().decimalHandlingMode()) {
                 case REJECT -> ConversionResult.failure(FRACTIONAL_UNSUPPORTED);
                 case TRUNCATE -> truncate(amount);
             };

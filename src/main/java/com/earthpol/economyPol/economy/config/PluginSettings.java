@@ -1,12 +1,18 @@
 package com.earthpol.economyPol.economy.config;
 
+import com.earthpol.earthPolLib.config.ReloadableConfigHandler;
+import com.earthpol.earthPolLib.logging.LogRetentionPolicy;
 import com.earthpol.economyPol.economy.model.Denomination;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.Plugin;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -15,50 +21,115 @@ import java.util.Locale;
 
 public final class PluginSettings {
 
+    private static final String DATABASE_FILE = "database.yml";
+    private static final String CURRENCY_FILE = "currency.yml";
+    private static final String RUNTIME_FILE = "config.yml";
+
+    private final Plugin plugin;
     private final DatabaseSettings database;
     private final CurrencySettings currency;
-    private final NumericSettings numeric;
-    private final PlayerAccountPolicy playerPolicy;
-    private final List<MoneyRouteTarget> routingOrder;
-    private final ChangeOverflowPolicy changeOverflowPolicy;
-    private final WalletSettings wallet;
-    private final CacheSettings cache;
-    private final LoggingSettings logging;
+    private final ReloadableConfigHandler<RuntimeConfigKey> runtimeConfig;
+
+    private volatile RuntimeSettings runtime;
 
     private PluginSettings(
+            Plugin plugin,
             DatabaseSettings database,
             CurrencySettings currency,
-            NumericSettings numeric,
-            PlayerAccountPolicy playerPolicy,
-            List<MoneyRouteTarget> routingOrder,
-            ChangeOverflowPolicy changeOverflowPolicy,
-            WalletSettings wallet,
-            CacheSettings cache,
-            LoggingSettings logging
+            ReloadableConfigHandler<RuntimeConfigKey> runtimeConfig,
+            RuntimeSettings runtime
     ) {
+        this.plugin = plugin;
         this.database = database;
         this.currency = currency;
-        this.numeric = numeric;
-        this.playerPolicy = playerPolicy;
-        this.routingOrder = List.copyOf(routingOrder);
-        this.changeOverflowPolicy = changeOverflowPolicy;
-        this.wallet = wallet;
-        this.cache = cache;
-        this.logging = logging;
+        this.runtimeConfig = runtimeConfig;
+        this.runtime = runtime;
     }
 
-    public static PluginSettings load(FileConfiguration config) {
-        DatabaseSettings database = new DatabaseSettings(
-                config.getString("database.host", "127.0.0.1"),
-                String.valueOf(config.getInt("database.port", 3306)),
-                config.getString("database.name", "economypol"),
-                config.getString("database.username", "root"),
-                config.getString("database.password", ""),
-                config.getBoolean("database.disable-plugin-on-failure", true)
-        );
+    public static PluginSettings load(Plugin plugin) throws IOException {
+        copyBundledConfigIfMissing(plugin, DATABASE_FILE);
+        copyBundledConfigIfMissing(plugin, CURRENCY_FILE);
 
+        FileConfiguration databaseConfig = YamlConfiguration.loadConfiguration(configFile(plugin, DATABASE_FILE));
+        FileConfiguration currencyConfig = YamlConfiguration.loadConfiguration(configFile(plugin, CURRENCY_FILE));
+        ReloadableConfigHandler<RuntimeConfigKey> runtimeConfig =
+                new ReloadableConfigHandler<>(plugin, RUNTIME_FILE, RuntimeConfigKey.class);
+
+        DatabaseSettings database = loadDatabaseSettings(databaseConfig);
+        CurrencySettings currency = loadCurrencySettings(currencyConfig);
+        RuntimeSettings runtime = loadRuntimeSettings(runtimeConfig);
+        return new PluginSettings(plugin, database, currency, runtimeConfig, runtime);
+    }
+
+    public RuntimeConfigReloadResult reloadRuntimeConfig() {
+        try {
+            boolean cleanReload = runtimeConfig.reload();
+            RuntimeSettings reloaded = loadRuntimeSettings(runtimeConfig);
+            runtime = reloaded;
+
+            List<String> warnings = new ArrayList<>();
+            if (!cleanReload) {
+                warnings.add("One or more config.yml values were invalid and fell back to defaults. Check the server log.");
+            }
+            return RuntimeConfigReloadResult.success("Reloaded config.yml.", warnings);
+        } catch (IOException exception) {
+            return RuntimeConfigReloadResult.failure("Failed to reload config.yml: " + exception.getMessage());
+        } catch (RuntimeException exception) {
+            plugin.getLogger().severe("Failed to apply config.yml reload. Keeping the previous runtime settings. Cause: " + exception.getMessage());
+            return RuntimeConfigReloadResult.failure("Failed to apply config.yml. Keeping the previous runtime settings: " + exception.getMessage());
+        }
+    }
+
+    public DatabaseSettings database() {
+        return database;
+    }
+
+    public CurrencySettings currency() {
+        return currency;
+    }
+
+    public NumericSettings numeric() {
+        return runtime.numeric();
+    }
+
+    public PlayerAccountPolicy playerPolicy() {
+        return runtime.playerPolicy();
+    }
+
+    public List<MoneyRouteTarget> routingOrder() {
+        return runtime.routingOrder();
+    }
+
+    public ChangeOverflowPolicy changeOverflowPolicy() {
+        return runtime.changeOverflowPolicy();
+    }
+
+    public WalletSettings wallet() {
+        return runtime.wallet();
+    }
+
+    public CacheSettings cache() {
+        return runtime.cache();
+    }
+
+    public LoggingSettings logging() {
+        return runtime.logging();
+    }
+
+    private static DatabaseSettings loadDatabaseSettings(FileConfiguration config) {
+        return new DatabaseSettings(
+                config.getString("host", "127.0.0.1"),
+                String.valueOf(config.get("port", 3306)),
+                config.getString("name", "economypol"),
+                config.getString("username", "root"),
+                config.getString("password", ""),
+                config.getBoolean("disable-plugin-on-failure", true)
+        );
+    }
+
+    private static CurrencySettings loadCurrencySettings(FileConfiguration config) {
         List<Denomination> denominations = new ArrayList<>();
-        for (ConfigurationSection section : getSectionList(config, "currency.denominations")) {
+        for (ConfigurationSection section : getSectionList(config, "denominations")) {
             Material material = Material.matchMaterial(section.getString("material", ""));
             if (material == null || material.isAir()) {
                 throw new IllegalArgumentException("Invalid denomination material: " + section.getString("material"));
@@ -77,50 +148,99 @@ public final class PluginSettings {
         denominations.sort(Comparator.comparingLong(Denomination::baseUnits));
         validateLadder(denominations);
 
-        CurrencySettings currency = new CurrencySettings(
-                config.getString("currency.singular-name", "Gold Coin"),
-                config.getString("currency.plural-name", "Gold Coins"),
+        return new CurrencySettings(
+                config.getString("singular-name", "Gold Coin"),
+                config.getString("plural-name", "Gold Coins"),
                 denominations
         );
+    }
 
+    private static RuntimeSettings loadRuntimeSettings(ReloadableConfigHandler<RuntimeConfigKey> runtimeConfig) {
         NumericSettings numeric = new NumericSettings(
-                DecimalHandlingMode.valueOf(config.getString("numeric.decimal-handling", "REJECT").toUpperCase(Locale.ROOT))
+                parseEnum(
+                        DecimalHandlingMode.class,
+                        RuntimeConfigKey.NUMERIC_DECIMAL_HANDLING.getString(),
+                        RuntimeConfigKey.NUMERIC_DECIMAL_HANDLING.getPath()
+                )
         );
 
         PlayerAccountPolicy playerPolicy = new PlayerAccountPolicy(
-                config.getBoolean("players.allow-self-deposit", false),
-                config.getBoolean("players.allow-external-credit", true),
-                config.getBoolean("players.allow-self-withdraw", true)
+                RuntimeConfigKey.PLAYERS_ALLOW_SELF_DEPOSIT.getBool(),
+                RuntimeConfigKey.PLAYERS_ALLOW_EXTERNAL_CREDIT.getBool(),
+                RuntimeConfigKey.PLAYERS_ALLOW_SELF_WITHDRAW.getBool()
         );
 
         List<MoneyRouteTarget> routingOrder = new ArrayList<>();
-        for (String routeName : config.getStringList("routing.order")) {
-            routingOrder.add(MoneyRouteTarget.valueOf(routeName.toUpperCase()));
+        for (String routeName : stringList(RuntimeConfigKey.ROUTING_ORDER.getList(), RuntimeConfigKey.ROUTING_ORDER.getPath())) {
+            routingOrder.add(parseEnum(MoneyRouteTarget.class, routeName, RuntimeConfigKey.ROUTING_ORDER.getPath()));
         }
         validateRoutingOrder(routingOrder);
-        ChangeOverflowPolicy changeOverflowPolicy = ChangeOverflowPolicy.valueOf(
-                config.getString("routing.change-overflow-policy", "CUSTODIAL").toUpperCase(Locale.ROOT)
+
+        ChangeOverflowPolicy changeOverflowPolicy = parseEnum(
+                ChangeOverflowPolicy.class,
+                RuntimeConfigKey.ROUTING_CHANGE_OVERFLOW_POLICY.getString(),
+                RuntimeConfigKey.ROUTING_CHANGE_OVERFLOW_POLICY.getPath()
         );
 
         WalletSettings wallet = new WalletSettings(
-                config.getBoolean("wallet.managed-ender-wallet-enabled", true),
-                config.getBoolean("wallet.include-live-player-inventory", true),
-                config.getBoolean("wallet.include-live-ender-chest", true)
+                RuntimeConfigKey.WALLET_MANAGED_ENDER_WALLET_ENABLED.getBool(),
+                RuntimeConfigKey.WALLET_INCLUDE_LIVE_PLAYER_INVENTORY.getBool(),
+                RuntimeConfigKey.WALLET_INCLUDE_LIVE_ENDER_CHEST.getBool()
         );
 
-        long balanceTopTtlSeconds = config.getLong("cache.balancetop-ttl-seconds", 60L);
+        long balanceTopTtlSeconds = RuntimeConfigKey.CACHE_BALANCE_TOP_TTL_SECONDS.getLong();
         if (balanceTopTtlSeconds <= 0L) {
             throw new IllegalArgumentException("cache.balancetop-ttl-seconds must be positive.");
         }
         CacheSettings cache = new CacheSettings(balanceTopTtlSeconds);
 
         LoggingSettings logging = new LoggingSettings(
-                config.getBoolean("logging.debug", false),
-                config.getString("logging.audit-log-name", "audit"),
-                config.getString("logging.operations-log-name", "operations")
+                RuntimeConfigKey.LOGGING_DEBUG.getBool(),
+                parseEnum(
+                        LogRetentionPolicy.class,
+                        RuntimeConfigKey.LOGGING_RETENTION_POLICY.getString(),
+                        RuntimeConfigKey.LOGGING_RETENTION_POLICY.getPath()
+                )
         );
 
-        return new PluginSettings(database, currency, numeric, playerPolicy, routingOrder, changeOverflowPolicy, wallet, cache, logging);
+        return new RuntimeSettings(
+                numeric,
+                playerPolicy,
+                List.copyOf(routingOrder),
+                changeOverflowPolicy,
+                wallet,
+                cache,
+                logging
+        );
+    }
+
+    private static <E extends Enum<E>> E parseEnum(Class<E> enumType, String rawValue, String path) {
+        try {
+            return Enum.valueOf(enumType, rawValue.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Invalid value '" + rawValue + "' for " + path + ".");
+        }
+    }
+
+    private static List<String> stringList(List<?> rawList, String path) {
+        List<String> values = new ArrayList<>(rawList.size());
+        for (Object rawValue : rawList) {
+            if (!(rawValue instanceof String stringValue)) {
+                throw new IllegalArgumentException("Non-string value found in " + path + ".");
+            }
+            values.add(stringValue);
+        }
+        return values;
+    }
+
+    private static File configFile(Plugin plugin, String fileName) {
+        return new File(plugin.getDataFolder(), fileName);
+    }
+
+    private static void copyBundledConfigIfMissing(Plugin plugin, String fileName) {
+        if (!configFile(plugin, fileName).exists()) {
+            plugin.saveResource(fileName, false);
+        }
     }
 
     private static List<ConfigurationSection> getSectionList(FileConfiguration config, String path) {
@@ -169,42 +289,6 @@ public final class PluginSettings {
         }
     }
 
-    public DatabaseSettings database() {
-        return database;
-    }
-
-    public CurrencySettings currency() {
-        return currency;
-    }
-
-    public NumericSettings numeric() {
-        return numeric;
-    }
-
-    public PlayerAccountPolicy playerPolicy() {
-        return playerPolicy;
-    }
-
-    public List<MoneyRouteTarget> routingOrder() {
-        return routingOrder;
-    }
-
-    public ChangeOverflowPolicy changeOverflowPolicy() {
-        return changeOverflowPolicy;
-    }
-
-    public WalletSettings wallet() {
-        return wallet;
-    }
-
-    public CacheSettings cache() {
-        return cache;
-    }
-
-    public LoggingSettings logging() {
-        return logging;
-    }
-
     public record DatabaseSettings(
             String host,
             String port,
@@ -236,8 +320,7 @@ public final class PluginSettings {
 
     public record LoggingSettings(
             boolean debug,
-            String auditLogName,
-            String operationsLogName
+            LogRetentionPolicy retentionPolicy
     ) {}
 
     public enum DecimalHandlingMode {
@@ -249,4 +332,14 @@ public final class PluginSettings {
         FAIL,
         CUSTODIAL
     }
+
+    private record RuntimeSettings(
+            NumericSettings numeric,
+            PlayerAccountPolicy playerPolicy,
+            List<MoneyRouteTarget> routingOrder,
+            ChangeOverflowPolicy changeOverflowPolicy,
+            WalletSettings wallet,
+            CacheSettings cache,
+            LoggingSettings logging
+    ) {}
 }

@@ -33,8 +33,8 @@ public final class BalanceTopCache {
     private final SchedulerService schedulerService;
     private final DenominationService denominationService;
     private final com.earthpol.earthPolLib.logging.EnhancedLogger operationsLog;
+    private final CommandDependencies dependencies;
     private final int maxEntries;
-    private final long ttlMillis;
     private final Object lock = new Object();
     private final Map<String, QueuedRequest> pendingRequests = new LinkedHashMap<>();
 
@@ -42,13 +42,13 @@ public final class BalanceTopCache {
     private volatile boolean rebuildRunning;
 
     public BalanceTopCache(CommandDependencies dependencies, int maxEntries) {
+        this.dependencies = dependencies;
         this.economyService = dependencies.economyService();
         this.enderWalletService = dependencies.enderWalletService();
         this.schedulerService = dependencies.economyService().schedulerService();
         this.denominationService = dependencies.economyService().denominationService();
         this.operationsLog = dependencies.operationsLogger();
         this.maxEntries = maxEntries;
-        this.ttlMillis = TimeUnit.SECONDS.toMillis(dependencies.settings().cache().balanceTopTtlSeconds());
     }
 
     public void request(CommandSender sender) {
@@ -87,7 +87,8 @@ public final class BalanceTopCache {
         if (snapshot == null) {
             return null;
         }
-        return snapshot.expiresAtMillis() > System.currentTimeMillis() ? snapshot : null;
+        long ttlMillis = TimeUnit.SECONDS.toMillis(dependencies.settings().cache().balanceTopTtlSeconds());
+        return snapshot.builtAtMillis() + ttlMillis > System.currentTimeMillis() ? snapshot : null;
     }
 
     private void rebuildCache() {
@@ -170,7 +171,6 @@ public final class BalanceTopCache {
         return new CachedBalanceTop(
                 List.copyOf(entries),
                 builtAtMillis,
-                builtAtMillis + ttlMillis,
                 onlinePlayers.size(),
                 offlineSnapshotCount
         );
@@ -227,7 +227,6 @@ public final class BalanceTopCache {
     private record CachedBalanceTop(
             List<BalanceTopEntry> entries,
             long builtAtMillis,
-            long expiresAtMillis,
             int scannedOnlinePlayers,
             int scannedOfflineSnapshots
     ) {}

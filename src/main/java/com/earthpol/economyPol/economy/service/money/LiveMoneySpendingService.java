@@ -10,22 +10,23 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 final class LiveMoneySpendingService {
 
     private final DenominationService denominationService;
-    private final PluginSettings.WalletSettings walletSettings;
+    private final Supplier<PluginSettings.WalletSettings> walletSettingsSupplier;
     private final LiveMoneySnapshotService snapshotService;
     private final LiveMoneyDeliveryService deliveryService;
 
     LiveMoneySpendingService(
             DenominationService denominationService,
-            PluginSettings.WalletSettings walletSettings,
+            Supplier<PluginSettings.WalletSettings> walletSettingsSupplier,
             LiveMoneySnapshotService snapshotService,
             LiveMoneyDeliveryService deliveryService
     ) {
         this.denominationService = denominationService;
-        this.walletSettings = walletSettings;
+        this.walletSettingsSupplier = walletSettingsSupplier;
         this.snapshotService = snapshotService;
         this.deliveryService = deliveryService;
     }
@@ -125,6 +126,7 @@ final class LiveMoneySpendingService {
     }
 
     long removeFromLiveSources(Player player, long amount) {
+        PluginSettings.WalletSettings walletSettings = walletSettingsSupplier.get();
         long remaining = amount;
         if (walletSettings.includeLivePlayerInventory()) {
             remaining = removeFromInventory(player.getInventory(), remaining, true);
@@ -164,6 +166,7 @@ final class LiveMoneySpendingService {
     }
 
     private long removeFromSimulatedSources(LiveMoneySimulatedState simulatedState, long amount) {
+        PluginSettings.WalletSettings walletSettings = walletSettingsSupplier.get();
         long remaining = amount;
         if (walletSettings.includeLivePlayerInventory()) {
             remaining = removeFromContents(simulatedState.inventoryContents(), remaining, simulatedState, true);
@@ -248,6 +251,7 @@ final class LiveMoneySpendingService {
     }
 
     private OverpayCandidate findSmallestOverpayCandidate(Player player, long remaining) {
+        PluginSettings.WalletSettings walletSettings = walletSettingsSupplier.get();
         OverpayCandidate best = null;
         if (walletSettings.includeLivePlayerInventory()) {
             best = findSmallestOverpayCandidate(player.getInventory(), remaining, OverpaySourceType.INVENTORY, best);
@@ -266,6 +270,7 @@ final class LiveMoneySpendingService {
     }
 
     private OverpayCandidate findSmallestOverpayCandidate(LiveMoneySimulatedState simulatedState, long remaining) {
+        PluginSettings.WalletSettings walletSettings = walletSettingsSupplier.get();
         OverpayCandidate best = null;
         if (walletSettings.includeLivePlayerInventory()) {
             best = findSmallestOverpayCandidate(simulatedState.inventoryContents(), remaining, OverpaySourceType.INVENTORY, best);
@@ -399,5 +404,4 @@ final class LiveMoneySpendingService {
         OFFHAND
     }
 }
-
 

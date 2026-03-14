@@ -29,6 +29,7 @@ Implemented today:
 - Persistent offline player notifications
 - Folia-safe scheduler coordination for player-bound inventory work
 - Towny government binding and lifecycle synchronization
+- Split startup/runtime config with reloadable `config.yml`
 - Database health checks
 - Native `EconomyPolAPI`
 
@@ -409,6 +410,7 @@ Notes:
 - `/economypol admin balance <player>`
 - `/economypol admin check <report>`
 - `/economypol admin cleanup towny-orphans`
+- `/economypol admin reload`
 
 Available database check reports:
 
@@ -433,6 +435,12 @@ Available database check reports:
 
 `/economypol admin cleanup towny-orphans` removes only orphaned Towny binding rows and legacy unbound Towny-style shared-account rows. It does not attempt to rewrite UUID-mismatch rows or repair missing canonical rows automatically.
 
+`/economypol admin reload` reloads only `config.yml`.
+
+- `database.yml` and `currency.yml` are startup-only
+- `logging.debug` does apply immediately on reload
+- `logging.retention-policy` does apply immediately on reload
+
 ## Permissions
 
 Current permissions in `plugin.yml`:
@@ -443,27 +451,46 @@ Player commands are public by design.
 
 ## Configuration
 
-Current default config:
+EconomyPol now uses three config files.
+
+### `database.yml`
+
+Startup-only. Restart required after changes.
 
 ```yaml
-database:
-  host: 127.0.0.1
-  port: 3306
-  name: economypol
-  username: root
-  password: changeme
-  disable-plugin-on-failure: true
+host: 127.0.0.1
+port: 3306
+name: economypol
+username: root
+password: changeme
+disable-plugin-on-failure: true
+```
 
-currency:
-  singular-name: Gold Coin
-  plural-name: Gold Coins
-  denominations:
-    - material: GOLD_NUGGET
-      base-units: 1
-    - material: GOLD_INGOT
-      base-units: 9
-    - material: GOLD_BLOCK
-      base-units: 81
+### `currency.yml`
+
+Startup-only. Restart required after changes.
+
+```yaml
+singular-name: Gold Coin
+plural-name: Gold Coins
+denominations:
+  - material: GOLD_NUGGET
+    base-units: 1
+  - material: GOLD_INGOT
+    base-units: 9
+  - material: GOLD_BLOCK
+    base-units: 81
+```
+
+### `config.yml`
+
+Generated and maintained through EarthPolLib `ReloadableConfigHandler`.
+
+- this is the only EconomyPol config file reloaded by `/economypol admin reload`
+- missing keys are repopulated from code defaults
+- malformed scalar/list values fall back to defaults and are logged during reload
+
+Default runtime config:
 
 numeric:
   decimal-handling: TRUNCATE
@@ -490,9 +517,37 @@ cache:
 
 logging:
   debug: false
-  audit-log-name: audit
-  operations-log-name: operations
+  retention-policy: MONTHLY
 ```
+
+### Reloadability
+
+EconomyPol is suitable for selective runtime config reloads, not full blanket reloadability.
+
+Safe runtime reload targets in `config.yml`:
+
+- `numeric.*`
+- `players.*`
+- `routing.*`
+- `wallet.*`
+- `cache.*`
+- `logging.debug`
+- `logging.retention-policy`
+
+Restart-only settings:
+
+- everything in `database.yml`
+- everything in `currency.yml`
+
+Why the limit exists:
+
+- database settings define startup database wiring
+- currency settings define denomination materialization and adapter metadata
+
+So the intended model is:
+
+- use `/economypol admin reload` for runtime behavior changes
+- restart the server for database or currency changes
 
 ### Important Settings
 
@@ -542,6 +597,20 @@ logging:
 - when stale, the next request rebuilds the cache by scanning all online players plus frozen offline ender-wallet snapshots
 - player custodial balances are not part of this leaderboard
 - if a rebuild is already running, later requesters are queued and all receive the rebuilt snapshot when it completes
+
+#### `logging.debug`
+
+- applies immediately on `/economypol admin reload`
+- toggles debug emission on the operations logger
+
+#### `logging.retention-policy`
+
+- applies immediately on `/economypol admin reload`
+- controls log cleanup for the operations, audit, and healthcheck loggers
+- supported values:
+  - `WEEKLY`
+  - `MONTHLY`
+  - `NEVER`
 
 ## Database Schema
 

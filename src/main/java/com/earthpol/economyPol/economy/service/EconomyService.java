@@ -69,7 +69,7 @@ public final class EconomyService {
         this.accountRegistryService = new AccountRegistryService(
                 accountRepository,
                 playerRepository,
-                settings.playerPolicy()
+                settings
         );
         this.playerEconomyService = new PlayerEconomyService(
                 accountRegistryService,

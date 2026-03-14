@@ -7,17 +7,23 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.function.Supplier;
+
 final class LiveMoneySnapshotService {
 
     private final DenominationService denominationService;
-    private final PluginSettings.WalletSettings walletSettings;
+    private final Supplier<PluginSettings.WalletSettings> walletSettingsSupplier;
 
-    LiveMoneySnapshotService(DenominationService denominationService, PluginSettings.WalletSettings walletSettings) {
+    LiveMoneySnapshotService(
+            DenominationService denominationService,
+            Supplier<PluginSettings.WalletSettings> walletSettingsSupplier
+    ) {
         this.denominationService = denominationService;
-        this.walletSettings = walletSettings;
+        this.walletSettingsSupplier = walletSettingsSupplier;
     }
 
     long scanPlayerMoney(Player player) {
+        PluginSettings.WalletSettings walletSettings = walletSettingsSupplier.get();
         long total = 0L;
         if (walletSettings.includeLivePlayerInventory()) {
             total += countInventory(player.getInventory());
@@ -55,6 +61,7 @@ final class LiveMoneySnapshotService {
     }
 
     long scanPlayerMoney(LiveMoneySimulatedState simulatedState) {
+        PluginSettings.WalletSettings walletSettings = walletSettingsSupplier.get();
         long total = 0L;
         if (walletSettings.includeLivePlayerInventory()) {
             total += countContents(simulatedState.inventoryContents());
@@ -100,5 +107,4 @@ final class LiveMoneySnapshotService {
         return total;
     }
 }
-
 

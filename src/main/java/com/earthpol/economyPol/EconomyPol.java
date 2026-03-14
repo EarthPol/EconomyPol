@@ -40,10 +40,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.logging.Level;
 
 // TODO: Add built-in TNE migrator, or write a custom script for it. In python perhaps?
-// TODO: Split up config file and try to have most config be with ReloadableConfiguration
-// configs: database.yml(no reload), currency.yml(no reload), rest of configs: config.yml
 // todo: Better logging, more logging configuration
 // todo: touch up UI and notification delivery
 
@@ -93,15 +92,19 @@ public final class EconomyPol extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        saveDefaultConfig();
-        reloadConfig();
-
-        settings = PluginSettings.load(getConfig());
+        try {
+            settings = PluginSettings.load(this);
+        } catch (IOException | RuntimeException exception) {
+            getLogger().log(Level.SEVERE, "Failed to load EconomyPol configuration.", exception);
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
         loggers = new EconomyLoggers(
-                EnhancedLogger.create(this, settings.logging().operationsLogName(), settings.logging().debug()),
-                EnhancedLogger.create(this, settings.logging().auditLogName(), settings.logging().debug()),
-                EnhancedLogger.create(this, "healthcheck", settings.logging().debug())
+                EnhancedLogger.create(this, "operations", settings.logging().debug()),
+                EnhancedLogger.create(this, "audit", false),
+                EnhancedLogger.create(this, "healthcheck", false)
         );
+        loggers.applyRetentionPolicy(settings.logging().retentionPolicy());
 
         uncleanBoot = detectUncleanBoot();
         writeRuntimeMarker();
@@ -120,8 +123,8 @@ public final class EconomyPol extends JavaPlugin {
         logRecoveredUncleanSnapshots(enderWalletRepository.markStaleSnapshotsDisabled());
 
         denominationService = new DenominationService(settings.currency(), log());
-        numericalConsistencyService = new NumericalConsistencyService(settings.numeric(), denominationService);
-        liveMoneyService = new LiveMoneyService(denominationService, settings.wallet());
+        numericalConsistencyService = new NumericalConsistencyService(settings, denominationService);
+        liveMoneyService = new LiveMoneyService(denominationService, settings);
         schedulerService = new SchedulerService(this, log());
         translationService = new TranslationService(this, EconomyPol.class);
         translationService.load();
@@ -203,9 +206,7 @@ public final class EconomyPol extends JavaPlugin {
         deleteRuntimeMarker();
         if (loggers != null) {
             log().info("EconomyPol disabled.");
-            loggers.healthcheck().close();
-            loggers.audit().close();
-            loggers.operations().close();
+            loggers.close();
         }
     }
 

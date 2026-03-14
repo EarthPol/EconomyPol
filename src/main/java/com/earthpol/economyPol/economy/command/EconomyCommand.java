@@ -3,6 +3,7 @@ package com.earthpol.economyPol.economy.command;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.command.admin.CheckSubcommand;
 import com.earthpol.economyPol.economy.command.admin.CleanupSubcommand;
+import com.earthpol.economyPol.economy.command.admin.ReloadSubcommand;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.command.shared.EconomySubcommand;
 import com.earthpol.economyPol.economy.config.PluginSettings;
@@ -171,6 +172,7 @@ public final class EconomyCommand implements TabExecutor {
         register(commands, new com.earthpol.economyPol.economy.command.admin.BalanceSubcommand(dependencies));
         register(commands, new CheckSubcommand(dependencies));
         register(commands, new CleanupSubcommand(dependencies));
+        register(commands, new ReloadSubcommand(dependencies));
         return Collections.unmodifiableMap(new LinkedHashMap<>(commands));
     }
 
