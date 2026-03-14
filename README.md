@@ -369,6 +369,12 @@ It sends formatted messages for:
 
 Offline notifications are persisted in the database and delivered on next login.
 
+Notification text is now backed by EarthPolLib `TranslationService`.
+
+- bundled locale files live under `src/main/resources/translations`
+- on first boot, EarthPolLib exports them into the plugin data folder and creates `translations.yml`
+- NotificationService resolves translated notification titles and bodies through that translation layer before sending or replaying queued notifications
+
 Current queue table:
 
 - `economy_player_notifications`

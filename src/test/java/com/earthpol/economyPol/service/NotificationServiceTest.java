@@ -1,6 +1,7 @@
 package com.earthpol.economyPol.service;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.earthPolLib.translation.TranslationService;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.Denomination;
 import com.earthpol.economyPol.economy.model.PlayerNotificationRecord;
@@ -17,8 +18,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.Locale;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -38,6 +43,7 @@ final class NotificationServiceTest {
     private NotificationService notificationService;
     private NotificationRepository repository;
     private SchedulerService schedulerService;
+    private TranslationService translationService;
 
     @BeforeEach
     void setUp() {
@@ -55,12 +61,27 @@ final class NotificationServiceTest {
         );
         repository = mock(NotificationRepository.class);
         schedulerService = mock(SchedulerService.class);
+        translationService = mock(TranslationService.class);
         doAnswer(invocation -> {
             Runnable action = invocation.getArgument(1);
             action.run();
             return true;
         }).when(schedulerService).runOnPlayerEntityScheduler(any(Player.class), any(Runnable.class), anyString());
-        notificationService = new NotificationService(denominationService, repository, schedulerService, mock(EnhancedLogger.class));
+        lenient().when(translationService.getDefaultLocale()).thenReturn(Locale.US);
+        lenient().doAnswer(invocation -> translate(invocation.getArgument(0, String.class), new Object[0]))
+                .when(translationService).translate(anyString(), any(Locale.class));
+        lenient().doAnswer(invocation -> translate(
+                        invocation.getArgument(0, String.class),
+                        Arrays.copyOfRange(invocation.getArguments(), 2, invocation.getArguments().length)
+                ))
+                .when(translationService).translate(anyString(), any(Locale.class), org.mockito.ArgumentMatchers.<Object>any());
+        notificationService = new NotificationService(
+                denominationService,
+                repository,
+                schedulerService,
+                translationService,
+                mock(EnhancedLogger.class)
+        );
     }
 
     @Test
@@ -73,7 +94,7 @@ final class NotificationServiceTest {
         assertTrue(message.contains("Incoming Money Routed to Custodial"));
         assertTrue(message.contains("Moved to custodial: 18 Gold Coins"));
         assertTrue(message.contains("Custodial balance: 125 Gold Coins"));
-        assertTrue(message.contains("/economypol withdraw <amount>"));
+        assertTrue(message.contains("/economypol withdraw"));
     }
 
     @Test
@@ -85,8 +106,8 @@ final class NotificationServiceTest {
         String message = capturePlainText(player);
         assertTrue(message.contains("Custodial Balance Available"));
         assertTrue(message.contains("Available in custodial: 42 Gold Coins"));
-        assertTrue(message.contains("Withdraw it when you want to carry it as physical money."));
-        assertTrue(message.contains("/economypol withdraw <amount>"));
+        assertTrue(message.contains("carry custodial money as physical currency"));
+        assertTrue(message.contains("/economypol withdraw"));
     }
 
     @Test
@@ -161,6 +182,41 @@ final class NotificationServiceTest {
         ArgumentCaptor<Component> captor = ArgumentCaptor.forClass(Component.class);
         verify(player).sendMessage(captor.capture());
         return PlainTextComponentSerializer.plainText().serialize(captor.getValue());
+    }
+
+    private static String translate(String key, Object[] args) {
+        Map<String, String> translations = Map.ofEntries(
+                Map.entry("general.prefix", "[EconomyPol] "),
+                Map.entry("notifications.withdraw.hover", "Withdraw as much custodial money as fits into your inventory."),
+                Map.entry("notifications.incoming_overflow.title", "Incoming Money Routed to Custodial"),
+                Map.entry("notifications.incoming_overflow.moved", "Moved to custodial: {0}"),
+                Map.entry("notifications.incoming_overflow.balance", "Custodial balance: {0}"),
+                Map.entry("notifications.incoming_overflow.hint", "Some incoming money could not fit in your inventory or ender chest. Use {0} to withdraw physical money."),
+                Map.entry("notifications.withdrawal_retained.title", "Withdraw Overflow Retained"),
+                Map.entry("notifications.withdrawal_retained.retained", "Retained in custodial: {0}"),
+                Map.entry("notifications.withdrawal_retained.balance", "Custodial balance: {0}"),
+                Map.entry("notifications.withdrawal_retained.hint", "Some withdrawn money could not fit in your inventory. Use {0} to physicalize as much as currently fits."),
+                Map.entry("notifications.wallet_overflow.title", "Ender Wallet Overflow"),
+                Map.entry("notifications.wallet_overflow.moved", "Moved to custodial: {0}"),
+                Map.entry("notifications.wallet_overflow.balance", "Custodial balance: {0}"),
+                Map.entry("notifications.wallet_overflow.malformed", "Malformed money stacks were normalized before the overflow was stored."),
+                Map.entry("notifications.wallet_overflow.hint", "Some ender-wallet money could not be restored cleanly and was moved to custodial. Use {0} to withdraw physical money."),
+                Map.entry("notifications.custodial_reminder.title", "Custodial Balance Available"),
+                Map.entry("notifications.custodial_reminder.available", "Available in custodial: {0}"),
+                Map.entry("notifications.custodial_reminder.hint", "Use {0} when you want to carry custodial money as physical currency."),
+                Map.entry("notifications.offline_credit.title", "Money Received While Offline"),
+                Map.entry("notifications.offline_credit.credited", "Credited to custodial: {0}"),
+                Map.entry("notifications.offline_credit.balance", "Custodial balance: {0}"),
+                Map.entry("notifications.offline_credit.hint", "Money received while you were offline was stored safely in custodial. Use {0} to physicalize it."),
+                Map.entry("notifications.change_routed.title", "Change Routed to Custodial"),
+                Map.entry("notifications.change_routed.moved", "Change moved to custodial: {0}"),
+                Map.entry("notifications.change_routed.balance", "Custodial balance: {0}"),
+                Map.entry("notifications.change_routed.hint", "Some returned change could not fit in your inventory or ender chest. Use {0} to physicalize it later."),
+                Map.entry("notifications.not_enough_room_for_change.title", "Not Enough Room For Change"),
+                Map.entry("notifications.not_enough_room_for_change.body", "This transaction was canceled because you do not have enough space in your inventory and/or ender chest to receive your change back.")
+        );
+        String template = translations.getOrDefault(key, key);
+        return java.text.MessageFormat.format(template, args == null ? new Object[0] : args);
     }
 }
 

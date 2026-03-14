@@ -3,6 +3,7 @@ package com.earthpol.economyPol;
 import com.earthpol.earthPolLib.database.DatabaseService;
 import com.earthpol.earthPolLib.database.flyway.FlywaySupport;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.earthPolLib.translation.TranslationService;
 import com.earthpol.economyPol.economy.api.EconomyPolAPI;
 import com.earthpol.economyPol.economy.api.EconomyPolApiProvider;
 import com.earthpol.economyPol.economy.command.EconomyCommand;
@@ -61,6 +62,7 @@ public final class EconomyPol extends JavaPlugin {
     private NumericalConsistencyService numericalConsistencyService;
     private LiveMoneyService liveMoneyService;
     private SchedulerService schedulerService;
+    private TranslationService translationService;
     private NotificationService notificationService;
     private PlayerMoneyLockService playerMoneyLockService;
     private EnderWalletService enderWalletService;
@@ -85,6 +87,7 @@ public final class EconomyPol extends JavaPlugin {
     public DatabaseCheckService databaseCheckService() {return databaseCheckService;}
     public NotificationService notificationService() {return notificationService;}
     public SchedulerService schedulerService() {return schedulerService;}
+    public TranslationService translationService() {return translationService;}
     public EconomyPolAPI api() {return economyPolApi;}
     public boolean isUncleanBoot() {return uncleanBoot;}
 
@@ -120,7 +123,15 @@ public final class EconomyPol extends JavaPlugin {
         numericalConsistencyService = new NumericalConsistencyService(settings.numeric(), denominationService);
         liveMoneyService = new LiveMoneyService(denominationService, settings.wallet());
         schedulerService = new SchedulerService(this, log());
-        notificationService = new NotificationService(denominationService, notificationRepository, schedulerService, log());
+        translationService = new TranslationService(this, EconomyPol.class);
+        translationService.load();
+        notificationService = new NotificationService(
+                denominationService,
+                notificationRepository,
+                schedulerService,
+                translationService,
+                log()
+        );
         playerMoneyLockService = new PlayerMoneyLockService();
         reservationService = new ReservationService(fundsRepository, audit());
         townyService = new TownyService();

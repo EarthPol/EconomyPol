@@ -1,6 +1,8 @@
 package com.earthpol.economyPol.economy.service.player;
 
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.earthPolLib.translation.TranslationService;
+import com.earthpol.earthPolLib.translation.Translations;
 import com.earthpol.economyPol.economy.model.PlayerNotificationRecord;
 import com.earthpol.economyPol.economy.model.PlayerNotificationType;
 import com.earthpol.economyPol.economy.repository.NotificationRepository;
@@ -10,32 +12,34 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 public final class NotificationService {
 
-    private static final String WITHDRAW_COMMAND = "/economypol withdraw <amount>";
+    private static final String WITHDRAW_COMMAND = "/economypol withdraw";
 
     private final DenominationService denominationService;
     private final NotificationRepository repository;
     private final SchedulerService schedulerService;
+    private final TranslationService translationService;
     private final EnhancedLogger operationsLog;
 
     public NotificationService(
             DenominationService denominationService,
             NotificationRepository repository,
             SchedulerService schedulerService,
+            TranslationService translationService,
             EnhancedLogger operationsLog
     ) {
         this.denominationService = denominationService;
         this.repository = repository;
         this.schedulerService = schedulerService;
+        this.translationService = translationService;
         this.operationsLog = operationsLog;
     }
 
@@ -43,10 +47,11 @@ public final class NotificationService {
         if (player == null || overflowAmount <= 0L) {
             return;
         }
-        send(player, "Incoming Money Routed to Custodial", List.of(
-                detail("Moved to custodial: ", overflowAmount),
-                detail("Custodial balance: ", custodialBalance),
-                withdrawHint("Some incoming money could not fit in your inventory or ender chest.")
+        Locale locale = locale(player);
+        send(player, "notifications.incoming_overflow.title", List.of(
+                detail(locale, "notifications.incoming_overflow.moved", overflowAmount),
+                detail(locale, "notifications.incoming_overflow.balance", custodialBalance),
+                withdrawHint(locale, "notifications.incoming_overflow.hint")
         ), () -> queueIncomingOverflowToCustodial(player.getUniqueId(), overflowAmount, custodialBalance), "notify-incoming-overflow");
     }
 
@@ -68,10 +73,11 @@ public final class NotificationService {
         if (player == null || retainedAmount <= 0L) {
             return;
         }
-        send(player, "Withdraw Overflow Retained", List.of(
-                detail("Retained in custodial: ", retainedAmount),
-                detail("Custodial balance: ", custodialBalance),
-                withdrawHint("Some withdrawn money could not fit in your inventory or ender chest.")
+        Locale locale = locale(player);
+        send(player, "notifications.withdrawal_retained.title", List.of(
+                detail(locale, "notifications.withdrawal_retained.retained", retainedAmount),
+                detail(locale, "notifications.withdrawal_retained.balance", custodialBalance),
+                withdrawHint(locale, "notifications.withdrawal_retained.hint")
         ), () -> queueNotification(
                 player.getUniqueId(),
                 PlayerNotificationType.CUSTODIAL_WITHDRAWAL_RETAINED,
@@ -90,14 +96,15 @@ public final class NotificationService {
         if (player == null || overflowAmount <= 0L) {
             return;
         }
+        Locale locale = locale(player);
         List<Component> details = new ArrayList<>();
-        details.add(detail("Moved to custodial: ", overflowAmount));
-        details.add(detail("Custodial balance: ", custodialBalance));
+        details.add(detail(locale, "notifications.wallet_overflow.moved", overflowAmount));
+        details.add(detail(locale, "notifications.wallet_overflow.balance", custodialBalance));
         if (malformedStacksFound) {
-            details.add(Component.text("Malformed money stacks were normalized before the overflow was stored.", NamedTextColor.GRAY));
+            details.add(translated(locale, "notifications.wallet_overflow.malformed"));
         }
-        details.add(withdrawHint("Some ender-wallet money could not be restored cleanly and was moved to custodial."));
-        send(player, "Ender Wallet Overflow", details, () -> queueNotification(
+        details.add(withdrawHint(locale, "notifications.wallet_overflow.hint"));
+        send(player, "notifications.wallet_overflow.title", details, () -> queueNotification(
                 player.getUniqueId(),
                 PlayerNotificationType.WALLET_OVERFLOW_TO_CUSTODIAL,
                 overflowAmount,
@@ -110,9 +117,10 @@ public final class NotificationService {
         if (player == null || custodialBalance <= 0L) {
             return;
         }
-        send(player, "Custodial Balance Available", List.of(
-                detail("Available in custodial: ", custodialBalance),
-                withdrawHint("Withdraw it when you want to carry it as physical money.")
+        Locale locale = locale(player);
+        send(player, "notifications.custodial_reminder.title", List.of(
+                detail(locale, "notifications.custodial_reminder.available", custodialBalance),
+                withdrawHint(locale, "notifications.custodial_reminder.hint")
         ), () -> queueNotification(
                 player.getUniqueId(),
                 PlayerNotificationType.CUSTODIAL_BALANCE_REMINDER,
@@ -126,10 +134,11 @@ public final class NotificationService {
         if (player == null || changeAmount <= 0L) {
             return;
         }
-        send(player, "Change Routed to Custodial", List.of(
-                detail("Change moved to custodial: ", changeAmount),
-                detail("Custodial balance: ", custodialBalance),
-                withdrawHint("Some returned change could not fit in your inventory or ender chest.")
+        Locale locale = locale(player);
+        send(player, "notifications.change_routed.title", List.of(
+                detail(locale, "notifications.change_routed.moved", changeAmount),
+                detail(locale, "notifications.change_routed.balance", custodialBalance),
+                withdrawHint(locale, "notifications.change_routed.hint")
         ), () -> queueNotification(
                 player.getUniqueId(),
                 PlayerNotificationType.CHANGE_ROUTED_TO_CUSTODIAL,
@@ -157,11 +166,9 @@ public final class NotificationService {
         if (player == null) {
             return;
         }
-        send(player, "Not Enough Room For Change", List.of(
-                Component.text(
-                        "This transaction was canceled because you do not have enough space in your inventory and/or ender chest to receive your change back.",
-                        NamedTextColor.GRAY
-                )
+        Locale locale = locale(player);
+        send(player, "notifications.not_enough_room_for_change.title", List.of(
+                translated(locale, "notifications.not_enough_room_for_change.body")
         ), () -> queueNotification(
                 player.getUniqueId(),
                 PlayerNotificationType.NOT_ENOUGH_ROOM_FOR_CHANGE,
@@ -179,7 +186,8 @@ public final class NotificationService {
         if (queued.isEmpty()) {
             return 0;
         }
-        List<Component> rendered = queued.stream().map(this::render).toList();
+        Locale locale = locale(player);
+        List<Component> rendered = queued.stream().map(notification -> render(notification, locale)).toList();
         boolean delivered = schedulerService.runOnPlayerEntityScheduler(
                 player,
                 () -> rendered.forEach(player::sendMessage),
@@ -200,12 +208,8 @@ public final class NotificationService {
         send(player, message, null, "send-notification");
     }
 
-    private void send(Player player, String title, List<Component> details, Runnable onFailure, String operation) {
-        List<Component> lines = new ArrayList<>();
-        lines.add(Component.text("[EconomyPol] ", NamedTextColor.GOLD, TextDecoration.BOLD)
-                .append(Component.text(title, NamedTextColor.YELLOW, TextDecoration.BOLD)));
-        lines.addAll(details);
-        send(player, Component.join(JoinConfiguration.separator(Component.newline()), lines), onFailure, operation);
+    private void send(Player player, String titleKey, List<Component> details, Runnable onFailure, String operation) {
+        send(player, buildMessage(locale(player), titleKey, details), onFailure, operation);
     }
 
     private void send(Player player, Component message, Runnable onFailure, String operation) {
@@ -215,88 +219,91 @@ public final class NotificationService {
         }
     }
 
-    private Component detail(String label, long amount) {
-        return Component.text(label, NamedTextColor.GRAY)
-                .append(Component.text(denominationService.format(amount), NamedTextColor.WHITE));
+    private Component detail(Locale locale, String key, long amount) {
+        return translated(locale, key, denominationService.format(amount));
     }
 
-    private Component withdrawHint(String lead) {
-        return Component.text(lead + " Withdraw physical money with ", NamedTextColor.GRAY)
-                .append(Component.text(WITHDRAW_COMMAND, NamedTextColor.YELLOW)
-                        .clickEvent(ClickEvent.suggestCommand("/economypol withdraw "))
-                        .hoverEvent(HoverEvent.showText(Component.text("Withdraw physical money from custodial storage.", NamedTextColor.YELLOW))))
-                .append(Component.text(".", NamedTextColor.GRAY));
+    private Component withdrawHint(Locale locale, String key) {
+        return translated(locale, key, WITHDRAW_COMMAND)
+                .clickEvent(ClickEvent.suggestCommand("/economypol withdraw"))
+                .hoverEvent(HoverEvent.showText(translated(locale, "notifications.withdraw.hover")));
     }
 
-    private Component render(PlayerNotificationRecord notification) {
+    private Component render(PlayerNotificationRecord notification, Locale locale) {
         return switch (notification.notificationType()) {
             case INCOMING_OVERFLOW_TO_CUSTODIAL -> buildMessage(
-                    "Incoming Money Routed to Custodial",
+                    locale,
+                    "notifications.incoming_overflow.title",
                     List.of(
-                            detail("Moved to custodial: ", amount(notification.primaryAmount())),
-                            detail("Custodial balance: ", amount(notification.secondaryAmount())),
-                            withdrawHint("Some incoming money could not fit in your inventory or ender chest.")
+                            detail(locale, "notifications.incoming_overflow.moved", amount(notification.primaryAmount())),
+                            detail(locale, "notifications.incoming_overflow.balance", amount(notification.secondaryAmount())),
+                            withdrawHint(locale, "notifications.incoming_overflow.hint")
                     )
             );
             case CUSTODIAL_WITHDRAWAL_RETAINED -> buildMessage(
-                    "Withdraw Overflow Retained",
+                    locale,
+                    "notifications.withdrawal_retained.title",
                     List.of(
-                            detail("Retained in custodial: ", amount(notification.primaryAmount())),
-                            detail("Custodial balance: ", amount(notification.secondaryAmount())),
-                            withdrawHint("Some withdrawn money could not fit in your inventory or ender chest.")
+                            detail(locale, "notifications.withdrawal_retained.retained", amount(notification.primaryAmount())),
+                            detail(locale, "notifications.withdrawal_retained.balance", amount(notification.secondaryAmount())),
+                            withdrawHint(locale, "notifications.withdrawal_retained.hint")
                     )
             );
             case WALLET_OVERFLOW_TO_CUSTODIAL -> {
                 List<Component> details = new ArrayList<>();
-                details.add(detail("Moved to custodial: ", amount(notification.primaryAmount())));
-                details.add(detail("Custodial balance: ", amount(notification.secondaryAmount())));
+                details.add(detail(locale, "notifications.wallet_overflow.moved", amount(notification.primaryAmount())));
+                details.add(detail(locale, "notifications.wallet_overflow.balance", amount(notification.secondaryAmount())));
                 if (notification.flagValue()) {
-                    details.add(Component.text("Malformed money stacks were normalized before the overflow was stored.", NamedTextColor.GRAY));
+                    details.add(translated(locale, "notifications.wallet_overflow.malformed"));
                 }
-                details.add(withdrawHint("Some ender-wallet money could not be restored cleanly and was moved to custodial."));
-                yield buildMessage("Ender Wallet Overflow", details);
+                details.add(withdrawHint(locale, "notifications.wallet_overflow.hint"));
+                yield buildMessage(locale, "notifications.wallet_overflow.title", details);
             }
             case CUSTODIAL_BALANCE_REMINDER -> buildMessage(
-                    "Custodial Balance Available",
+                    locale,
+                    "notifications.custodial_reminder.title",
                     List.of(
-                            detail("Available in custodial: ", amount(notification.primaryAmount())),
-                            withdrawHint("Withdraw it when you want to carry it as physical money.")
+                            detail(locale, "notifications.custodial_reminder.available", amount(notification.primaryAmount())),
+                            withdrawHint(locale, "notifications.custodial_reminder.hint")
                     )
             );
             case OFFLINE_CREDIT_TO_CUSTODIAL -> buildMessage(
-                    "Money Received While Offline",
+                    locale,
+                    "notifications.offline_credit.title",
                     List.of(
-                            detail("Credited to custodial: ", amount(notification.primaryAmount())),
-                            detail("Custodial balance: ", amount(notification.secondaryAmount())),
-                            withdrawHint("Money received while you were offline was stored safely in custodial.")
+                            detail(locale, "notifications.offline_credit.credited", amount(notification.primaryAmount())),
+                            detail(locale, "notifications.offline_credit.balance", amount(notification.secondaryAmount())),
+                            withdrawHint(locale, "notifications.offline_credit.hint")
                     )
             );
             case CHANGE_ROUTED_TO_CUSTODIAL -> buildMessage(
-                    "Change Routed to Custodial",
+                    locale,
+                    "notifications.change_routed.title",
                     List.of(
-                            detail("Change moved to custodial: ", amount(notification.primaryAmount())),
-                            detail("Custodial balance: ", amount(notification.secondaryAmount())),
-                            withdrawHint("Some returned change could not fit in your inventory or ender chest.")
+                            detail(locale, "notifications.change_routed.moved", amount(notification.primaryAmount())),
+                            detail(locale, "notifications.change_routed.balance", amount(notification.secondaryAmount())),
+                            withdrawHint(locale, "notifications.change_routed.hint")
                     )
             );
             case NOT_ENOUGH_ROOM_FOR_CHANGE -> buildMessage(
-                    "Not Enough Room For Change",
+                    locale,
+                    "notifications.not_enough_room_for_change.title",
                     List.of(
-                            Component.text(
-                                    "This transaction was canceled because you do not have enough space in your inventory and/or ender chest to receive your change back.",
-                                    NamedTextColor.GRAY
-                            )
+                            translated(locale, "notifications.not_enough_room_for_change.body")
                     )
             );
         };
     }
 
-    private Component buildMessage(String title, List<Component> details) {
+    private Component buildMessage(Locale locale, String titleKey, List<Component> details) {
         List<Component> lines = new ArrayList<>();
-        lines.add(Component.text("[EconomyPol] ", NamedTextColor.GOLD, TextDecoration.BOLD)
-                .append(Component.text(title, NamedTextColor.YELLOW, TextDecoration.BOLD)));
+        lines.add(translated(locale, Translations.DEFAULT_PREFIX_KEY).append(translated(locale, titleKey)));
         lines.addAll(details);
         return Component.join(JoinConfiguration.separator(Component.newline()), lines);
+    }
+
+    private Component translated(Locale locale, String key, Object... args) {
+        return Translations.component(translationService, locale, key, args);
     }
 
     private void queueNotification(
@@ -321,6 +328,11 @@ public final class NotificationService {
 
     private static long amount(Long value) {
         return value == null ? 0L : value;
+    }
+
+    private Locale locale(Player player) {
+        Locale locale = player.locale();
+        return locale == null ? translationService.getDefaultLocale() : locale;
     }
 }
 
