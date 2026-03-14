@@ -9,6 +9,7 @@ import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.Denomination;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
+import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.OfflineEnderWalletState;
 import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
@@ -43,6 +44,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 final class EconomyPolApiProviderTest {
+
+    private static final List<MoneyRouteTarget> DEFAULT_ROUTING_ORDER = List.of(
+            MoneyRouteTarget.INVENTORY,
+            MoneyRouteTarget.ENDER_CHEST,
+            MoneyRouteTarget.CUSTODIAL_ACCOUNT
+    );
 
     private DenominationService denominationService;
 
@@ -185,14 +192,14 @@ final class EconomyPolApiProviderTest {
         MoneyOperationResult walletCredit = MoneyOperationResult.success(80L, 80L, 0L, "credited");
 
         when(economyService.depositSelf(player, 90L)).thenReturn(liveDeposit);
-        when(economyService.withdrawCustodialAsPhysicalMoney(player, 60L)).thenReturn(liveWithdraw);
+        when(economyService.withdrawCustodialAsPhysicalMoney(player, 60L, DEFAULT_ROUTING_ORDER)).thenReturn(liveWithdraw);
         when(economyService.isPlayerLocked(playerUuid)).thenReturn(true);
         when(enderWalletService.findSnapshot(playerUuid)).thenReturn(Optional.of(snapshot));
         when(enderWalletService.debitOffline(playerUuid, 120L)).thenReturn(walletDebit);
         when(enderWalletService.creditOffline(playerUuid, 80L)).thenReturn(walletCredit);
 
         assertSame(liveDeposit, api.depositLive(player, 90L));
-        assertSame(liveWithdraw, api.withdrawCustodialAsPhysicalMoney(player, 60L));
+        assertSame(liveWithdraw, api.withdrawCustodialAsPhysicalMoney(player, 60L, DEFAULT_ROUTING_ORDER));
         assertTrue(api.isPlayerMoneyLocked(playerUuid));
         assertEquals(Optional.of(snapshot), api.getEnderWalletSnapshot(playerUuid));
         assertSame(walletDebit, api.debitOfflineEnderWallet(playerUuid, 120L));

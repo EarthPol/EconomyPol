@@ -135,7 +135,7 @@ This is the explicit player action that converts custodial money into physical m
 It:
 
 - debits the player’s custodial balance
-- routes the payout through configured destinations
+- routes the payout through the supplied routing targets
 - returns any undeliverable remainder back into custodial
 
 Admin users can still use this path directly with `/economypol withdraw <amount>`.

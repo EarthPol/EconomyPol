@@ -5,6 +5,7 @@ import com.earthpol.economyPol.economy.command.player.WithdrawSubcommand;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
+import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
@@ -12,6 +13,8 @@ import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.towny.TownyService;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
@@ -21,6 +24,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 final class WithdrawSubcommandTest {
+
+    private static final List<MoneyRouteTarget> INVENTORY_ONLY_ROUTING = List.of(MoneyRouteTarget.INVENTORY);
 
     @Test
     void nonAdminWithoutAmountWithdrawsMaximumThatFits() {
@@ -41,7 +46,7 @@ final class WithdrawSubcommandTest {
         subcommand.execute(player, new String[0]);
 
         verify(economyService).withdrawMaxCustodialToInventory(player);
-        verify(economyService, never()).withdrawCustodialAsPhysicalMoneyToInventory(player, 126L);
+        verify(economyService, never()).withdrawCustodialAsPhysicalMoney(player, 126L, INVENTORY_ONLY_ROUTING);
     }
 
     @Test
@@ -56,7 +61,7 @@ final class WithdrawSubcommandTest {
         subcommand.execute(player, new String[] {"10"});
 
         verify(economyService, never()).withdrawMaxCustodialToInventory(player);
-        verify(economyService, never()).withdrawCustodialAsPhysicalMoneyToInventory(player, 10L);
+        verify(economyService, never()).withdrawCustodialAsPhysicalMoney(player, 10L, INVENTORY_ONLY_ROUTING);
         verify(player).sendMessage(contains("Specific withdrawal amounts require economypol.admin"));
     }
 
@@ -67,7 +72,7 @@ final class WithdrawSubcommandTest {
         Player player = mock(Player.class);
 
         when(player.hasPermission("economypol.admin")).thenReturn(true);
-        when(economyService.withdrawCustodialAsPhysicalMoneyToInventory(player, 90L))
+        when(economyService.withdrawCustodialAsPhysicalMoney(player, 90L, INVENTORY_ONLY_ROUTING))
                 .thenReturn(MoneyOperationResult.success(90L, 54L, 36L, "Withdraw processed."));
         when(economyService.denominationService()).thenReturn(denominationService);
         when(denominationService.format(54L)).thenReturn("54 Gold Coins");
@@ -77,7 +82,7 @@ final class WithdrawSubcommandTest {
 
         subcommand.execute(player, new String[] {"90"});
 
-        verify(economyService).withdrawCustodialAsPhysicalMoneyToInventory(player, 90L);
+        verify(economyService).withdrawCustodialAsPhysicalMoney(player, 90L, INVENTORY_ONLY_ROUTING);
         verify(economyService, never()).withdrawMaxCustodialToInventory(player);
         verify(player).sendMessage(eq("Withdraw processed. Delivered: 54 Gold Coins, retained: 36 Gold Coins"));
     }

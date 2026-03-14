@@ -17,6 +17,7 @@ import com.earthpol.economyPol.economy.service.support.SchedulerService;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,8 +28,6 @@ import java.util.UUID;
  */
 public final class PlayerEconomyService {
 
-    private static final List<MoneyRouteTarget> DEFAULT_INCOMING_PAYMENT_ROUTING =
-            IncomingPaymentDeliveryPreference.DEFAULT.effectiveRoutingOrder();
     private static final List<MoneyRouteTarget> INVENTORY_ONLY_ROUTING = List.of(MoneyRouteTarget.INVENTORY);
 
     private final AccountRegistryService accountRegistryService;
@@ -221,24 +220,24 @@ public final class PlayerEconomyService {
         ).orElse(MoneyOperationResult.failure(amount, "Player money could not be accessed safely."));
     }
 
-    public MoneyOperationResult withdrawCustodialAsPhysicalMoney(Player player, long amount) {
-        return schedulerService.callOnPlayerEntityScheduler(
-                player,
-                () -> withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(player, amount),
-                "withdraw-custodial-as-physical-money"
-        ).orElse(MoneyOperationResult.failure(amount, "Player money could not be accessed safely."));
-    }
-
-    public MoneyOperationResult withdrawCustodialAsPhysicalMoneyToInventory(Player player, long amount) {
+    public MoneyOperationResult withdrawCustodialAsPhysicalMoney(
+            Player player,
+            long amount,
+            List<MoneyRouteTarget> routingOrder
+    ) {
+        List<MoneyRouteTarget> effectiveRoutingOrder = sanitizeExplicitWithdrawRoutingOrder(amount, routingOrder);
+        if (effectiveRoutingOrder.isEmpty()) {
+            return MoneyOperationResult.failure(amount, "At least one routing target must be provided.");
+        }
         return schedulerService.callOnPlayerEntityScheduler(
                 player,
                 () -> withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(
                         player,
                         amount,
                         liveMoneyService.captureLiveContainerSnapshot(player),
-                        INVENTORY_ONLY_ROUTING
+                        effectiveRoutingOrder
                 ),
-                "withdraw-custodial-as-physical-money-to-inventory"
+                "withdraw-custodial-as-physical-money"
         ).orElse(MoneyOperationResult.failure(amount, "Player money could not be accessed safely."));
     }
 
@@ -311,20 +310,6 @@ public final class PlayerEconomyService {
                 " change_routed_to_custodial=" + spendResult.changeRoutedToCustodial() +
                 " total_credited=" + totalCredited);
         return MoneyOperationResult.success(requested, totalCredited, 0L, "Funds deposited.");
-    }
-
-    // withdrawCustodialAsPhysicalMoney is the explicit conversion path from custodial storage
-    // into physical money items delivered by the canonical routing order. In other words, it
-    // converts money stored in the "overflow" account into real money in the player's inventory/ender chest.
-    // This is not automatic so custodial overflow does not become silently spendable.
-    private MoneyOperationResult withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(Player player, long amount) {
-        LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
-        return withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(
-                player,
-                amount,
-                liveSnapshot,
-                DEFAULT_INCOMING_PAYMENT_ROUTING
-        );
     }
 
     private MoneyOperationResult withdrawMaxCustodialToInventoryOnPlayerEntityScheduler(Player player) {
@@ -502,5 +487,22 @@ public final class PlayerEconomyService {
         IncomingPaymentDeliveryPreference preference =
                 accountRegistryService.getIncomingPaymentDeliveryPreference(playerUuid);
         return preference.effectiveRoutingOrder();
+    }
+
+    private List<MoneyRouteTarget> sanitizeExplicitWithdrawRoutingOrder(long amount, List<MoneyRouteTarget> routingOrder) {
+        if (routingOrder == null || routingOrder.isEmpty()) {
+            return List.of();
+        }
+
+        List<MoneyRouteTarget> effectiveRoutingOrder = List.copyOf(routingOrder);
+        EnumSet<MoneyRouteTarget> seen = EnumSet.noneOf(MoneyRouteTarget.class);
+        for (MoneyRouteTarget target : effectiveRoutingOrder) {
+            if (!seen.add(target)) {
+                operationsLog.warn("Rejecting explicit custodial withdraw with duplicate routing target. amount="
+                        + amount + " target=" + target);
+                return List.of();
+            }
+        }
+        return effectiveRoutingOrder;
     }
 }

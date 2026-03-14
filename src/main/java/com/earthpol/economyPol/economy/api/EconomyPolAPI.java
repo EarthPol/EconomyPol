@@ -5,6 +5,7 @@ import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.Denomination;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
+import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.model.ReservationRecord;
 import org.bukkit.Bukkit;
@@ -73,7 +74,7 @@ public interface EconomyPolAPI {
 
     MoneyOperationResult depositLive(Player player, long amount);
 
-    MoneyOperationResult withdrawCustodialAsPhysicalMoney(Player player, long amount);
+    MoneyOperationResult withdrawCustodialAsPhysicalMoney(Player player, long amount, List<MoneyRouteTarget> routingOrder);
 
     BalanceRecord creditCustodial(UUID playerUuid, String playerName, long amount, String reason);
 

@@ -2,10 +2,15 @@ package com.earthpol.economyPol.economy.command.player;
 
 import com.earthpol.economyPol.economy.command.shared.AbstractEconomySubcommand;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
+import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.List;
+
 public final class WithdrawSubcommand extends AbstractEconomySubcommand {
+
+    private static final List<MoneyRouteTarget> INVENTORY_ONLY_ROUTING = List.of(MoneyRouteTarget.INVENTORY);
 
     public WithdrawSubcommand(CommandDependencies dependencies) {
         super(dependencies);
@@ -64,7 +69,11 @@ public final class WithdrawSubcommand extends AbstractEconomySubcommand {
             sender.sendMessage(usage());
             return true;
         }
-        var result = dependencies.economyService().withdrawCustodialAsPhysicalMoneyToInventory(player, amount);
+        var result = dependencies.economyService().withdrawCustodialAsPhysicalMoney(
+                player,
+                amount,
+                INVENTORY_ONLY_ROUTING
+        );
         sender.sendMessage(result.message() + " Delivered: " +
                 dependencies.economyService().denominationService().format(result.processedAmount()) +
                 ", retained: " +

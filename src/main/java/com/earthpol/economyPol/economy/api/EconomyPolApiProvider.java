@@ -5,6 +5,7 @@ import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.Denomination;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
+import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.model.ReservationRecord;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
@@ -141,8 +142,12 @@ public final class EconomyPolApiProvider implements EconomyPolAPI {
     }
 
     @Override
-    public MoneyOperationResult withdrawCustodialAsPhysicalMoney(Player player, long amount) {
-        return economyService.withdrawCustodialAsPhysicalMoney(player, amount);
+    public MoneyOperationResult withdrawCustodialAsPhysicalMoney(
+            Player player,
+            long amount,
+            List<MoneyRouteTarget> routingOrder
+    ) {
+        return economyService.withdrawCustodialAsPhysicalMoney(player, amount, routingOrder);
     }
 
     @Override

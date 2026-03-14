@@ -138,7 +138,7 @@ final class EconomyServiceTest {
                 auditLog
         );
 
-        MoneyOperationResult result = economyService.withdrawCustodialAsPhysicalMoney(player, 10L);
+        MoneyOperationResult result = economyService.withdrawCustodialAsPhysicalMoney(player, 10L, routingOrder);
 
         assertFalse(result.success());
         assertEquals(10L, result.remainder());
@@ -214,7 +214,7 @@ final class EconomyServiceTest {
                 auditLog
         );
 
-        MoneyOperationResult result = economyService.withdrawCustodialAsPhysicalMoney(player, 10L);
+        MoneyOperationResult result = economyService.withdrawCustodialAsPhysicalMoney(player, 10L, routingOrder);
 
         assertTrue(result.success());
         assertEquals(10L, result.requestedAmount());

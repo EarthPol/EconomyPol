@@ -7,6 +7,7 @@ import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
+import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
@@ -180,12 +181,12 @@ public final class EconomyService {
         return playerEconomyService.depositSelf(player, amount);
     }
 
-    public MoneyOperationResult withdrawCustodialAsPhysicalMoney(Player player, long amount) {
-        return playerEconomyService.withdrawCustodialAsPhysicalMoney(player, amount);
-    }
-
-    public MoneyOperationResult withdrawCustodialAsPhysicalMoneyToInventory(Player player, long amount) {
-        return playerEconomyService.withdrawCustodialAsPhysicalMoneyToInventory(player, amount);
+    public MoneyOperationResult withdrawCustodialAsPhysicalMoney(
+            Player player,
+            long amount,
+            List<MoneyRouteTarget> routingOrder
+    ) {
+        return playerEconomyService.withdrawCustodialAsPhysicalMoney(player, amount, routingOrder);
     }
 
     public MoneyOperationResult withdrawMaxCustodialToInventory(Player player) {
