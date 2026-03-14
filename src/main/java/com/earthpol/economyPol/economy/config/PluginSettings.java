@@ -3,7 +3,6 @@ package com.earthpol.economyPol.economy.config;
 import com.earthpol.earthPolLib.config.ReloadableConfigHandler;
 import com.earthpol.earthPolLib.logging.LogRetentionPolicy;
 import com.earthpol.economyPol.economy.model.Denomination;
-import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -15,7 +14,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 
@@ -96,10 +94,6 @@ public final class PluginSettings {
         return runtime.playerPolicy();
     }
 
-    public List<MoneyRouteTarget> routingOrder() {
-        return runtime.routingOrder();
-    }
-
     public ChangeOverflowPolicy changeOverflowPolicy() {
         return runtime.changeOverflowPolicy();
     }
@@ -170,12 +164,6 @@ public final class PluginSettings {
                 RuntimeConfigKey.PLAYERS_ALLOW_SELF_WITHDRAW.getBool()
         );
 
-        List<MoneyRouteTarget> routingOrder = new ArrayList<>();
-        for (String routeName : stringList(RuntimeConfigKey.ROUTING_ORDER.getList(), RuntimeConfigKey.ROUTING_ORDER.getPath())) {
-            routingOrder.add(parseEnum(MoneyRouteTarget.class, routeName, RuntimeConfigKey.ROUTING_ORDER.getPath()));
-        }
-        validateRoutingOrder(routingOrder);
-
         ChangeOverflowPolicy changeOverflowPolicy = parseEnum(
                 ChangeOverflowPolicy.class,
                 RuntimeConfigKey.ROUTING_CHANGE_OVERFLOW_POLICY.getString(),
@@ -206,7 +194,6 @@ public final class PluginSettings {
         return new RuntimeSettings(
                 numeric,
                 playerPolicy,
-                List.copyOf(routingOrder),
                 changeOverflowPolicy,
                 wallet,
                 cache,
@@ -220,17 +207,6 @@ public final class PluginSettings {
         } catch (IllegalArgumentException exception) {
             throw new IllegalArgumentException("Invalid value '" + rawValue + "' for " + path + ".");
         }
-    }
-
-    private static List<String> stringList(List<?> rawList, String path) {
-        List<String> values = new ArrayList<>(rawList.size());
-        for (Object rawValue : rawList) {
-            if (!(rawValue instanceof String stringValue)) {
-                throw new IllegalArgumentException("Non-string value found in " + path + ".");
-            }
-            values.add(stringValue);
-        }
-        return values;
     }
 
     private static File configFile(Plugin plugin, String fileName) {
@@ -259,21 +235,6 @@ public final class PluginSettings {
             }
         }
         return sections;
-    }
-
-    private static void validateRoutingOrder(List<MoneyRouteTarget> routingOrder) {
-        if (routingOrder.isEmpty()) {
-            throw new IllegalArgumentException("routing.order must not be empty.");
-        }
-        EnumSet<MoneyRouteTarget> seen = EnumSet.noneOf(MoneyRouteTarget.class);
-        for (MoneyRouteTarget target : routingOrder) {
-            if (!seen.add(target)) {
-                throw new IllegalArgumentException("routing.order contains duplicate target " + target);
-            }
-        }
-        if (routingOrder.get(routingOrder.size() - 1) != MoneyRouteTarget.CUSTODIAL_ACCOUNT) {
-            throw new IllegalArgumentException("routing.order must end with CUSTODIAL_ACCOUNT.");
-        }
     }
 
     private static void validateLadder(List<Denomination> denominations) {
@@ -336,7 +297,6 @@ public final class PluginSettings {
     private record RuntimeSettings(
             NumericSettings numeric,
             PlayerAccountPolicy playerPolicy,
-            List<MoneyRouteTarget> routingOrder,
             ChangeOverflowPolicy changeOverflowPolicy,
             WalletSettings wallet,
             CacheSettings cache,

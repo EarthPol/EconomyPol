@@ -2,11 +2,8 @@ package com.earthpol.economyPol.economy.config;
 
 import com.earthpol.earthPolLib.config.ReloadableConfigNode;
 import com.earthpol.earthPolLib.config.ReloadableConfiguration;
-import com.earthpol.earthPolLib.config.ReloadableListNode;
 import com.earthpol.earthPolLib.config.SectionHeaderNode;
 import com.earthpol.earthPolLib.logging.LogRetentionPolicy;
-
-import java.util.List;
 
 enum RuntimeConfigKey implements ReloadableConfiguration {
 
@@ -45,13 +42,9 @@ enum RuntimeConfigKey implements ReloadableConfiguration {
 
     ROUTING_SECTION(SectionHeaderNode.of(
             "routing",
-            "How live physical money is routed when it is deposited or used as change."
-    )),
-    ROUTING_ORDER(ReloadableListNode.ofList(
-            "routing.order",
-            String.class,
-            List.of("INVENTORY", "ENDER_CHEST", "CUSTODIAL_ACCOUNT"),
-            "Routing order entries are parsed case-insensitively."
+            "How live physical money behaves when change must be returned.",
+            "The canonical delivery order is hard-coded as INVENTORY -> ENDER_CHEST -> CUSTODIAL_ACCOUNT.",
+            "Players can suppress the early stages of that order with /economypol paymentdelivery."
     )),
     ROUTING_CHANGE_OVERFLOW_POLICY(ReloadableConfigNode.of(
             "routing.change-overflow-policy",

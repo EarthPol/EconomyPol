@@ -3,6 +3,7 @@ package com.earthpol.economyPol.economy.service.account;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
+import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
@@ -72,6 +73,24 @@ public final class AccountRegistryService {
             return;
         }
         playerRepository.ensurePlayer(playerUuid, playerName);
+    }
+
+    public IncomingPaymentDeliveryPreference getIncomingPaymentDeliveryPreference(UUID playerUuid) {
+        if (playerUuid == null) {
+            return IncomingPaymentDeliveryPreference.DEFAULT;
+        }
+        IncomingPaymentDeliveryPreference preference = playerRepository.getIncomingPaymentDeliveryPreference(playerUuid);
+        return preference == null ? IncomingPaymentDeliveryPreference.DEFAULT : preference;
+    }
+
+    public IncomingPaymentDeliveryPreference setIncomingPaymentDeliveryPreference(
+            UUID playerUuid,
+            String playerName,
+            IncomingPaymentDeliveryPreference preference
+    ) {
+        registerPlayer(playerUuid, playerName);
+        playerRepository.setIncomingPaymentDeliveryPreference(playerUuid, preference);
+        return preference;
     }
 
     public AccountRecord ensureSharedAccount(String name, OfflinePlayer owner) {

@@ -174,7 +174,7 @@ This is the correct model for towns, nations, server treasuries, and other non-p
 
 ## Routing
 
-Online payouts use a configurable routing order:
+EconomyPol has one canonical routing order:
 
 - `INVENTORY`
 - `ENDER_CHEST`
@@ -184,18 +184,19 @@ Current default:
 
 ```yaml
 routing:
-  order:
-    - INVENTORY
-    - ENDER_CHEST
-    - CUSTODIAL_ACCOUNT
   change-overflow-policy: CUSTODIAL
 ```
 
-Validation rules:
+For passive incoming money and returned change, players can suppress the early stages of that order with `/economypol paymentdelivery`:
 
-- routing order must not be empty
-- targets must not repeat
-- `CUSTODIAL_ACCOUNT` must be last
+- `default`
+  - `INVENTORY -> ENDER_CHEST -> CUSTODIAL_ACCOUNT`
+- `skipinventory`
+  - `ENDER_CHEST -> CUSTODIAL_ACCOUNT`
+- `skipinventoryandenderchest`
+  - `CUSTODIAL_ACCOUNT`
+
+This only affects passive incoming delivery and returned change. It does not affect explicit `/economypol withdraw`, which remains inventory-only by design because the player is actively choosing to physicalize money.
 
 Returned change from live-money spends also has a configurable overflow policy:
 
@@ -211,7 +212,9 @@ Returned change from live-money spends also has a configurable overflow policy:
 Routing applies to:
 
 - online player credits
-- explicit custodial withdrawal as physical money
+- returned change from live-money spends
+
+Explicit `/economypol withdraw` is intentionally separate and inventory-only.
 
 ## Denominations
 
@@ -391,6 +394,7 @@ Current queue table:
 - `/economypol deposit <amount|all>`
 - `/economypol withdraw`
 - `/economypol withdraw <amount>` with `economypol.admin`
+- `/economypol paymentdelivery <default|skipinventory|skipinventoryandenderchest>`
 - `/economypol normalizewallet`
 - `/baltop`
 
@@ -399,6 +403,7 @@ Notes:
 - `/economypol withdraw` means “withdraw custodial as physical money”
 - for normal players, `/economypol withdraw` means “withdraw the maximum exact amount that fits in inventory”
 - specifying a withdraw amount is restricted to `economypol.admin`
+- `/economypol paymentdelivery` controls how passive incoming money and returned change are routed for that player
 - `/economypol deposit` means “store physical money into custodial”
 - `/economypol balancetop` shows the cached top player balances from online live money plus offline frozen ender-wallet snapshots
 - `/economypol baltop` and `/baltop` are aliases for the same cached leaderboard
@@ -528,7 +533,7 @@ Safe runtime reload targets in `config.yml`:
 
 - `numeric.*`
 - `players.*`
-- `routing.*`
+- `routing.change-overflow-policy`
 - `wallet.*`
 - `cache.*`
 - `logging.debug`
@@ -629,6 +634,7 @@ Main tables:
 - `economy_players`
   - registered player identity rows keyed by `player_uuid`
   - populated automatically when a player joins
+  - stores each player's `incoming_payment_delivery_preference`
 - `economy_accounts`
   - player and shared accounts
 - `economy_towny_governments`

@@ -5,6 +5,7 @@ import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
+import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
@@ -41,6 +42,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -93,7 +95,6 @@ final class EconomyServiceTest {
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
 
         when(settings.playerPolicy()).thenReturn(policy);
-        when(settings.routingOrder()).thenReturn(routingOrder);
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
         when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
         when(fundsRepository.getBalance(accountId)).thenReturn(new BalanceRecord(100L, 0L));
@@ -179,7 +180,6 @@ final class EconomyServiceTest {
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
 
         when(settings.playerPolicy()).thenReturn(policy);
-        when(settings.routingOrder()).thenReturn(routingOrder);
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
         when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
         when(fundsRepository.getBalance(accountId)).thenReturn(new BalanceRecord(100L, 0L));
@@ -261,7 +261,6 @@ final class EconomyServiceTest {
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
 
         when(settings.playerPolicy()).thenReturn(policy);
-        when(settings.routingOrder()).thenReturn(routingOrder);
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
         when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
@@ -323,7 +322,6 @@ final class EconomyServiceTest {
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
 
         when(settings.playerPolicy()).thenReturn(policy);
-        when(settings.routingOrder()).thenReturn(routingOrder);
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
         when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
@@ -382,7 +380,6 @@ final class EconomyServiceTest {
         );
 
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
-        when(settings.routingOrder()).thenReturn(routingOrder);
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
         when(liveMoneyService.canSpendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.FAIL))
                 .thenReturn(LiveMoneyService.SpendabilityResult.blocked(LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE));
@@ -494,7 +491,6 @@ final class EconomyServiceTest {
         LiveMoneyService.LiveContainerSnapshot snapshot = snapshotOf(player);
 
         when(settings.playerPolicy()).thenReturn(policy);
-        when(settings.routingOrder()).thenReturn(routingOrder);
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.CUSTODIAL);
         when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
         when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
@@ -536,6 +532,66 @@ final class EconomyServiceTest {
         assertEquals(10L, result.processedAmount());
         verify(notificationService).notifyChangeRoutedToCustodial(player, 71L, 71L);
         verify(notificationService, never()).notifyNotEnoughRoomForChange(player);
+    }
+
+    @Test
+    void depositPlayerUsesIncomingPaymentDeliveryPreferenceForPassiveRouting() {
+        PlayerMock player = server.addPlayer();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
+        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+
+        PlayerAccountPolicy policy = new PlayerAccountPolicy(false, true, true);
+        UUID accountId = player.getUniqueId();
+        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
+        List<MoneyRouteTarget> expectedRoutingOrder = List.of(
+                MoneyRouteTarget.ENDER_CHEST,
+                MoneyRouteTarget.CUSTODIAL_ACCOUNT
+        );
+
+        when(settings.playerPolicy()).thenReturn(policy);
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(playerRepository.getIncomingPaymentDeliveryPreference(player.getUniqueId()))
+                .thenReturn(IncomingPaymentDeliveryPreference.SKIP_INVENTORY);
+        when(liveMoneyService.deliver(player, 10L, expectedRoutingOrder))
+                .thenReturn(new LiveMoneyService.DeliveryResult(0L, 10L, 0L));
+        doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
+                .when(schedulerService)
+                .callOnPlayerEntityScheduler(eq(player), any(), anyString());
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                operationsLog,
+                auditLog
+        );
+
+        MoneyOperationResult result = economyService.depositPlayer(player, 10L, "VAULT2_DEPOSIT:QuickShop-Hikari");
+
+        assertTrue(result.success());
+        verify(liveMoneyService).deliver(player, 10L, expectedRoutingOrder);
+        verify(fundsRepository, never()).changeAvailable(any(), anyLong(), anyString(), anyString(), any(), isNull());
+        verifyNoInteractions(notificationService);
     }
 
     private static LiveMoneyService.LiveContainerSnapshot snapshotOf(Player player) {

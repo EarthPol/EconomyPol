@@ -64,7 +64,7 @@ public final class WithdrawSubcommand extends AbstractEconomySubcommand {
             sender.sendMessage(usage());
             return true;
         }
-        var result = dependencies.economyService().withdrawCustodialAsPhysicalMoney(player, amount);
+        var result = dependencies.economyService().withdrawCustodialAsPhysicalMoneyToInventory(player, amount);
         sender.sendMessage(result.message() + " Delivered: " +
                 dependencies.economyService().denominationService().format(result.processedAmount()) +
                 ", retained: " +

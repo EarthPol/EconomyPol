@@ -5,7 +5,9 @@ import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
+import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
+import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.OfflineEnderWalletState;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
@@ -24,6 +26,10 @@ import java.util.UUID;
  * custodial overflow, and offline managed ender-wallet behavior.
  */
 public final class PlayerEconomyService {
+
+    private static final List<MoneyRouteTarget> DEFAULT_INCOMING_PAYMENT_ROUTING =
+            IncomingPaymentDeliveryPreference.DEFAULT.effectiveRoutingOrder();
+    private static final List<MoneyRouteTarget> INVENTORY_ONLY_ROUTING = List.of(MoneyRouteTarget.INVENTORY);
 
     private final AccountRegistryService accountRegistryService;
     private final FundsRepository fundsRepository;
@@ -112,7 +118,7 @@ public final class PlayerEconomyService {
                     () -> liveMoneyService.canSpendFromLiveSources(
                             onlinePlayer,
                             amount,
-                            settings.routingOrder(),
+                            incomingPaymentRoutingOrder(player.getUniqueId()),
                             settings.changeOverflowPolicy()
                     ),
                     "has-enough-live-spendability"
@@ -175,7 +181,7 @@ public final class PlayerEconomyService {
             Player onlinePlayer = player.getPlayer();
             Optional<LiveMoneyService.DeliveryResult> deliveryResultOptional = schedulerService.callOnPlayerEntityScheduler(
                     onlinePlayer,
-                    () -> liveMoneyService.deliver(onlinePlayer, amount, settings.routingOrder()),
+                    () -> liveMoneyService.deliver(onlinePlayer, amount, incomingPaymentRoutingOrder(player.getUniqueId())),
                     "deposit-player-live"
             );
             if (deliveryResultOptional.isEmpty()) {
@@ -223,6 +229,19 @@ public final class PlayerEconomyService {
         ).orElse(MoneyOperationResult.failure(amount, "Player money could not be accessed safely."));
     }
 
+    public MoneyOperationResult withdrawCustodialAsPhysicalMoneyToInventory(Player player, long amount) {
+        return schedulerService.callOnPlayerEntityScheduler(
+                player,
+                () -> withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(
+                        player,
+                        amount,
+                        liveMoneyService.captureLiveContainerSnapshot(player),
+                        INVENTORY_ONLY_ROUTING
+                ),
+                "withdraw-custodial-as-physical-money-to-inventory"
+        ).orElse(MoneyOperationResult.failure(amount, "Player money could not be accessed safely."));
+    }
+
     public MoneyOperationResult withdrawMaxCustodialToInventory(Player player) {
         long requestedAmount = Math.max(0L, getCustodialAvailable(player));
         return schedulerService.callOnPlayerEntityScheduler(
@@ -252,7 +271,7 @@ public final class PlayerEconomyService {
         LiveMoneyService.SpendResult spendResult = liveMoneyService.spendFromLiveSources(
                 player,
                 requested,
-                settings.routingOrder(),
+                incomingPaymentRoutingOrder(player.getUniqueId()),
                 settings.changeOverflowPolicy()
         );
         if (!spendResult.success()) {
@@ -295,12 +314,17 @@ public final class PlayerEconomyService {
     }
 
     // withdrawCustodialAsPhysicalMoney is the explicit conversion path from custodial storage
-    // into physical money items delivered by the configured routing order. In other words, it
+    // into physical money items delivered by the canonical routing order. In other words, it
     // converts money stored in the "overflow" account into real money in the player's inventory/ender chest.
     // This is not automatic so custodial overflow does not become silently spendable.
     private MoneyOperationResult withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(Player player, long amount) {
         LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
-        return withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(player, amount, liveSnapshot, settings.routingOrder());
+        return withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(
+                player,
+                amount,
+                liveSnapshot,
+                DEFAULT_INCOMING_PAYMENT_ROUTING
+        );
     }
 
     private MoneyOperationResult withdrawMaxCustodialToInventoryOnPlayerEntityScheduler(Player player) {
@@ -324,7 +348,7 @@ public final class PlayerEconomyService {
                 player,
                 maxWithdrawable,
                 liveSnapshot,
-                List.of(com.earthpol.economyPol.economy.model.MoneyRouteTarget.INVENTORY)
+                INVENTORY_ONLY_ROUTING
         );
     }
 
@@ -332,7 +356,7 @@ public final class PlayerEconomyService {
             Player player,
             long amount,
             LiveMoneyService.LiveContainerSnapshot liveSnapshot,
-            List<com.earthpol.economyPol.economy.model.MoneyRouteTarget> routingOrder
+            List<MoneyRouteTarget> routingOrder
     ) {
         if (amount < 0L) {
             return MoneyOperationResult.failure(amount, "Cannot withdraw a negative amount.");
@@ -437,7 +461,7 @@ public final class PlayerEconomyService {
         LiveMoneyService.SpendResult spendResult = liveMoneyService.spendFromLiveSources(
                 player,
                 amount,
-                settings.routingOrder(),
+                incomingPaymentRoutingOrder(player.getUniqueId()),
                 settings.changeOverflowPolicy()
         );
         if (!spendResult.success()) {
@@ -473,5 +497,10 @@ public final class PlayerEconomyService {
                 " reason=" + reason);
         return MoneyOperationResult.success(amount, amount, 0L, "Funds withdrawn.");
     }
-}
 
+    private List<MoneyRouteTarget> incomingPaymentRoutingOrder(UUID playerUuid) {
+        IncomingPaymentDeliveryPreference preference =
+                accountRegistryService.getIncomingPaymentDeliveryPreference(playerUuid);
+        return preference.effectiveRoutingOrder();
+    }
+}

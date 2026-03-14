@@ -5,6 +5,7 @@ import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
+import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
@@ -119,6 +120,22 @@ public final class EconomyService {
         accountRegistryService.registerPlayer(playerUuid, playerName);
     }
 
+    public IncomingPaymentDeliveryPreference getIncomingPaymentDeliveryPreference(OfflinePlayer player) {
+        accountRegistryService.registerPlayer(player);
+        return accountRegistryService.getIncomingPaymentDeliveryPreference(player.getUniqueId());
+    }
+
+    public IncomingPaymentDeliveryPreference setIncomingPaymentDeliveryPreference(
+            OfflinePlayer player,
+            IncomingPaymentDeliveryPreference preference
+    ) {
+        return accountRegistryService.setIncomingPaymentDeliveryPreference(
+                player.getUniqueId(),
+                player.getName(),
+                preference
+        );
+    }
+
     public AccountRecord ensureSharedAccount(String name, OfflinePlayer owner) {
         return accountRegistryService.ensureSharedAccount(name, owner);
     }
@@ -165,6 +182,10 @@ public final class EconomyService {
 
     public MoneyOperationResult withdrawCustodialAsPhysicalMoney(Player player, long amount) {
         return playerEconomyService.withdrawCustodialAsPhysicalMoney(player, amount);
+    }
+
+    public MoneyOperationResult withdrawCustodialAsPhysicalMoneyToInventory(Player player, long amount) {
+        return playerEconomyService.withdrawCustodialAsPhysicalMoneyToInventory(player, amount);
     }
 
     public MoneyOperationResult withdrawMaxCustodialToInventory(Player player) {

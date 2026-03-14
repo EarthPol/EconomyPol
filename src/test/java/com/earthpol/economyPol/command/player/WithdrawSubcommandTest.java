@@ -41,7 +41,7 @@ final class WithdrawSubcommandTest {
         subcommand.execute(player, new String[0]);
 
         verify(economyService).withdrawMaxCustodialToInventory(player);
-        verify(economyService, never()).withdrawCustodialAsPhysicalMoney(player, 126L);
+        verify(economyService, never()).withdrawCustodialAsPhysicalMoneyToInventory(player, 126L);
     }
 
     @Test
@@ -56,7 +56,7 @@ final class WithdrawSubcommandTest {
         subcommand.execute(player, new String[] {"10"});
 
         verify(economyService, never()).withdrawMaxCustodialToInventory(player);
-        verify(economyService, never()).withdrawCustodialAsPhysicalMoney(player, 10L);
+        verify(economyService, never()).withdrawCustodialAsPhysicalMoneyToInventory(player, 10L);
         verify(player).sendMessage(contains("Specific withdrawal amounts require economypol.admin"));
     }
 
@@ -67,7 +67,7 @@ final class WithdrawSubcommandTest {
         Player player = mock(Player.class);
 
         when(player.hasPermission("economypol.admin")).thenReturn(true);
-        when(economyService.withdrawCustodialAsPhysicalMoney(player, 90L))
+        when(economyService.withdrawCustodialAsPhysicalMoneyToInventory(player, 90L))
                 .thenReturn(MoneyOperationResult.success(90L, 54L, 36L, "Withdraw processed."));
         when(economyService.denominationService()).thenReturn(denominationService);
         when(denominationService.format(54L)).thenReturn("54 Gold Coins");
@@ -77,7 +77,7 @@ final class WithdrawSubcommandTest {
 
         subcommand.execute(player, new String[] {"90"});
 
-        verify(economyService).withdrawCustodialAsPhysicalMoney(player, 90L);
+        verify(economyService).withdrawCustodialAsPhysicalMoneyToInventory(player, 90L);
         verify(economyService, never()).withdrawMaxCustodialToInventory(player);
         verify(player).sendMessage(eq("Withdraw processed. Delivered: 54 Gold Coins, retained: 36 Gold Coins"));
     }

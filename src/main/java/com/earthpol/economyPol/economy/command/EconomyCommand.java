@@ -163,6 +163,7 @@ public final class EconomyCommand implements TabExecutor {
         commands.put(BALANCE_TOP_ALIAS, balanceTopSubcommand);
         register(commands, new DepositSubcommand(dependencies));
         register(commands, new WithdrawSubcommand(dependencies));
+        register(commands, new PaymentDeliverySubcommand(dependencies));
         register(commands, new NormalizeWalletSubcommand(dependencies));
         return Collections.unmodifiableMap(new LinkedHashMap<>(commands));
     }
