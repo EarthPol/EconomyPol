@@ -261,9 +261,6 @@ public final class PlayerEconomyService {
 
     private MoneyOperationResult depositSelfOnPlayerEntityScheduler(Player player, long amount) {
         AccountRecord account = accountRegistryService.ensurePlayerAccount(player);
-        if (!account.playerPolicy().allowSelfDeposit()) {
-            return MoneyOperationResult.failure(amount, "Self-deposit is disabled.");
-        }
         long available = liveMoneyService.scanPlayerMoney(player);
         long requested = amount <= 0L ? available : amount;
         LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
@@ -314,9 +311,6 @@ public final class PlayerEconomyService {
 
     private MoneyOperationResult withdrawMaxCustodialToInventoryOnPlayerEntityScheduler(Player player) {
         AccountRecord account = accountRegistryService.ensurePlayerAccount(player);
-        if (!account.playerPolicy().allowSelfWithdraw()) {
-            return MoneyOperationResult.failure(0L, "Self-withdraw is disabled.");
-        }
 
         BalanceRecord balance = fundsRepository.getBalance(account.accountId());
         if (balance.availableBalance() <= 0L) {
@@ -347,9 +341,6 @@ public final class PlayerEconomyService {
             return MoneyOperationResult.failure(amount, "Cannot withdraw a negative amount.");
         }
         AccountRecord account = accountRegistryService.ensurePlayerAccount(player);
-        if (!account.playerPolicy().allowSelfWithdraw()) {
-            return MoneyOperationResult.failure(amount, "Self-withdraw is disabled.");
-        }
         BalanceRecord balance = fundsRepository.getBalance(account.accountId());
         if (balance.availableBalance() < amount) {
             return MoneyOperationResult.failure(amount, "Insufficient custodial funds.");

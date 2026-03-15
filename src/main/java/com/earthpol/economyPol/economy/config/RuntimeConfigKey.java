@@ -19,27 +19,6 @@ enum RuntimeConfigKey implements ReloadableConfiguration {
             "TRUNCATE: cut toward zero; 5.9 -> 5 and -5.9 -> -5."
     )),
 
-    PLAYERS_SECTION(SectionHeaderNode.of(
-            "players",
-            "Player policy flags.",
-            "These are safe to reload, but they only affect future account upserts and runtime checks."
-    )),
-    PLAYERS_ALLOW_SELF_DEPOSIT(ReloadableConfigNode.of(
-            "players.allow-self-deposit",
-            Boolean.class,
-            false
-    )),
-    PLAYERS_ALLOW_EXTERNAL_CREDIT(ReloadableConfigNode.of(
-            "players.allow-external-credit",
-            Boolean.class,
-            true
-    )),
-    PLAYERS_ALLOW_SELF_WITHDRAW(ReloadableConfigNode.of(
-            "players.allow-self-withdraw",
-            Boolean.class,
-            true
-    )),
-
     ROUTING_SECTION(SectionHeaderNode.of(
             "routing",
             "How live physical money behaves when change must be returned.",

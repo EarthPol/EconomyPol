@@ -11,7 +11,6 @@ import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.OfflineEnderWalletState;
-import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.model.ReservationRecord;
 import com.earthpol.economyPol.economy.model.ReservationStatus;
@@ -117,8 +116,7 @@ final class EconomyPolApiProviderTest {
                 accountId,
                 AccountType.SHARED,
                 ownerUuid,
-                "town-bank",
-                new PlayerAccountPolicy(true, true, true)
+                "town-bank"
         );
         ReservationRecord reservation = new ReservationRecord(
                 reservationId,

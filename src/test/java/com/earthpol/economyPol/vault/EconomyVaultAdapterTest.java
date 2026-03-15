@@ -6,7 +6,6 @@ import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
-import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.support.NumericalConsistencyService;
@@ -37,8 +36,7 @@ final class EconomyVaultAdapterTest {
                 playerUuid,
                 AccountType.PLAYER,
                 playerUuid,
-                "Alice",
-                new PlayerAccountPolicy(false, true, true)
+                "Alice"
         );
 
         when(player.getUniqueId()).thenReturn(playerUuid);
@@ -113,8 +111,7 @@ final class EconomyVaultAdapterTest {
                 accountId,
                 AccountType.SHARED,
                 UUID.randomUUID(),
-                "town-bank",
-                new PlayerAccountPolicy(true, true, true)
+                "town-bank"
         );
 
         when(player.getUniqueId()).thenReturn(playerUuid);

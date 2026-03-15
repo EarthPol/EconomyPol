@@ -3,7 +3,6 @@ package com.earthpol.economyPol.economy.config;
 import com.earthpol.earthPolLib.config.ReloadableConfigHandler;
 import com.earthpol.earthPolLib.logging.LogRetentionPolicy;
 import com.earthpol.economyPol.economy.model.Denomination;
-import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -90,10 +89,6 @@ public final class PluginSettings {
         return runtime.numeric();
     }
 
-    public PlayerAccountPolicy playerPolicy() {
-        return runtime.playerPolicy();
-    }
-
     public ChangeOverflowPolicy changeOverflowPolicy() {
         return runtime.changeOverflowPolicy();
     }
@@ -158,12 +153,6 @@ public final class PluginSettings {
                 )
         );
 
-        PlayerAccountPolicy playerPolicy = new PlayerAccountPolicy(
-                RuntimeConfigKey.PLAYERS_ALLOW_SELF_DEPOSIT.getBool(),
-                RuntimeConfigKey.PLAYERS_ALLOW_EXTERNAL_CREDIT.getBool(),
-                RuntimeConfigKey.PLAYERS_ALLOW_SELF_WITHDRAW.getBool()
-        );
-
         ChangeOverflowPolicy changeOverflowPolicy = parseEnum(
                 ChangeOverflowPolicy.class,
                 RuntimeConfigKey.ROUTING_CHANGE_OVERFLOW_POLICY.getString(),
@@ -193,7 +182,6 @@ public final class PluginSettings {
 
         return new RuntimeSettings(
                 numeric,
-                playerPolicy,
                 changeOverflowPolicy,
                 wallet,
                 cache,
@@ -296,7 +284,6 @@ public final class PluginSettings {
 
     private record RuntimeSettings(
             NumericSettings numeric,
-            PlayerAccountPolicy playerPolicy,
             ChangeOverflowPolicy changeOverflowPolicy,
             WalletSettings wallet,
             CacheSettings cache,

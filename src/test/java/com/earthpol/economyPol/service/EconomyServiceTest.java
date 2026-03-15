@@ -8,7 +8,6 @@ import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
-import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
@@ -85,18 +84,16 @@ final class EconomyServiceTest {
         EnhancedLogger operationsLog = mock(EnhancedLogger.class);
         EnhancedLogger auditLog = mock(EnhancedLogger.class);
 
-        PlayerAccountPolicy policy = new PlayerAccountPolicy(false, true, true);
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
                 MoneyRouteTarget.ENDER_CHEST,
                 MoneyRouteTarget.CUSTODIAL_ACCOUNT
         );
         UUID accountId = player.getUniqueId();
-        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
+        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
 
-        when(settings.playerPolicy()).thenReturn(policy);
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
         when(fundsRepository.getBalance(accountId)).thenReturn(new BalanceRecord(100L, 0L));
         when(fundsRepository.reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING")).thenReturn(new BalanceRecord(90L, 10L));
 
@@ -170,18 +167,16 @@ final class EconomyServiceTest {
         EnhancedLogger operationsLog = mock(EnhancedLogger.class);
         EnhancedLogger auditLog = mock(EnhancedLogger.class);
 
-        PlayerAccountPolicy policy = new PlayerAccountPolicy(false, true, true);
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
                 MoneyRouteTarget.ENDER_CHEST,
                 MoneyRouteTarget.CUSTODIAL_ACCOUNT
         );
         UUID accountId = player.getUniqueId();
-        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
+        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
 
-        when(settings.playerPolicy()).thenReturn(policy);
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
         when(fundsRepository.getBalance(accountId)).thenReturn(new BalanceRecord(100L, 0L));
         when(fundsRepository.reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING")).thenReturn(new BalanceRecord(90L, 10L));
         when(fundsRepository.settleReservedWithdrawal(
@@ -251,18 +246,16 @@ final class EconomyServiceTest {
         EnhancedLogger operationsLog = mock(EnhancedLogger.class);
         EnhancedLogger auditLog = mock(EnhancedLogger.class);
 
-        PlayerAccountPolicy policy = new PlayerAccountPolicy(false, true, true);
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
                 MoneyRouteTarget.ENDER_CHEST,
                 MoneyRouteTarget.CUSTODIAL_ACCOUNT
         );
         UUID accountId = player.getUniqueId();
-        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
+        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
 
-        when(settings.playerPolicy()).thenReturn(policy);
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
         when(liveMoneyService.captureLiveContainerSnapshot(player)).thenReturn(snapshotOf(player));
         when(liveMoneyService.spendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.FAIL))
@@ -312,18 +305,16 @@ final class EconomyServiceTest {
         EnhancedLogger operationsLog = mock(EnhancedLogger.class);
         EnhancedLogger auditLog = mock(EnhancedLogger.class);
 
-        PlayerAccountPolicy policy = new PlayerAccountPolicy(false, true, true);
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
                 MoneyRouteTarget.ENDER_CHEST,
                 MoneyRouteTarget.CUSTODIAL_ACCOUNT
         );
         UUID accountId = player.getUniqueId();
-        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
+        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
 
-        when(settings.playerPolicy()).thenReturn(policy);
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
         when(liveMoneyService.captureLiveContainerSnapshot(player)).thenReturn(snapshotOf(player));
         when(liveMoneyService.spendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.FAIL))
@@ -426,13 +417,11 @@ final class EconomyServiceTest {
         PluginSettings settings = mock(PluginSettings.class);
         EnhancedLogger operationsLog = mock(EnhancedLogger.class);
         EnhancedLogger auditLog = mock(EnhancedLogger.class);
-        PlayerAccountPolicy policy = new PlayerAccountPolicy(false, true, true);
         UUID accountId = player.getUniqueId();
-        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
+        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
 
-        when(settings.playerPolicy()).thenReturn(policy);
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.CUSTODIAL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
         when(fundsRepository.getBalance(accountId)).thenReturn(new BalanceRecord(0L, 0L));
         doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
                 .when(schedulerService)
@@ -480,20 +469,18 @@ final class EconomyServiceTest {
         EnhancedLogger operationsLog = mock(EnhancedLogger.class);
         EnhancedLogger auditLog = mock(EnhancedLogger.class);
 
-        PlayerAccountPolicy policy = new PlayerAccountPolicy(false, true, true);
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
                 MoneyRouteTarget.ENDER_CHEST,
                 MoneyRouteTarget.CUSTODIAL_ACCOUNT
         );
         UUID accountId = player.getUniqueId();
-        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
+        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
         LiveMoneyService.LiveContainerSnapshot snapshot = snapshotOf(player);
 
-        when(settings.playerPolicy()).thenReturn(policy);
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.CUSTODIAL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
         when(liveMoneyService.captureLiveContainerSnapshot(player)).thenReturn(snapshot);
         when(liveMoneyService.spendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.CUSTODIAL))
@@ -552,16 +539,14 @@ final class EconomyServiceTest {
         EnhancedLogger operationsLog = mock(EnhancedLogger.class);
         EnhancedLogger auditLog = mock(EnhancedLogger.class);
 
-        PlayerAccountPolicy policy = new PlayerAccountPolicy(false, true, true);
         UUID accountId = player.getUniqueId();
-        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName(), policy);
+        AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
         List<MoneyRouteTarget> expectedRoutingOrder = List.of(
                 MoneyRouteTarget.ENDER_CHEST,
                 MoneyRouteTarget.CUSTODIAL_ACCOUNT
         );
 
-        when(settings.playerPolicy()).thenReturn(policy);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), policy)).thenReturn(account);
+        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
         when(playerRepository.getIncomingPaymentDeliveryPreference(player.getUniqueId()))
                 .thenReturn(IncomingPaymentDeliveryPreference.SKIP_INVENTORY);
         when(liveMoneyService.deliver(player, 10L, expectedRoutingOrder))

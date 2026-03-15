@@ -27,6 +27,10 @@ public final class DepositSubcommand extends AbstractEconomySubcommand {
         if (player == null) {
             return true;
         }
+        if (!player.hasPermission("economypol.admin")) {
+            sender.sendMessage("You do not have permission to self-deposit physical money into custodial.");
+            return true;
+        }
         if (args.length > 1) {
             sender.sendMessage(usage());
             return true;

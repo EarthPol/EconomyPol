@@ -4,7 +4,6 @@ import com.earthpol.earthPolLib.database.DatabaseService;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
-import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -21,33 +20,25 @@ public final class AccountRepository extends AbstractRepositorySupport {
         super(databaseService, operationsLog, auditLog);
     }
 
-    public AccountRecord ensurePlayerAccount(UUID playerUuid, String playerName, PlayerAccountPolicy policy) {
+    public AccountRecord ensurePlayerAccount(UUID playerUuid, String playerName) {
         Timestamp now = nowTimestamp();
         update("""
                 INSERT INTO economy_accounts (
-                    account_id, account_type, owner_uuid, account_name,
-                    allow_self_deposit, allow_external_credit, allow_self_withdraw,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    account_id, account_type, owner_uuid, account_name, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     account_name = VALUES(account_name),
-                    allow_self_deposit = VALUES(allow_self_deposit),
-                    allow_external_credit = VALUES(allow_external_credit),
-                    allow_self_withdraw = VALUES(allow_self_withdraw),
                     updated_at = VALUES(updated_at)
                 """,
                 uuid(playerUuid),
                 AccountType.PLAYER.name(),
                 uuid(playerUuid),
                 playerName == null ? playerUuid.toString() : playerName,
-                policy.allowSelfDeposit(),
-                policy.allowExternalCredit(),
-                policy.allowSelfWithdraw(),
                 now,
                 now
         );
         ensureBalanceRow(playerUuid);
-        return new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerName == null ? playerUuid.toString() : playerName, policy);
+        return new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerName == null ? playerUuid.toString() : playerName);
     }
 
     public AccountRecord ensureSharedAccount(String name, UUID ownerUuid) {
@@ -60,10 +51,8 @@ public final class AccountRepository extends AbstractRepositorySupport {
         Timestamp now = nowTimestamp();
         update("""
                 INSERT INTO economy_accounts (
-                    account_id, account_type, owner_uuid, account_name,
-                    allow_self_deposit, allow_external_credit, allow_self_withdraw,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    account_id, account_type, owner_uuid, account_name, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     owner_uuid = VALUES(owner_uuid),
                     account_name = VALUES(account_name),
@@ -73,20 +62,16 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 AccountType.SHARED.name(),
                 uuid(resolvedOwnerUuid),
                 name,
-                true,
-                true,
-                true,
                 now,
                 now
         );
         ensureBalanceRow(accountId);
-        return new AccountRecord(accountId, AccountType.SHARED, resolvedOwnerUuid, name, new PlayerAccountPolicy(true, true, true));
+        return new AccountRecord(accountId, AccountType.SHARED, resolvedOwnerUuid, name);
     }
 
     public Optional<AccountRecord> findAccount(UUID accountId) {
         return queryOne("""
                 SELECT account_id, account_type, owner_uuid, account_name,
-                       allow_self_deposit, allow_external_credit, allow_self_withdraw
                 FROM economy_accounts
                 WHERE account_id = ?
                 """,
@@ -98,7 +83,6 @@ public final class AccountRepository extends AbstractRepositorySupport {
     public Optional<AccountRecord> findPlayerAccount(UUID playerUuid) {
         return queryOne("""
                 SELECT account_id, account_type, owner_uuid, account_name,
-                       allow_self_deposit, allow_external_credit, allow_self_withdraw
                 FROM economy_accounts
                 WHERE owner_uuid = ? AND account_type = ?
                 """,
@@ -113,7 +97,6 @@ public final class AccountRepository extends AbstractRepositorySupport {
     public Optional<AccountRecord> findSharedAccount(String name) {
         return queryOne("""
                 SELECT account_id, account_type, owner_uuid, account_name,
-                       allow_self_deposit, allow_external_credit, allow_self_withdraw
                 FROM economy_accounts
                 WHERE account_name = ? AND account_type = ?
                 """,
@@ -128,7 +111,6 @@ public final class AccountRepository extends AbstractRepositorySupport {
     public Optional<AccountRecord> findSharedAccount(UUID accountId) {
         return queryOne("""
                 SELECT account_id, account_type, owner_uuid, account_name,
-                       allow_self_deposit, allow_external_credit, allow_self_withdraw
                 FROM economy_accounts
                 WHERE account_id = ? AND account_type = ?
                 """,
@@ -143,7 +125,6 @@ public final class AccountRepository extends AbstractRepositorySupport {
     public Optional<AccountRecord> findAccountByName(String name) {
         return queryOne("""
                 SELECT account_id, account_type, owner_uuid, account_name,
-                       allow_self_deposit, allow_external_credit, allow_self_withdraw
                 FROM economy_accounts
                 WHERE account_name = ?
                 """,
@@ -164,7 +145,6 @@ public final class AccountRepository extends AbstractRepositorySupport {
         return queryList(
                 """
                 SELECT account_id, account_type, owner_uuid, account_name,
-                       allow_self_deposit, allow_external_credit, allow_self_withdraw
                 FROM economy_accounts
                 WHERE account_type = ?
                 ORDER BY account_name ASC
@@ -263,12 +243,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 parseUuid(resultSet.getObject("account_id")),
                 AccountType.valueOf(resultSet.getString("account_type")),
                 parseUuid(resultSet.getObject("owner_uuid")),
-                resultSet.getString("account_name"),
-                new PlayerAccountPolicy(
-                        resultSet.getBoolean("allow_self_deposit"),
-                        resultSet.getBoolean("allow_external_credit"),
-                        resultSet.getBoolean("allow_self_withdraw")
-                )
+                resultSet.getString("account_name")
         );
     }
 

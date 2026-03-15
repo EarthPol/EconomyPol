@@ -6,6 +6,5 @@ public record AccountRecord(
         UUID accountId,
         AccountType accountType,
         UUID ownerUuid,
-        String accountName,
-        PlayerAccountPolicy playerPolicy
+        String accountName
 ) {}

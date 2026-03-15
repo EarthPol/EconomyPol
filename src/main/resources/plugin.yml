@@ -17,7 +17,5 @@ commands:
     description: Show the cached top player balances
     usage: /baltop
 permissions:
-  economypol.use:
-    default: true
   economypol.admin:
     default: op

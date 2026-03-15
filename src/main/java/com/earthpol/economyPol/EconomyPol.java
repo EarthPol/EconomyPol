@@ -45,6 +45,8 @@ import java.util.logging.Level;
 // TODO: Add built-in TNE migrator, or write a custom script for it. In python perhaps?
 // todo: Better logging, more logging configuration
 // todo: touch up UI and notification delivery
+// TODO: More testing.
+// TODO: Tidy up database schema, especially the economy_accounts.
 
 public final class EconomyPol extends JavaPlugin {
 

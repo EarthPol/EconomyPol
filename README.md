@@ -155,9 +155,7 @@ When a player account is credited:
 
 `/economypol deposit <amount|all>` removes physical money from the player’s live sources and stores it in custodial.
 
-This is controlled by:
-
-- `players.allow-self-deposit`
+This command is currently gated behind `economypol.admin`.
 
 ### Shared Account Behavior
 
@@ -403,6 +401,7 @@ Notes:
 - `/economypol withdraw` means “withdraw custodial as physical money”
 - for normal players, `/economypol withdraw` means “withdraw the maximum exact amount that fits in inventory”
 - specifying a withdraw amount is restricted to `economypol.admin`
+- `/economypol deposit` is restricted to `economypol.admin`
 - `/economypol paymentdelivery` controls how passive incoming money and returned change are routed for that player
 - `/economypol deposit` means “store physical money into custodial”
 - `/economypol balancetop` shows the cached top player balances from online live money plus offline frozen ender-wallet snapshots
@@ -452,7 +451,7 @@ Current permissions in `plugin.yml`:
 
 - `economypol.admin` - admin commands, default `op`
 
-Player commands are public by design.
+`economypol.admin` also gates the player self-deposit command and explicit amount withdraws.
 
 ## Configuration
 
@@ -500,16 +499,7 @@ Default runtime config:
 numeric:
   decimal-handling: TRUNCATE
 
-players:
-  allow-self-deposit: false
-  allow-external-credit: true
-  allow-self-withdraw: true
-
 routing:
-  order:
-    - INVENTORY
-    - ENDER_CHEST
-    - CUSTODIAL_ACCOUNT
   change-overflow-policy: CUSTODIAL
 
 wallet:
@@ -532,7 +522,6 @@ EconomyPol is suitable for selective runtime config reloads, not full blanket re
 Safe runtime reload targets in `config.yml`:
 
 - `numeric.*`
-- `players.*`
 - `routing.change-overflow-policy`
 - `wallet.*`
 - `cache.*`
@@ -555,15 +544,6 @@ So the intended model is:
 - restart the server for database or currency changes
 
 ### Important Settings
-
-#### `players.allow-self-deposit`
-
-- if `false`, players cannot manually store their own physical money in custodial
-- external credits can still place money into custodial when required
-
-#### `players.allow-self-withdraw`
-
-- controls explicit custodial-to-physical withdrawal
 
 #### `wallet.managed-ender-wallet-enabled`
 
@@ -637,6 +617,7 @@ Main tables:
   - stores each player's `incoming_payment_delivery_preference`
 - `economy_accounts`
   - player and shared accounts
+  - stores shared account and player account identity only
 - `economy_towny_governments`
   - explicit Towny government to bank-account bindings
   - `government_uuid` is the raw Towny town or nation UUID and the row primary key

@@ -4,7 +4,6 @@ import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
-import com.earthpol.economyPol.economy.model.PlayerAccountPolicy;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
 import org.bukkit.OfflinePlayer;
@@ -13,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Supplier;
 
 /**
  * Owns account registration and lookup concerns. This keeps the core economy
@@ -23,42 +21,24 @@ public final class AccountRegistryService {
 
     private final AccountRepository accountRepository;
     private final PlayerRepository playerRepository;
-    private final Supplier<PlayerAccountPolicy> playerPolicySupplier;
 
     public AccountRegistryService(
             AccountRepository accountRepository,
             PlayerRepository playerRepository,
             PluginSettings settings
     ) {
-        this(accountRepository, playerRepository, settings::playerPolicy);
-    }
-
-    public AccountRegistryService(
-            AccountRepository accountRepository,
-            PlayerRepository playerRepository,
-            PlayerAccountPolicy playerPolicy
-    ) {
-        this(accountRepository, playerRepository, () -> playerPolicy);
-    }
-
-    private AccountRegistryService(
-            AccountRepository accountRepository,
-            PlayerRepository playerRepository,
-            Supplier<PlayerAccountPolicy> playerPolicySupplier
-    ) {
         this.accountRepository = accountRepository;
         this.playerRepository = playerRepository;
-        this.playerPolicySupplier = playerPolicySupplier;
     }
 
     public AccountRecord ensurePlayerAccount(OfflinePlayer player) {
         registerPlayer(player);
-        return accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName(), playerPolicySupplier.get());
+        return accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName());
     }
 
     public AccountRecord ensurePlayerAccount(UUID playerUuid, String playerName) {
         registerPlayer(playerUuid, playerName);
-        return accountRepository.ensurePlayerAccount(playerUuid, playerName, playerPolicySupplier.get());
+        return accountRepository.ensurePlayerAccount(playerUuid, playerName);
     }
 
     public void registerPlayer(OfflinePlayer player) {
