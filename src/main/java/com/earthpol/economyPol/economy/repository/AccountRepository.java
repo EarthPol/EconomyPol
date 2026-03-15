@@ -71,7 +71,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
 
     public Optional<AccountRecord> findAccount(UUID accountId) {
         return queryOne("""
-                SELECT account_id, account_type, owner_uuid, account_name,
+                SELECT account_id, account_type, owner_uuid, account_name
                 FROM economy_accounts
                 WHERE account_id = ?
                 """,
@@ -82,7 +82,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
 
     public Optional<AccountRecord> findPlayerAccount(UUID playerUuid) {
         return queryOne("""
-                SELECT account_id, account_type, owner_uuid, account_name,
+                SELECT account_id, account_type, owner_uuid, account_name
                 FROM economy_accounts
                 WHERE owner_uuid = ? AND account_type = ?
                 """,
@@ -96,7 +96,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
 
     public Optional<AccountRecord> findSharedAccount(String name) {
         return queryOne("""
-                SELECT account_id, account_type, owner_uuid, account_name,
+                SELECT account_id, account_type, owner_uuid, account_name
                 FROM economy_accounts
                 WHERE account_name = ? AND account_type = ?
                 """,
@@ -110,7 +110,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
 
     public Optional<AccountRecord> findSharedAccount(UUID accountId) {
         return queryOne("""
-                SELECT account_id, account_type, owner_uuid, account_name,
+                SELECT account_id, account_type, owner_uuid, account_name
                 FROM economy_accounts
                 WHERE account_id = ? AND account_type = ?
                 """,
@@ -124,7 +124,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
 
     public Optional<AccountRecord> findAccountByName(String name) {
         return queryOne("""
-                SELECT account_id, account_type, owner_uuid, account_name,
+                SELECT account_id, account_type, owner_uuid, account_name
                 FROM economy_accounts
                 WHERE account_name = ?
                 """,
@@ -144,7 +144,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
     public List<AccountRecord> listSharedAccounts() {
         return queryList(
                 """
-                SELECT account_id, account_type, owner_uuid, account_name,
+                SELECT account_id, account_type, owner_uuid, account_name
                 FROM economy_accounts
                 WHERE account_type = ?
                 ORDER BY account_name ASC
