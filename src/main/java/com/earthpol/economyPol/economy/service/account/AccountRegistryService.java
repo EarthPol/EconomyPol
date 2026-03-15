@@ -56,9 +56,7 @@ public final class AccountRegistryService {
     }
 
     public IncomingPaymentDeliveryPreference getIncomingPaymentDeliveryPreference(UUID playerUuid) {
-        if (playerUuid == null) {
-            return IncomingPaymentDeliveryPreference.DEFAULT;
-        }
+        requirePlayerAccount(playerUuid);
         IncomingPaymentDeliveryPreference preference = playerRepository.getIncomingPaymentDeliveryPreference(playerUuid);
         return preference == null ? IncomingPaymentDeliveryPreference.DEFAULT : preference;
     }
@@ -68,7 +66,7 @@ public final class AccountRegistryService {
             String playerName,
             IncomingPaymentDeliveryPreference preference
     ) {
-        registerPlayer(playerUuid, playerName);
+        requirePlayerAccount(playerUuid);
         playerRepository.setIncomingPaymentDeliveryPreference(playerUuid, preference);
         return preference;
     }
@@ -98,12 +96,54 @@ public final class AccountRegistryService {
         return accountRepository.findAccount(accountId);
     }
 
+    public Optional<AccountRecord> findPlayerAccount(UUID playerUuid) {
+        return accountRepository.findPlayerAccount(playerUuid);
+    }
+
+    public Optional<AccountRecord> findPlayerAccount(OfflinePlayer player) {
+        if (player == null) {
+            return Optional.empty();
+        }
+        return findPlayerAccount(player.getUniqueId());
+    }
+
     public Optional<AccountRecord> findSharedAccount(String bankName) {
         return accountRepository.findSharedAccount(bankName);
     }
 
     public Optional<AccountRecord> findSharedAccount(UUID accountId) {
         return accountRepository.findSharedAccount(accountId);
+    }
+
+    public AccountRecord requirePlayerAccount(OfflinePlayer player) {
+        if (player == null) {
+            throw new IllegalArgumentException("Player cannot be null.");
+        }
+        return requirePlayerAccount(player.getUniqueId());
+    }
+
+    public AccountRecord requirePlayerAccount(UUID playerUuid) {
+        if (playerUuid == null) {
+            throw new IllegalArgumentException("Player UUID cannot be null.");
+        }
+        return findPlayerAccount(playerUuid)
+                .orElseThrow(() -> new IllegalStateException("Player account does not exist: " + playerUuid));
+    }
+
+    public AccountRecord requireAccount(UUID accountId) {
+        if (accountId == null) {
+            throw new IllegalArgumentException("Account UUID cannot be null.");
+        }
+        return findAccount(accountId)
+                .orElseThrow(() -> new IllegalStateException("Account does not exist: " + accountId));
+    }
+
+    public AccountRecord requireSharedAccount(UUID accountId) {
+        if (accountId == null) {
+            throw new IllegalArgumentException("Shared account UUID cannot be null.");
+        }
+        return findSharedAccount(accountId)
+                .orElseThrow(() -> new IllegalStateException("Shared account does not exist: " + accountId));
     }
 
     public Optional<String> getAccountName(UUID accountId) {

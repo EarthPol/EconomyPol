@@ -6,6 +6,7 @@ import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
+import com.earthpol.economyPol.economy.model.MoneyOperationFailureReason;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.OfflineEnderWalletState;
@@ -66,7 +67,7 @@ public final class PlayerEconomyService {
     }
 
     public PlayerBalanceView balanceView(OfflinePlayer player) {
-        AccountRecord account = accountRegistryService.ensurePlayerAccount(player);
+        AccountRecord account = accountRegistryService.requirePlayerAccount(player);
         BalanceRecord balance = fundsRepository.getBalance(account.accountId());
         boolean locked = playerMoneyLockService.isLocked(player.getUniqueId());
         long liveMoney = 0L;
@@ -100,10 +101,11 @@ public final class PlayerEconomyService {
     }
 
     public long getCustodialAvailable(OfflinePlayer player) {
-        return fundsRepository.getBalance(accountRegistryService.ensurePlayerAccount(player).accountId()).availableBalance();
+        return fundsRepository.getBalance(accountRegistryService.requirePlayerAccount(player).accountId()).availableBalance();
     }
 
     public boolean hasEnough(OfflinePlayer player, long amount) {
+        accountRegistryService.requirePlayerAccount(player);
         // Towny can pre-check has()/hasEnough() and then continue even if the later withdraw fails.
         // In FAIL mode we work around that by simulating live spendability here so "enough" means
         // the player can actually complete the spend with the currently available change space.
@@ -140,12 +142,26 @@ public final class PlayerEconomyService {
     // or the frozen offline ender-wallet snapshot when offline. It never auto-spends custodial.
     public MoneyOperationResult withdrawPlayer(OfflinePlayer player, long amount, String reason) {
         if (amount < 0L) {
-            return MoneyOperationResult.failure(amount, "Cannot withdraw a negative amount.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Cannot withdraw a negative amount.",
+                    MoneyOperationFailureReason.NEGATIVE_AMOUNT
+            );
         }
-        accountRegistryService.ensurePlayerAccount(player);
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
         if (player.isOnline() && player.getPlayer() != null) {
             if (playerMoneyLockService.isLocked(player.getUniqueId())) {
-                return MoneyOperationResult.failure(amount, "Player money is locked during wallet sync.");
+                return MoneyOperationResult.failure(
+                        amount,
+                        "Player money is locked during wallet sync.",
+                        MoneyOperationFailureReason.PLAYER_MONEY_LOCKED
+                );
             }
             Player onlinePlayer = player.getPlayer();
             Optional<MoneyOperationResult> withdrawResultOptional = schedulerService.callOnPlayerEntityScheduler(
@@ -154,7 +170,11 @@ public final class PlayerEconomyService {
                     "withdraw-player-live"
             );
             if (withdrawResultOptional.isEmpty()) {
-                return MoneyOperationResult.failure(amount, "Player money could not be accessed safely.");
+                return MoneyOperationResult.failure(
+                        amount,
+                        "Player money could not be accessed safely.",
+                        MoneyOperationFailureReason.PLAYER_MONEY_ACCESS_UNAVAILABLE
+                );
             }
             return withdrawResultOptional.get();
         }
@@ -164,7 +184,11 @@ public final class PlayerEconomyService {
             if (walletDebit.processedAmount() > 0L) {
                 enderWalletService.creditOffline(player.getUniqueId(), walletDebit.processedAmount());
             }
-            return MoneyOperationResult.failure(amount, "Insufficient funds.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Insufficient funds.",
+                    MoneyOperationFailureReason.INSUFFICIENT_FUNDS
+            );
         }
         auditLog.info("offline-withdraw player=" + player.getUniqueId() + " amount=" + amount +
                 " ender=" + walletDebit.processedAmount() + " reason=" + reason);
@@ -173,9 +197,19 @@ public final class PlayerEconomyService {
 
     public MoneyOperationResult depositPlayer(OfflinePlayer player, long amount, String reason) {
         if (amount < 0L) {
-            return MoneyOperationResult.failure(amount, "Cannot deposit a negative amount.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Cannot deposit a negative amount.",
+                    MoneyOperationFailureReason.NEGATIVE_AMOUNT
+            );
         }
-        accountRegistryService.ensurePlayerAccount(player);
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
         if (player.isOnline() && player.getPlayer() != null) {
             Player onlinePlayer = player.getPlayer();
             Optional<LiveMoneyService.DeliveryResult> deliveryResultOptional = schedulerService.callOnPlayerEntityScheduler(
@@ -187,7 +221,11 @@ public final class PlayerEconomyService {
                 if (!player.isOnline() || player.getPlayer() == null) {
                     return depositOffline(player, amount, reason);
                 }
-                return MoneyOperationResult.failure(amount, "Player money could not be delivered safely.");
+                return MoneyOperationResult.failure(
+                        amount,
+                        "Player money could not be delivered safely.",
+                        MoneyOperationFailureReason.PLAYER_MONEY_ACCESS_UNAVAILABLE
+                );
             }
             LiveMoneyService.DeliveryResult deliveryResult = deliveryResultOptional.get();
             if (deliveryResult.remainder() > 0L) {
@@ -213,11 +251,22 @@ public final class PlayerEconomyService {
     }
 
     public MoneyOperationResult depositSelf(Player player, long amount) {
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
         return schedulerService.callOnPlayerEntityScheduler(
                 player,
                 () -> depositSelfOnPlayerEntityScheduler(player, amount),
                 "self-deposit"
-        ).orElse(MoneyOperationResult.failure(amount, "Player money could not be accessed safely."));
+        ).orElse(MoneyOperationResult.failure(
+                amount,
+                "Player money could not be accessed safely.",
+                MoneyOperationFailureReason.PLAYER_MONEY_ACCESS_UNAVAILABLE
+        ));
     }
 
     public MoneyOperationResult withdrawCustodialAsPhysicalMoney(
@@ -225,9 +274,20 @@ public final class PlayerEconomyService {
             long amount,
             List<MoneyRouteTarget> routingOrder
     ) {
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
         List<MoneyRouteTarget> effectiveRoutingOrder = sanitizeExplicitWithdrawRoutingOrder(amount, routingOrder);
         if (effectiveRoutingOrder.isEmpty()) {
-            return MoneyOperationResult.failure(amount, "At least one routing target must be provided.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "At least one routing target must be provided.",
+                    MoneyOperationFailureReason.INVALID_ROUTING_ORDER
+            );
         }
         return schedulerService.callOnPlayerEntityScheduler(
                 player,
@@ -238,20 +298,44 @@ public final class PlayerEconomyService {
                         effectiveRoutingOrder
                 ),
                 "withdraw-custodial-as-physical-money"
-        ).orElse(MoneyOperationResult.failure(amount, "Player money could not be accessed safely."));
+        ).orElse(MoneyOperationResult.failure(
+                amount,
+                "Player money could not be accessed safely.",
+                MoneyOperationFailureReason.PLAYER_MONEY_ACCESS_UNAVAILABLE
+        ));
     }
 
     public MoneyOperationResult withdrawMaxCustodialToInventory(Player player) {
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    0L,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
         long requestedAmount = Math.max(0L, getCustodialAvailable(player));
         return schedulerService.callOnPlayerEntityScheduler(
                 player,
                 () -> withdrawMaxCustodialToInventoryOnPlayerEntityScheduler(player),
                 "withdraw-max-custodial-to-inventory"
-        ).orElse(MoneyOperationResult.failure(requestedAmount, "Player money could not be accessed safely."));
+        ).orElse(MoneyOperationResult.failure(
+                requestedAmount,
+                "Player money could not be accessed safely.",
+                MoneyOperationFailureReason.PLAYER_MONEY_ACCESS_UNAVAILABLE
+        ));
+    }
+
+    public long maxWithdrawableCustodialToInventory(Player player) {
+        accountRegistryService.requirePlayerAccount(player);
+        return schedulerService.callOnPlayerEntityScheduler(
+                player,
+                () -> maxWithdrawableCustodialToInventoryOnPlayerEntityScheduler(player),
+                "max-withdrawable-custodial-to-inventory"
+        ).orElse(0L);
     }
 
     public BalanceRecord creditCustodial(UUID playerUuid, String playerName, long amount, String reason) {
-        AccountRecord account = accountRegistryService.ensurePlayerAccount(playerUuid, playerName);
+        AccountRecord account = accountRegistryService.requirePlayerAccount(playerUuid);
         return fundsRepository.changeAvailable(account.accountId(), amount, "CUSTODIAL_CREDIT", reason, playerUuid, null);
     }
 
@@ -260,7 +344,7 @@ public final class PlayerEconomyService {
     }
 
     private MoneyOperationResult depositSelfOnPlayerEntityScheduler(Player player, long amount) {
-        AccountRecord account = accountRegistryService.ensurePlayerAccount(player);
+        AccountRecord account = accountRegistryService.requirePlayerAccount(player);
         long available = liveMoneyService.scanPlayerMoney(player);
         long requested = amount <= 0L ? available : amount;
         LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
@@ -272,12 +356,24 @@ public final class PlayerEconomyService {
         );
         if (!spendResult.success()) {
             if (requested <= 0L) {
-                return MoneyOperationResult.failure(requested, "No live money was available to deposit.");
+                return MoneyOperationResult.failure(
+                        requested,
+                        "No live money was available to deposit.",
+                        MoneyOperationFailureReason.NO_LIVE_MONEY_AVAILABLE
+                );
             }
-            return MoneyOperationResult.failure(requested, spendResult.message());
+            return MoneyOperationResult.failure(
+                    requested,
+                    spendResult.message(),
+                    mapSpendFailureReason(spendResult.message())
+            );
         }
         if (requested <= 0L) {
-            return MoneyOperationResult.failure(requested, "No live money was available to deposit.");
+            return MoneyOperationResult.failure(
+                    requested,
+                    "No live money was available to deposit.",
+                    MoneyOperationFailureReason.NO_LIVE_MONEY_AVAILABLE
+            );
         }
         long totalCredited = requested + spendResult.changeRoutedToCustodial();
         BalanceRecord updatedBalance;
@@ -293,7 +389,11 @@ public final class PlayerEconomyService {
         } catch (RuntimeException exception) {
             operationsLog.severe("Failed to deposit live player money into custodial for " + player.getUniqueId() + ".", exception);
             liveMoneyService.restoreLiveContainerSnapshot(player, liveSnapshot);
-            return MoneyOperationResult.failure(requested, "Physical deposit failed while finalizing custodial balance.");
+            return MoneyOperationResult.failure(
+                    requested,
+                    "Physical deposit failed while finalizing custodial balance.",
+                    MoneyOperationFailureReason.BALANCE_FINALIZATION_FAILED
+            );
         }
         if (spendResult.changeRoutedToCustodial() > 0L) {
             notificationService.notifyChangeRoutedToCustodial(
@@ -310,18 +410,24 @@ public final class PlayerEconomyService {
     }
 
     private MoneyOperationResult withdrawMaxCustodialToInventoryOnPlayerEntityScheduler(Player player) {
-        AccountRecord account = accountRegistryService.ensurePlayerAccount(player);
-
-        BalanceRecord balance = fundsRepository.getBalance(account.accountId());
-        if (balance.availableBalance() <= 0L) {
-            return MoneyOperationResult.failure(0L, "Insufficient custodial funds.");
+        long maxWithdrawable = maxWithdrawableCustodialToInventoryOnPlayerEntityScheduler(player);
+        if (maxWithdrawable <= 0L) {
+            long availableBalance = getCustodialAvailable(player);
+            if (availableBalance <= 0L) {
+                return MoneyOperationResult.failure(
+                        0L,
+                        "Insufficient custodial funds.",
+                        MoneyOperationFailureReason.INSUFFICIENT_FUNDS
+                );
+            }
+            return MoneyOperationResult.failure(
+                    availableBalance,
+                    "No room in your inventory to withdraw physical money.",
+                    MoneyOperationFailureReason.NO_INVENTORY_SPACE
+            );
         }
 
         LiveMoneyService.LiveContainerSnapshot liveSnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
-        long maxWithdrawable = liveMoneyService.maxDeliverableToInventory(liveSnapshot, balance.availableBalance());
-        if (maxWithdrawable <= 0L) {
-            return MoneyOperationResult.failure(balance.availableBalance(), "No room in your inventory to withdraw physical money.");
-        }
 
         return withdrawCustodialAsPhysicalMoneyOnPlayerEntityScheduler(
                 player,
@@ -338,12 +444,20 @@ public final class PlayerEconomyService {
             List<MoneyRouteTarget> routingOrder
     ) {
         if (amount < 0L) {
-            return MoneyOperationResult.failure(amount, "Cannot withdraw a negative amount.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Cannot withdraw a negative amount.",
+                    MoneyOperationFailureReason.NEGATIVE_AMOUNT
+            );
         }
-        AccountRecord account = accountRegistryService.ensurePlayerAccount(player);
+        AccountRecord account = accountRegistryService.requirePlayerAccount(player);
         BalanceRecord balance = fundsRepository.getBalance(account.accountId());
         if (balance.availableBalance() < amount) {
-            return MoneyOperationResult.failure(amount, "Insufficient custodial funds.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Insufficient custodial funds.",
+                    MoneyOperationFailureReason.INSUFFICIENT_FUNDS
+            );
         }
         if (amount == 0L) {
             return MoneyOperationResult.success(0L, 0L, 0L, "Withdraw processed.");
@@ -352,7 +466,11 @@ public final class PlayerEconomyService {
         try {
             fundsRepository.reserveAvailable(account.accountId(), amount, "SELF_WITHDRAW_PENDING");
         } catch (RuntimeException exception) {
-            return MoneyOperationResult.failure(amount, "Insufficient custodial funds.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Insufficient custodial funds.",
+                    MoneyOperationFailureReason.INSUFFICIENT_FUNDS
+            );
         }
 
         LiveMoneyService.DeliveryResult deliveryResult;
@@ -360,7 +478,11 @@ public final class PlayerEconomyService {
             deliveryResult = liveMoneyService.deliver(player, amount, routingOrder);
         } catch (Exception exception) {
             rollbackCustodialWithdrawal(player, liveSnapshot, account.accountId(), amount, exception);
-            return MoneyOperationResult.failure(amount, "Physical withdrawal failed while delivering money.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Physical withdrawal failed while delivering money.",
+                    MoneyOperationFailureReason.DELIVERY_FAILED
+            );
         }
 
         long delivered = amount - deliveryResult.remainder();
@@ -376,7 +498,11 @@ public final class PlayerEconomyService {
             );
         } catch (RuntimeException exception) {
             rollbackCustodialWithdrawal(player, liveSnapshot, account.accountId(), amount, exception);
-            return MoneyOperationResult.failure(amount, "Physical withdrawal failed while finalizing balances.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Physical withdrawal failed while finalizing balances.",
+                    MoneyOperationFailureReason.BALANCE_FINALIZATION_FAILED
+            );
         }
 
         if (deliveryResult.remainder() > 0L) {
@@ -444,7 +570,11 @@ public final class PlayerEconomyService {
             if (LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE.equals(spendResult.message())) {
                 notificationService.notifyNotEnoughRoomForChange(player);
             }
-            return MoneyOperationResult.failure(amount, spendResult.message());
+            return MoneyOperationResult.failure(
+                    amount,
+                    spendResult.message(),
+                    mapSpendFailureReason(spendResult.message())
+            );
         }
 
         if (spendResult.changeRoutedToCustodial() > 0L) {
@@ -463,7 +593,11 @@ public final class PlayerEconomyService {
             } catch (RuntimeException exception) {
                 operationsLog.severe("Failed to route returned change into custodial for " + player.getUniqueId() + ".", exception);
                 liveMoneyService.restoreLiveContainerSnapshot(player, liveSnapshot);
-                return MoneyOperationResult.failure(amount, "Failed to route change to custodial.");
+                return MoneyOperationResult.failure(
+                        amount,
+                        "Failed to route change to custodial.",
+                        MoneyOperationFailureReason.CHANGE_ROUTING_FAILED
+                );
             }
         }
 
@@ -495,5 +629,30 @@ public final class PlayerEconomyService {
             }
         }
         return effectiveRoutingOrder;
+    }
+
+    private long maxWithdrawableCustodialToInventoryOnPlayerEntityScheduler(Player player) {
+        AccountRecord account = accountRegistryService.requirePlayerAccount(player);
+        BalanceRecord balance = fundsRepository.getBalance(account.accountId());
+        if (balance.availableBalance() <= 0L) {
+            return 0L;
+        }
+        return liveMoneyService.maxDeliverableToInventory(
+                liveMoneyService.captureLiveContainerSnapshot(player),
+                balance.availableBalance()
+        );
+    }
+
+    private MoneyOperationFailureReason mapSpendFailureReason(String message) {
+        if ("Cannot spend a negative amount.".equals(message)) {
+            return MoneyOperationFailureReason.NEGATIVE_AMOUNT;
+        }
+        if ("Insufficient funds.".equals(message)) {
+            return MoneyOperationFailureReason.INSUFFICIENT_FUNDS;
+        }
+        if (LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE.equals(message)) {
+            return MoneyOperationFailureReason.NOT_ENOUGH_ROOM_FOR_CHANGE;
+        }
+        return MoneyOperationFailureReason.UNKNOWN;
     }
 }

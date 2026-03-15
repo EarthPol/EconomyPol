@@ -5,6 +5,7 @@ import com.earthpol.earthPolLib.database.flyway.FlywaySupport;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.earthPolLib.translation.TranslationService;
 import com.earthpol.economyPol.economy.api.EconomyPolAPI;
+import com.earthpol.economyPol.economy.api.EconomyPolApiFactory;
 import com.earthpol.economyPol.economy.api.EconomyPolApiProvider;
 import com.earthpol.economyPol.economy.command.EconomyCommand;
 import com.earthpol.economyPol.economy.config.PluginSettings;
@@ -71,7 +72,7 @@ public final class EconomyPol extends JavaPlugin {
     private DatabaseCheckService databaseCheckService;
     private TownyService townyService;
     private EconomyService economyService;
-    private EconomyPolAPI economyPolApi;
+    private EconomyPolApiFactory economyPolApiFactory;
     private EconomyVaultAdapter vaultAdapter;
     private VaultUnlockedEconomyAdapter vaultUnlockedAdapter;
     private boolean uncleanBoot;
@@ -89,7 +90,7 @@ public final class EconomyPol extends JavaPlugin {
     public NotificationService notificationService() {return notificationService;}
     public SchedulerService schedulerService() {return schedulerService;}
     public TranslationService translationService() {return translationService;}
-    public EconomyPolAPI api() {return economyPolApi;}
+    public EconomyPolApiFactory apiFactory() {return economyPolApiFactory;}
     public boolean isUncleanBoot() {return uncleanBoot;}
 
     @Override
@@ -165,7 +166,13 @@ public final class EconomyPol extends JavaPlugin {
                 log(),
                 audit()
         );
-        economyPolApi = new EconomyPolApiProvider(economyService, reservationService, enderWalletService, denominationService);
+        economyPolApiFactory = new EconomyPolApiProvider(
+                economyService,
+                reservationService,
+                enderWalletService,
+                denominationService,
+                audit()
+        );
 
         vaultUnlockedAdapter = new VaultUnlockedEconomyAdapter(
                 this,
@@ -181,10 +188,10 @@ public final class EconomyPol extends JavaPlugin {
                 settings.currency(),
                 log()
         );
-        getServer().getServicesManager().register(EconomyPolAPI.class, economyPolApi, this, ServicePriority.Highest);
+        getServer().getServicesManager().register(EconomyPolApiFactory.class, economyPolApiFactory, this, ServicePriority.Highest);
         getServer().getServicesManager().register(net.milkbowl.vault2.economy.Economy.class, vaultUnlockedAdapter, this, ServicePriority.Highest);
         getServer().getServicesManager().register(net.milkbowl.vault.economy.Economy.class, vaultAdapter, this, ServicePriority.Highest);
-        log().info("Registered EconomyPolAPI, VaultUnlocked v2, and legacy Vault economy providers.");
+        log().info("Registered EconomyPol API factory, VaultUnlocked v2, and legacy Vault economy providers.");
 
         registerListeners();
         registerCommands();

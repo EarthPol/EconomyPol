@@ -187,6 +187,16 @@ final class PlayerEconomyAntiDupeTest {
                     playerName == null ? playerUuid.toString() : playerName
             );
         }).when(accountRepository).ensurePlayerAccount(any(UUID.class), any());
+        when(accountRepository.findPlayerAccount(any(UUID.class)))
+                .thenAnswer(invocation -> {
+                    UUID playerUuid = invocation.getArgument(0);
+                    return Optional.of(new AccountRecord(
+                            playerUuid,
+                            AccountType.PLAYER,
+                            playerUuid,
+                            playerUuid.toString()
+                    ));
+                });
 
         when(fundsRepository.getBalance(any(UUID.class)))
                 .thenAnswer(invocation -> new BalanceRecord(availableBalance.get(), reservedBalance.get()));

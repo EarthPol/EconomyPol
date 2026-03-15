@@ -20,7 +20,6 @@ public final class FundsRepository extends AbstractRepositorySupport {
     }
 
     public BalanceRecord getBalance(UUID accountId) {
-        ensureBalanceRow(accountId);
         return queryOne("""
                 SELECT available_balance, reserved_balance
                 FROM economy_balances

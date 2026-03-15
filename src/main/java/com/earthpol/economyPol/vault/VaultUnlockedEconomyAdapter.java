@@ -203,6 +203,9 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
 
     @Override
     public BigDecimal getBalance(String pluginName, UUID accountID) {
+        if (!hasAccount(accountID)) {
+            return BigDecimal.ZERO;
+        }
         return numericalConsistencyService.toBigDecimal(economyService.getBalance(accountID));
     }
 
@@ -219,7 +222,7 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
     @Override
     public boolean has(String pluginName, UUID accountID, BigDecimal amount) {
         NumericalConsistencyService.ConversionResult conversion = numericalConsistencyService.toWholeUnits(amount);
-        return conversion.success() && economyService.hasEnough(accountID, conversion.units());
+        return conversion.success() && hasAccount(accountID) && economyService.hasEnough(accountID, conversion.units());
     }
 
     @Override
@@ -382,7 +385,10 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
     }
 
     private EconomyResponse invalidAmountResponse(UUID accountId, BigDecimal amount, String message) {
-        return response(amount, numericalConsistencyService.toBigDecimal(economyService.getBalance(accountId)), EconomyResponse.ResponseType.FAILURE, message);
+        BigDecimal balance = hasAccount(accountId)
+                ? numericalConsistencyService.toBigDecimal(economyService.getBalance(accountId))
+                : BigDecimal.ZERO;
+        return response(amount, balance, EconomyResponse.ResponseType.FAILURE, message);
     }
 
     private EconomyResponse toResponse(UUID accountId, MoneyOperationResult result) {

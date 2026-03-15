@@ -4,6 +4,7 @@ import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
+import com.earthpol.economyPol.economy.model.MoneyOperationFailureReason;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
@@ -40,10 +41,16 @@ public final class SharedAccountService {
         if (owner != null) {
             accountRegistryService.registerPlayer(owner);
         }
-        AccountRecord account = accountRegistryService.findSharedAccount(bankName)
-                .orElseGet(() -> accountRegistryService.ensureSharedAccount(bankName, owner));
+        Optional<AccountRecord> account = accountRegistryService.findSharedAccount(bankName);
+        if (account.isEmpty()) {
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Bank account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
         fundsRepository.changeAvailable(
-                account.accountId(),
+                account.get().accountId(),
                 amount,
                 "BANK_DEPOSIT",
                 reason,
@@ -56,7 +63,11 @@ public final class SharedAccountService {
     public MoneyOperationResult bankWithdraw(String bankName, long amount, String reason) {
         Optional<AccountRecord> account = accountRegistryService.findSharedAccount(bankName);
         if (account.isEmpty()) {
-            return MoneyOperationResult.failure(amount, "Bank account does not exist.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Bank account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
         }
         return withdrawSharedAccount(account.get().accountId(), amount, "BANK_WITHDRAW", reason);
     }
@@ -68,10 +79,12 @@ public final class SharedAccountService {
     }
 
     public long getBalance(UUID accountId) {
+        accountRegistryService.requireSharedAccount(accountId);
         return fundsRepository.getBalance(accountId).availableBalance();
     }
 
     public boolean hasEnough(UUID accountId, long amount) {
+        accountRegistryService.requireSharedAccount(accountId);
         return fundsRepository.getBalance(accountId).availableBalance() >= amount;
     }
 
@@ -82,7 +95,11 @@ public final class SharedAccountService {
     public MoneyOperationResult depositAccount(UUID accountId, long amount, String reason) {
         Optional<AccountRecord> account = accountRegistryService.findSharedAccount(accountId);
         if (account.isEmpty()) {
-            return MoneyOperationResult.failure(amount, "Account does not exist.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
         }
         fundsRepository.changeAvailable(accountId, amount, "SHARED_DEPOSIT", reason, null, null);
         auditLog.info("shared-deposit account=" + accountId + " amount=" + amount + " reason=" + reason);
@@ -141,11 +158,19 @@ public final class SharedAccountService {
     private MoneyOperationResult withdrawSharedAccount(UUID accountId, long amount, String entryType, String reason) {
         Optional<AccountRecord> account = accountRegistryService.findSharedAccount(accountId);
         if (account.isEmpty()) {
-            return MoneyOperationResult.failure(amount, "Account does not exist.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
         }
         BalanceRecord balance = fundsRepository.getBalance(accountId);
         if (balance.availableBalance() < amount) {
-            return MoneyOperationResult.failure(amount, "Insufficient funds.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Insufficient funds.",
+                    MoneyOperationFailureReason.INSUFFICIENT_FUNDS
+            );
         }
         fundsRepository.changeAvailable(accountId, -amount, entryType, reason, null, null);
         if ("BANK_WITHDRAW".equals(entryType)) {

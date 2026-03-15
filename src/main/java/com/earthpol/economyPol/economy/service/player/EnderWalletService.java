@@ -4,6 +4,7 @@ import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.EconomyPol;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
+import com.earthpol.economyPol.economy.model.MoneyOperationFailureReason;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.OfflineEnderWalletState;
 import com.earthpol.economyPol.economy.repository.EnderWalletRepository;
@@ -189,11 +190,19 @@ public final class EnderWalletService {
     public MoneyOperationResult debitOffline(UUID playerUuid, long amount) {
         Optional<EnderWalletSnapshot> snapshotOptional = findSnapshot(playerUuid);
         if (snapshotOptional.isEmpty()) {
-            return MoneyOperationResult.failure(amount, "No offline ender-wallet snapshot.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "No offline ender-wallet snapshot.",
+                    MoneyOperationFailureReason.OFFLINE_ENDER_WALLET_MISSING
+            );
         }
         EnderWalletSnapshot snapshot = snapshotOptional.get();
         if (snapshot.state() != OfflineEnderWalletState.FROZEN || snapshot.baseUnits() <= 0L) {
-            return MoneyOperationResult.failure(amount, "Offline ender wallet unavailable.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Offline ender wallet unavailable.",
+                    MoneyOperationFailureReason.OFFLINE_ENDER_WALLET_UNAVAILABLE
+            );
         }
         long debited = Math.min(snapshot.baseUnits(), amount);
         repository.upsertEnderWalletSnapshot(new EnderWalletSnapshot(
@@ -209,11 +218,19 @@ public final class EnderWalletService {
     public MoneyOperationResult creditOffline(UUID playerUuid, long amount) {
         Optional<EnderWalletSnapshot> snapshotOptional = findSnapshot(playerUuid);
         if (snapshotOptional.isEmpty()) {
-            return MoneyOperationResult.failure(amount, "Offline ender wallet unavailable.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Offline ender wallet unavailable.",
+                    MoneyOperationFailureReason.OFFLINE_ENDER_WALLET_UNAVAILABLE
+            );
         }
         EnderWalletSnapshot snapshot = snapshotOptional.get();
         if (snapshot.state() != OfflineEnderWalletState.FROZEN) {
-            return MoneyOperationResult.failure(amount, "Offline ender wallet unavailable.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Offline ender wallet unavailable.",
+                    MoneyOperationFailureReason.OFFLINE_ENDER_WALLET_UNAVAILABLE
+            );
         }
         repository.upsertEnderWalletSnapshot(new EnderWalletSnapshot(
                 playerUuid,

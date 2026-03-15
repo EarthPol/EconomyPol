@@ -741,21 +741,34 @@ and Vault will still remain supported.
 
 Capabilities include:
 
-- detailed player balance view
-- custodial access
+- explicit player vs shared-account operations
+- detailed player balance view and custodial access
 - shared account management
+- incoming payment delivery preference access
 - reservation lifecycle
 - managed ender-wallet access
 - denomination helpers
+- structured `MoneyOperationResult.failureReason()` values for native integrations
+
+`EconomyPolAPI` is still the single Bukkit service entrypoint, but it is now split internally into focused account, player, reservation, ender-wallet, and denomination sub-interfaces.
+API clients are now caller-bound through `EconomyPolAPI.resolve(plugin)`, which lets EconomyPol log which plugin is making each native API call.
+Native API calls do not implicitly create missing player or shared-account rows outside the explicit `registerPlayer(...)`, `ensurePlayerAccount(...)`, and `createSharedAccount(...)` paths. Integrations should create or check accounts first and treat missing-account failures as real integration errors.
 
 Example:
 
 ```java
-EconomyPolAPI api = EconomyPolAPI.resolve()
+EconomyPolAPI api = EconomyPolAPI.resolve(this)
         .orElseThrow(() -> new IllegalStateException("EconomyPolAPI not available"));
 
+long spendable = api.getPlayerSpendableBalance(playerUuid);
 long custodial = api.getCustodialAvailable(playerUuid);
 PlayerBalanceView view = api.getPlayerBalanceView(playerUuid);
+long townBalance = api.getSharedAccountBalance(townAccountUuid);
+
+MoneyOperationResult result = api.withdrawFromPlayerAccount(playerUuid, 10L, "CUSTOM_MARKET_BUY");
+if (!result.success() && result.failureReason() == MoneyOperationFailureReason.NOT_ENOUGH_ROOM_FOR_CHANGE) {
+    // Handle a strict physical-economy change-space failure explicitly.
+}
 ```
 
 ## Towny Compatibility

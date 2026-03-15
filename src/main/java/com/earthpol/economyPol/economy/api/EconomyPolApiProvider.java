@@ -1,9 +1,11 @@
 package com.earthpol.economyPol.economy.api;
 
+import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.Denomination;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
+import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
@@ -16,29 +18,49 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-public final class EconomyPolApiProvider implements EconomyPolAPI {
+public final class EconomyPolApiProvider implements EconomyPolAPI, EconomyPolApiFactory {
 
     private final EconomyService economyService;
     private final ReservationService reservationService;
     private final EnderWalletService enderWalletService;
     private final DenominationService denominationService;
+    private final EnhancedLogger auditLog;
 
     public EconomyPolApiProvider(
             EconomyService economyService,
             ReservationService reservationService,
             EnderWalletService enderWalletService,
-            DenominationService denominationService
+            DenominationService denominationService,
+            EnhancedLogger auditLog
     ) {
         this.economyService = economyService;
         this.reservationService = reservationService;
         this.enderWalletService = enderWalletService;
         this.denominationService = denominationService;
+        this.auditLog = auditLog;
+    }
+
+    @Override
+    public EconomyPolAPI getInstance(Plugin callerPlugin) {
+        if (callerPlugin == null) {
+            throw new IllegalArgumentException("callerPlugin cannot be null.");
+        }
+        return (EconomyPolAPI) Proxy.newProxyInstance(
+                EconomyPolAPI.class.getClassLoader(),
+                new Class<?>[] {EconomyPolAPI.class},
+                (proxy, method, args) -> invokeCallerAware(callerPlugin, method, args, proxy)
+        );
     }
 
     @Override
@@ -47,8 +69,18 @@ public final class EconomyPolApiProvider implements EconomyPolAPI {
     }
 
     @Override
+    public void registerPlayer(UUID playerUuid, String playerName) {
+        economyService.registerPlayer(playerUuid, playerName);
+    }
+
+    @Override
     public Optional<AccountRecord> findAccount(UUID accountId) {
         return economyService.findAccount(accountId);
+    }
+
+    @Override
+    public Optional<AccountRecord> findPlayerAccount(UUID playerUuid) {
+        return economyService.findPlayerAccount(playerUuid);
     }
 
     @Override
@@ -112,8 +144,8 @@ public final class EconomyPolApiProvider implements EconomyPolAPI {
     }
 
     @Override
-    public long getBalance(UUID accountId) {
-        return economyService.getBalance(accountId);
+    public long getPlayerSpendableBalance(UUID playerUuid) {
+        return economyService.getPlayerSpendableBalance(Bukkit.getOfflinePlayer(playerUuid));
     }
 
     @Override
@@ -122,23 +154,23 @@ public final class EconomyPolApiProvider implements EconomyPolAPI {
     }
 
     @Override
-    public boolean hasEnough(UUID accountId, long amount) {
-        return economyService.hasEnough(accountId, amount);
+    public boolean playerHasEnough(UUID playerUuid, long amount) {
+        return economyService.playerHasEnough(Bukkit.getOfflinePlayer(playerUuid), amount);
     }
 
     @Override
-    public MoneyOperationResult depositAccount(UUID accountId, long amount, String reason) {
-        return economyService.depositAccount(accountId, amount, reason);
+    public MoneyOperationResult depositToPlayerAccount(UUID playerUuid, long amount, String reason) {
+        return economyService.depositToPlayerAccount(Bukkit.getOfflinePlayer(playerUuid), amount, reason);
     }
 
     @Override
-    public MoneyOperationResult withdrawAccount(UUID accountId, long amount, String reason) {
-        return economyService.withdrawAccount(accountId, amount, reason);
+    public MoneyOperationResult withdrawFromPlayerAccount(UUID playerUuid, long amount, String reason) {
+        return economyService.withdrawFromPlayerAccount(Bukkit.getOfflinePlayer(playerUuid), amount, reason);
     }
 
     @Override
-    public MoneyOperationResult depositLive(Player player, long amount) {
-        return economyService.depositSelf(player, amount);
+    public MoneyOperationResult depositPhysicalMoneyToCustodial(Player player, long amount) {
+        return economyService.depositPhysicalMoneyToCustodial(player, amount);
     }
 
     @Override
@@ -151,8 +183,52 @@ public final class EconomyPolApiProvider implements EconomyPolAPI {
     }
 
     @Override
+    public long getMaxWithdrawableCustodialToInventory(Player player) {
+        return economyService.getMaxWithdrawableCustodialToInventory(player);
+    }
+
+    @Override
+    public MoneyOperationResult withdrawMaxCustodialToInventory(Player player) {
+        return economyService.withdrawMaxCustodialToInventory(player);
+    }
+
+    @Override
     public BalanceRecord creditCustodial(UUID playerUuid, String playerName, long amount, String reason) {
         return economyService.creditCustodial(playerUuid, playerName, amount, reason);
+    }
+
+    @Override
+    public IncomingPaymentDeliveryPreference getIncomingPaymentDeliveryPreference(UUID playerUuid) {
+        return economyService.getIncomingPaymentDeliveryPreference(Bukkit.getOfflinePlayer(playerUuid));
+    }
+
+    @Override
+    public IncomingPaymentDeliveryPreference setIncomingPaymentDeliveryPreference(
+            UUID playerUuid,
+            String playerName,
+            IncomingPaymentDeliveryPreference preference
+    ) {
+        return economyService.setIncomingPaymentDeliveryPreference(playerUuid, playerName, preference);
+    }
+
+    @Override
+    public long getSharedAccountBalance(UUID accountId) {
+        return economyService.getSharedAccountBalance(accountId);
+    }
+
+    @Override
+    public boolean sharedAccountHasEnough(UUID accountId, long amount) {
+        return economyService.sharedAccountHasEnough(accountId, amount);
+    }
+
+    @Override
+    public MoneyOperationResult depositToSharedAccount(UUID accountId, long amount, String reason) {
+        return economyService.depositToSharedAccount(accountId, amount, reason);
+    }
+
+    @Override
+    public MoneyOperationResult withdrawFromSharedAccount(UUID accountId, long amount, String reason) {
+        return economyService.withdrawFromSharedAccount(accountId, amount, reason);
     }
 
     @Override
@@ -238,6 +314,90 @@ public final class EconomyPolApiProvider implements EconomyPolAPI {
     @Override
     public String format(long amount) {
         return denominationService.format(amount);
+    }
+
+    private Object invokeCallerAware(Plugin callerPlugin, Method method, Object[] args, Object proxy) throws Throwable {
+        if (method.getDeclaringClass() == Object.class) {
+            return handleObjectMethod(callerPlugin, method, args, proxy);
+        }
+
+        try {
+            Object result = method.invoke(this, args);
+            auditLog.info("api-call caller=" + callerPlugin.getName() +
+                    " method=" + method.getName() +
+                    " args=" + summarizeArgs(args) +
+                    " result=" + summarize(result));
+            return result;
+        } catch (InvocationTargetException exception) {
+            Throwable cause = exception.getCause() == null ? exception : exception.getCause();
+            auditLog.severe("api-call-failed caller=" + callerPlugin.getName() +
+                    " method=" + method.getName() +
+                    " args=" + summarizeArgs(args), cause);
+            throw cause;
+        }
+    }
+
+    private Object handleObjectMethod(Plugin callerPlugin, Method method, Object[] args, Object proxy) {
+        return switch (method.getName()) {
+            case "toString" -> "EconomyPolAPI[caller=" + callerPlugin.getName() + "]";
+            case "hashCode" -> System.identityHashCode(proxy);
+            case "equals" -> proxy == (args == null || args.length == 0 ? null : args[0]);
+            default -> throw new IllegalStateException("Unexpected Object method: " + method.getName());
+        };
+    }
+
+    private String summarizeArgs(Object[] args) {
+        if (args == null || args.length == 0) {
+            return "[]";
+        }
+        return Arrays.stream(args)
+                .map(this::summarize)
+                .toList()
+                .toString();
+    }
+
+    private String summarize(Object value) {
+        if (value == null) {
+            return "null";
+        }
+        if (value instanceof Player player) {
+            return "Player(name=" + player.getName() + ",uuid=" + player.getUniqueId() + ")";
+        }
+        if (value instanceof Plugin plugin) {
+            return "Plugin(name=" + plugin.getName() + ")";
+        }
+        if (value instanceof MoneyOperationResult result) {
+            return "MoneyOperationResult(success=" + result.success() +
+                    ",processed=" + result.processedAmount() +
+                    ",remainder=" + result.remainder() +
+                    ",failureReason=" + result.failureReason() + ")";
+        }
+        if (value instanceof AccountRecord accountRecord) {
+            return "AccountRecord(id=" + accountRecord.accountId() +
+                    ",type=" + accountRecord.accountType() +
+                    ",name=" + accountRecord.accountName() + ")";
+        }
+        if (value instanceof BalanceRecord balanceRecord) {
+            return "BalanceRecord(available=" + balanceRecord.availableBalance() +
+                    ",reserved=" + balanceRecord.reservedBalance() + ")";
+        }
+        if (value instanceof Optional<?> optional) {
+            return optional.map(this::summarize).orElse("Optional.empty");
+        }
+        if (value instanceof List<?> list) {
+            List<String> preview = list.stream()
+                    .limit(3)
+                    .map(this::summarize)
+                    .toList();
+            return "List(size=" + list.size() + ",preview=" + preview + ")";
+        }
+        if (value instanceof Map<?, ?> map) {
+            return "Map(size=" + map.size() + ")";
+        }
+        if (value instanceof ItemStack itemStack) {
+            return "ItemStack(type=" + itemStack.getType() + ",amount=" + itemStack.getAmount() + ")";
+        }
+        return String.valueOf(value);
     }
 }
 
