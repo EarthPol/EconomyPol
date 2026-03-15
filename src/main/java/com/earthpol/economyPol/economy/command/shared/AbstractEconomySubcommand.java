@@ -58,7 +58,7 @@ public abstract class AbstractEconomySubcommand implements EconomySubcommand {
                                     .append(Component.text(overflow, NamedTextColor.WHITE))
                                     .append(Component.text(" Not spendable. Must withdrawn to spend", NamedTextColor.DARK_GRAY)),
                             Component.text("Claim overflow balance with ", NamedTextColor.AQUA)
-                                    .append(Component.text("/economypol withdraw", NamedTextColor.YELLOW))
+                                    .append(Component.text("/claim", NamedTextColor.YELLOW))
                     )
             ));
         } catch (IllegalStateException exception) {
