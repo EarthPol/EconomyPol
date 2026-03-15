@@ -633,6 +633,96 @@ final class EconomyServiceTest {
     }
 
     @Test
+    void syncPlayerIdentityRefreshesExistingPlayerAccountNameOnJoin() {
+        PlayerMock player = server.addPlayer("Bustun");
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
+        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+
+        UUID accountId = player.getUniqueId();
+        when(accountRepository.findPlayerAccount(accountId)).thenReturn(Optional.of(
+                new AccountRecord(accountId, AccountType.PLAYER, accountId, "OldName")
+        ));
+        when(accountRepository.ensurePlayerAccount(accountId, player.getName())).thenReturn(
+                new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName())
+        );
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                operationsLog,
+                auditLog
+        );
+
+        economyService.syncPlayerIdentity(player);
+
+        verify(playerRepository).ensurePlayer(accountId, player.getName());
+        verify(accountRepository).ensurePlayerAccount(accountId, player.getName());
+    }
+
+    @Test
+    void syncPlayerIdentityDoesNotCreateMissingPlayerAccountOnJoin() {
+        PlayerMock player = server.addPlayer("Bustun");
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
+        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+
+        when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.empty());
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                operationsLog,
+                auditLog
+        );
+
+        economyService.syncPlayerIdentity(player);
+
+        verify(playerRepository).ensurePlayer(player.getUniqueId(), player.getName());
+        verify(accountRepository, never()).ensurePlayerAccount(any(UUID.class), anyString());
+    }
+
+    @Test
     void sharedAccountBalanceQueriesFailWhenAccountDoesNotExist() {
         UUID accountId = UUID.randomUUID();
 

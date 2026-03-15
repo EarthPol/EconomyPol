@@ -10,6 +10,7 @@ import org.bukkit.OfflinePlayer;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -53,6 +54,21 @@ public final class AccountRegistryService {
             return;
         }
         playerRepository.ensurePlayer(playerUuid, playerName);
+    }
+
+    public void syncPlayerIdentity(OfflinePlayer player) {
+        if (player == null) {
+            return;
+        }
+        registerPlayer(player);
+        String playerName = player.getName();
+        if (playerName == null || playerName.isBlank()) {
+            return;
+        }
+        Optional<AccountRecord> existingAccount = findPlayerAccount(player.getUniqueId());
+        if (existingAccount.isPresent() && !Objects.equals(existingAccount.get().accountName(), playerName)) {
+            accountRepository.ensurePlayerAccount(player.getUniqueId(), playerName);
+        }
     }
 
     public IncomingPaymentDeliveryPreference getIncomingPaymentDeliveryPreference(UUID playerUuid) {

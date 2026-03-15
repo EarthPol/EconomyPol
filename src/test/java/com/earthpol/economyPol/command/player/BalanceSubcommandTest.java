@@ -48,8 +48,8 @@ final class BalanceSubcommandTest {
         assertTrue(message.contains("Spendable: 90 Gold Coins (Inventory + enderchest)"));
         assertTrue(message.contains("Inventory: 54 Gold Coins"));
         assertTrue(message.contains("Enderchest: 36 Gold Coins"));
-        assertTrue(message.contains("Overflow account: 40 Gold Coins"));
-        assertTrue(message.contains("Claim overflow balance with /economypol withdraw"));
+        assertTrue(message.contains("Overflow account: 40 Gold Coins Not spendable. Must withdrawn to spend"));
+        assertTrue(message.contains("Claim overflow balance with /claim"));
     }
 
     private CommandDependencies dependencies(EconomyService economyService) {

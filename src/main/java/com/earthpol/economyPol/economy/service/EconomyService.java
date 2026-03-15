@@ -126,6 +126,10 @@ public final class EconomyService {
         accountRegistryService.registerPlayer(playerUuid, playerName);
     }
 
+    public void syncPlayerIdentity(OfflinePlayer player) {
+        accountRegistryService.syncPlayerIdentity(player);
+    }
+
     public IncomingPaymentDeliveryPreference getIncomingPaymentDeliveryPreference(OfflinePlayer player) {
         accountRegistryService.requirePlayerAccount(player);
         return accountRegistryService.getIncomingPaymentDeliveryPreference(player.getUniqueId());
