@@ -22,7 +22,7 @@ public final class PaymentDeliverySubcommand extends AbstractEconomySubcommand {
 
     @Override
     public String usage() {
-        return "/economypol paymentdelivery <default|skipinventory|skipinventoryandenderchest>";
+        return "/economypol paymentdelivery <default|skip_inventory|skip_inventory_and_enderchest>";
     }
 
     @Override

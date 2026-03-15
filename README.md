@@ -189,9 +189,9 @@ For passive incoming money and returned change, players can suppress the early s
 
 - `default`
   - `INVENTORY -> ENDER_CHEST -> CUSTODIAL_ACCOUNT`
-- `skipinventory`
+- `skip_inventory`
   - `ENDER_CHEST -> CUSTODIAL_ACCOUNT`
-- `skipinventoryandenderchest`
+- `skip_inventory_and_enderchest`
   - `CUSTODIAL_ACCOUNT`
 
 This only affects passive incoming delivery and returned change. It does not affect explicit `/economypol withdraw`, which remains inventory-only by design because the player is actively choosing to physicalize money.
@@ -389,22 +389,26 @@ Current queue table:
 - `/economypol bal`
 - `/economypol balancetop`
 - `/economypol baltop`
+- `/economypol help`
 - `/ecopol ...`
 - `/economypol deposit <amount|all>`
 - `/economypol withdraw`
 - `/economypol withdraw <amount>` with `economypol.admin`
 - `/economypol claim`
-- `/economypol paymentdelivery <default|skipinventory|skipinventoryandenderchest>`
+- `/economypol paymentdelivery <default|skip_inventory|skip_inventory_and_enderchest>`
 - `/economypol normalizewallet`
+- `/economypol compress`
 - `/baltop`
 - `/bal`
 - `/claim`
+- `/compress`
 
 Notes:
 
 - `/economypol withdraw` means “withdraw custodial as physical money”
 - for normal players, `/economypol withdraw` means “withdraw the maximum exact amount that fits in inventory”
 - `/economypol claim` and `/claim` are aliases for the player-facing overflow claim flow
+- `/economypol help` shows the stylized command help summary
 - specifying a withdraw amount is restricted to `economypol.admin`
 - `/economypol deposit` is restricted to `economypol.admin`
 - `/economypol paymentdelivery` controls how passive incoming money and returned change are routed for that player
@@ -412,6 +416,7 @@ Notes:
 - `/economypol balancetop` shows the cached top player balances from online live money plus offline frozen ender-wallet snapshots
 - `/economypol bal` and `/bal` are aliases for `/economypol balance`
 - `/economypol baltop` and `/baltop` are aliases for the same cached leaderboard
+- `/economypol compress` and `/compress` are aliases for `/economypol normalizewallet`
 - `/ecopol` is an alias for `/economypol`
 - `/economypol normalizewallet` normalizes the current ender chest money layout
 

@@ -33,7 +33,7 @@ final class PaymentDeliverySubcommandTest {
 
         subcommand.execute(player, new String[0]);
 
-        verify(player).sendMessage(eq("Current incoming payment delivery preference: skipinventory"));
+        verify(player).sendMessage(eq("Current incoming payment delivery preference: skip_inventory"));
         verify(player).sendMessage(eq("Effective routing: Ender chest -> Custodial"));
         verify(economyService, never()).setIncomingPaymentDeliveryPreference(
                 player,
@@ -48,13 +48,13 @@ final class PaymentDeliverySubcommandTest {
 
         PaymentDeliverySubcommand subcommand = new PaymentDeliverySubcommand(dependencies(economyService));
 
-        subcommand.execute(player, new String[] {"skipinventoryandenderchest"});
+        subcommand.execute(player, new String[] {"skip_inventory_and_enderchest"});
 
         verify(economyService).setIncomingPaymentDeliveryPreference(
                 player,
                 IncomingPaymentDeliveryPreference.SKIP_INVENTORY_AND_ENDERCHEST
         );
-        verify(player).sendMessage(contains("skipinventoryandenderchest"));
+        verify(player).sendMessage(contains("skip_inventory_and_enderchest"));
     }
 
     private CommandDependencies dependencies(EconomyService economyService) {

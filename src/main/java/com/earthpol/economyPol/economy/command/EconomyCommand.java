@@ -31,9 +31,13 @@ public final class EconomyCommand implements TabExecutor {
     private static final String BALANCE_TOP_COMMAND = "balancetop";
     private static final String BALANCE_TOP_ALIAS = "baltop";
     private static final String CLAIM_COMMAND = "claim";
+    private static final String NORMALIZE_WALLET_COMMAND = "normalizewallet";
+    private static final String NORMALIZE_WALLET_ALIAS = "compress";
+    private static final String HELP_COMMAND = "help";
 
     private final Map<String, EconomySubcommand> playerCommands;
     private final Map<String, EconomySubcommand> adminCommands;
+    private final HelpCommand helpCommand;
 
     public EconomyCommand(
             EconomyService economyService,
@@ -55,6 +59,7 @@ public final class EconomyCommand implements TabExecutor {
         );
         this.playerCommands = registerPlayerCommands(dependencies);
         this.adminCommands = registerAdminCommands(dependencies);
+        this.helpCommand = new HelpCommand();
     }
 
     @Override
@@ -71,8 +76,16 @@ public final class EconomyCommand implements TabExecutor {
             EconomySubcommand claim = playerCommands.get(CLAIM_COMMAND);
             return claim != null && claim.execute(sender, args);
         }
+        if (isDirectNormalizeWalletCommand(command, label)) {
+            EconomySubcommand normalizeWallet = playerCommands.get(NORMALIZE_WALLET_COMMAND);
+            return normalizeWallet != null && normalizeWallet.execute(sender, args);
+        }
 
         if (args.length == 0) {
+            sendRootUsage(sender);
+            return true;
+        }
+        if (HELP_COMMAND.equalsIgnoreCase(args[0])) {
             sendRootUsage(sender);
             return true;
         }
@@ -112,13 +125,20 @@ public final class EconomyCommand implements TabExecutor {
             }
             return claim.tabComplete(sender, args);
         }
+        if (isDirectNormalizeWalletCommand(command, alias)) {
+            EconomySubcommand normalizeWallet = playerCommands.get(NORMALIZE_WALLET_COMMAND);
+            if (normalizeWallet == null) {
+                return List.of();
+            }
+            return normalizeWallet.tabComplete(sender, args);
+        }
 
         if (args.length == 1) {
             Stream<String> rootCommands = playerCommands.keySet().stream();
             if (hasAdminAccess(sender)) {
                 rootCommands = Stream.concat(rootCommands, Stream.of("admin"));
             }
-            return rootCommands.sorted().toList();
+            return Stream.concat(rootCommands, Stream.of(HELP_COMMAND)).sorted().toList();
         }
 
         if ("admin".equalsIgnoreCase(args[0])) {
@@ -160,10 +180,7 @@ public final class EconomyCommand implements TabExecutor {
     }
 
     private void sendRootUsage(CommandSender sender) {
-        sender.sendMessage("/economypol <" + String.join("|", playerCommands.keySet()) + ">");
-        if (hasAdminAccess(sender)) {
-            sender.sendMessage("/economypol admin <" + String.join("|", adminCommands.keySet()) + ">");
-        }
+        helpCommand.sendHelp(sender, hasAdminAccess(sender));
     }
 
     private boolean hasAdminAccess(CommandSender sender) {
@@ -192,7 +209,9 @@ public final class EconomyCommand implements TabExecutor {
         register(commands, new WithdrawSubcommand(dependencies));
         register(commands, new ClaimSubcommand(dependencies));
         register(commands, new PaymentDeliverySubcommand(dependencies));
-        register(commands, new NormalizeWalletSubcommand(dependencies));
+        NormalizeWalletSubcommand normalizeWalletSubcommand = new NormalizeWalletSubcommand(dependencies);
+        register(commands, normalizeWalletSubcommand);
+        commands.put(NORMALIZE_WALLET_ALIAS, normalizeWalletSubcommand);
         return Collections.unmodifiableMap(new LinkedHashMap<>(commands));
     }
 
@@ -225,6 +244,12 @@ public final class EconomyCommand implements TabExecutor {
         String commandName = command.getName().toLowerCase(Locale.ROOT);
         String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
         return CLAIM_COMMAND.equals(commandName) || CLAIM_COMMAND.equals(normalizedLabel);
+    }
+
+    private static boolean isDirectNormalizeWalletCommand(Command command, String label) {
+        String commandName = command.getName().toLowerCase(Locale.ROOT);
+        String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
+        return NORMALIZE_WALLET_ALIAS.equals(commandName) || NORMALIZE_WALLET_ALIAS.equals(normalizedLabel);
     }
 }
 

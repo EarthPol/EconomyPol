@@ -11,7 +11,7 @@ softdepend:
 commands:
   economypol:
     description: EconomyPol player and admin economy utilities
-    usage: /economypol <balance|bal|balancetop|baltop|deposit|withdraw|claim|paymentdelivery|normalizewallet|admin>
+    usage: /economypol <help|balance|bal|balancetop|baltop|deposit|withdraw|claim|paymentdelivery|normalizewallet|compress|admin>
     aliases: [ecopol]
   bal:
     description: Show your balance
@@ -22,6 +22,9 @@ commands:
   claim:
     description: Claim as much overflow money as fits in your inventory
     usage: /claim
+  compress:
+    description: Normalize your ender-wallet money layout
+    usage: /compress
 permissions:
   economypol.admin:
     default: op
