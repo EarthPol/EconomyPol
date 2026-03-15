@@ -22,6 +22,7 @@ Implemented today:
 - Discrete denomination-based currency
 - Player accounts and shared accounts
 - Player registration rows with foreign-keyed player-owned economy data
+- Join-time player identity refresh for `economy_players.username` and existing player account names
 - Custodial balances and reservations
 - VaultUnlocked v2 provider
 - Legacy Vault provider
@@ -48,11 +49,13 @@ EconomyPol separates money into three states.
 
 This is real item money held by a player in top-level inventory slots.
 
-Current implementation counts:
+By default, current implementation counts:
 
 - player inventory contents
 - offhand
 - ender chest contents
+
+This can be narrowed through `wallet.include-live-player-inventory` and `wallet.include-live-ender-chest`.
 
 Current implementation does not count:
 
@@ -73,7 +76,7 @@ Custodial is database-backed stored value.
 
 For players, custodial is primarily an overflow and storage mechanism:
 
-- players can explicitly deposit physical money into custodial if self-deposit is enabled
+- admins can explicitly deposit physical money into custodial with `/economypol deposit`
 - online routed payouts can spill into custodial when no physical storage space remains
 - offline credits can land in custodial if the offline ender-wallet is unavailable
 - players must explicitly withdraw custodial funds as physical money to carry and use them
@@ -385,40 +388,42 @@ Current queue table:
 
 ### Player Commands
 
+Preferred shortcuts:
+
+- `/bal`
+- `/baltop`
+- `/claim`
+- `/compress`
+- `/economypol paymentdelivery <default|skip_inventory|skip_inventory_and_enderchest>`
+- `/economypol help`
+- `/economypol`
+
+Supported long forms and aliases:
+
 - `/economypol balance`
 - `/economypol bal`
 - `/economypol balancetop`
 - `/economypol baltop`
-- `/economypol help`
-- `/ecopol ...`
-- `/economypol deposit <amount|all>`
-- `/economypol withdraw`
-- `/economypol withdraw <amount>` with `economypol.admin`
 - `/economypol claim`
-- `/economypol paymentdelivery <default|skip_inventory|skip_inventory_and_enderchest>`
+- `/economypol withdraw`
 - `/economypol normalizewallet`
 - `/economypol compress`
-- `/baltop`
-- `/bal`
-- `/claim`
-- `/compress`
+- `/ecopol ...`
 
 Notes:
 
-- `/economypol withdraw` means “withdraw custodial as physical money”
-- for normal players, `/economypol withdraw` means “withdraw the maximum exact amount that fits in inventory”
-- `/economypol claim` and `/claim` are aliases for the player-facing overflow claim flow
-- `/economypol help` shows the stylized command help summary
-- specifying a withdraw amount is restricted to `economypol.admin`
-- `/economypol deposit` is restricted to `economypol.admin`
+- `/claim` and `/economypol withdraw` are the player-facing overflow claim flow
+- for normal players, `/claim` and `/economypol withdraw` mean “withdraw the maximum exact amount that fits in inventory”
+- `/bal` and `/economypol balance` show the player-facing balance breakdown: spendable, inventory, ender chest, and overflow account
+- `/baltop` and `/economypol balancetop` show the cached leaderboard built from online live money plus frozen offline ender-wallet snapshots
+- `/compress` and `/economypol normalizewallet` normalize the current ender chest money layout
 - `/economypol paymentdelivery` controls how passive incoming money and returned change are routed for that player
-- `/economypol deposit` means “store physical money into custodial”
-- `/economypol balancetop` shows the cached top player balances from online live money plus offline frozen ender-wallet snapshots
-- `/economypol bal` and `/bal` are aliases for `/economypol balance`
-- `/economypol baltop` and `/baltop` are aliases for the same cached leaderboard
-- `/economypol compress` and `/compress` are aliases for `/economypol normalizewallet`
-- `/ecopol` is an alias for `/economypol`
-- `/economypol normalizewallet` normalizes the current ender chest money layout
+- `/economypol help` and `/economypol` show the stylized command help summary
+
+### Admin-Gated Commands
+
+- `/economypol deposit <amount|all>`
+- `/economypol withdraw <amount>`
 
 ### Admin Commands
 
@@ -499,7 +504,7 @@ denominations:
 
 ### `config.yml`
 
-Generated and maintained through EarthPolLib `ReloadableConfigHandler`.
+Generated into the plugin data folder and maintained through EarthPolLib `ReloadableConfigHandler`.
 
 - this is the only EconomyPol config file reloaded by `/economypol admin reload`
 - missing keys are repopulated from code defaults
@@ -507,6 +512,7 @@ Generated and maintained through EarthPolLib `ReloadableConfigHandler`.
 
 Default runtime config:
 
+```yaml
 numeric:
   decimal-handling: TRUNCATE
 
@@ -624,11 +630,14 @@ Main tables:
 
 - `economy_players`
   - registered player identity rows keyed by `player_uuid`
-  - populated automatically when a player joins
+  - refreshed automatically when a player joins
+  - `username` stores the latest known player name
+  - rows seeded earlier from UUID-only integrations are corrected on the next real join
   - stores each player's `incoming_payment_delivery_preference`
 - `economy_accounts`
   - player and shared accounts
   - stores shared account and player account identity only
+  - existing player account names are refreshed from `Player#getName()` on join when they differ
 - `economy_towny_governments`
   - explicit Towny government to bank-account bindings
   - `government_uuid` is the raw Towny town or nation UUID and the row primary key
@@ -764,6 +773,7 @@ Capabilities include:
 `EconomyPolAPI` is still the single Bukkit service entrypoint, but it is now split internally into focused account, player, reservation, ender-wallet, and denomination sub-interfaces.
 API clients are now caller-bound through `EconomyPolAPI.resolve(plugin)`, which lets EconomyPol log which plugin is making each native API call.
 Native API calls do not implicitly create missing player or shared-account rows outside the explicit `registerPlayer(...)`, `ensurePlayerAccount(...)`, and `createSharedAccount(...)` paths. Integrations should create or check accounts first and treat missing-account failures as real integration errors.
+Convenience overloads also exist for `OfflinePlayer` and `Player` on the player-facing native API methods. UUID-based methods remain the canonical identity surface.
 
 Example:
 
