@@ -15,16 +15,32 @@ public final class PlayerRepository extends AbstractRepositorySupport {
     }
 
     public void ensurePlayer(UUID playerUuid, String username) {
+        PlayerNameUpsertPlan namePlan = PlayerNameUpsertPlan.from(playerUuid, username);
         Timestamp now = nowTimestamp();
+        if (namePlan.overwriteExisting()) {
+            update("""
+                    INSERT INTO economy_players (player_uuid, username, incoming_payment_delivery_preference, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        username = VALUES(username),
+                        updated_at = VALUES(updated_at)
+                    """,
+                    uuid(playerUuid),
+                    namePlan.storedName(),
+                    IncomingPaymentDeliveryPreference.DEFAULT.name(),
+                    now,
+                    now
+            );
+            return;
+        }
         update("""
                 INSERT INTO economy_players (player_uuid, username, incoming_payment_delivery_preference, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
-                    username = VALUES(username),
                     updated_at = VALUES(updated_at)
                 """,
                 uuid(playerUuid),
-                normalizeUsername(playerUuid, username),
+                namePlan.storedName(),
                 IncomingPaymentDeliveryPreference.DEFAULT.name(),
                 now,
                 now
@@ -56,12 +72,5 @@ public final class PlayerRepository extends AbstractRepositorySupport {
                 nowTimestamp(),
                 uuid(playerUuid)
         );
-    }
-
-    private String normalizeUsername(UUID playerUuid, String username) {
-        if (username == null || username.isBlank()) {
-            return playerUuid.toString();
-        }
-        return username;
     }
 }

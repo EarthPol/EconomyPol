@@ -21,24 +21,46 @@ public final class AccountRepository extends AbstractRepositorySupport {
     }
 
     public AccountRecord ensurePlayerAccount(UUID playerUuid, String playerName) {
+        PlayerNameUpsertPlan namePlan = PlayerNameUpsertPlan.from(playerUuid, playerName);
         Timestamp now = nowTimestamp();
-        update("""
-                INSERT INTO economy_accounts (
-                    account_id, account_type, owner_uuid, account_name, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    account_name = VALUES(account_name),
-                    updated_at = VALUES(updated_at)
-                """,
-                uuid(playerUuid),
-                AccountType.PLAYER.name(),
-                uuid(playerUuid),
-                playerName == null ? playerUuid.toString() : playerName,
-                now,
-                now
-        );
+        if (namePlan.overwriteExisting()) {
+            update("""
+                    INSERT INTO economy_accounts (
+                        account_id, account_type, owner_uuid, account_name, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        account_name = VALUES(account_name),
+                        updated_at = VALUES(updated_at)
+                    """,
+                    uuid(playerUuid),
+                    AccountType.PLAYER.name(),
+                    uuid(playerUuid),
+                    namePlan.storedName(),
+                    now,
+                    now
+            );
+        } else {
+            update("""
+                    INSERT INTO economy_accounts (
+                        account_id, account_type, owner_uuid, account_name, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        updated_at = VALUES(updated_at)
+                    """,
+                    uuid(playerUuid),
+                    AccountType.PLAYER.name(),
+                    uuid(playerUuid),
+                    namePlan.storedName(),
+                    now,
+                    now
+            );
+        }
         ensureBalanceRow(playerUuid);
-        return new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerName == null ? playerUuid.toString() : playerName);
+        if (namePlan.overwriteExisting()) {
+            return new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, namePlan.storedName());
+        }
+        return findPlayerAccount(playerUuid)
+                .orElse(new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, namePlan.storedName()));
     }
 
     public AccountRecord ensureSharedAccount(String name, UUID ownerUuid) {
