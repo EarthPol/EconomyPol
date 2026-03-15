@@ -11,11 +11,15 @@ import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckServic
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.towny.TownyService;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -36,10 +40,8 @@ final class WithdrawSubcommandTest {
         when(player.hasPermission("economypol.admin")).thenReturn(false);
         when(economyService.withdrawMaxCustodialToInventory(player))
                 .thenReturn(MoneyOperationResult.success(126L, 126L, 0L, "Withdraw processed."));
-        when(economyService.getCustodialAvailable(player)).thenReturn(874L);
         when(economyService.denominationService()).thenReturn(denominationService);
         when(denominationService.format(126L)).thenReturn("126 Gold Coins");
-        when(denominationService.format(874L)).thenReturn("874 Gold Coins");
 
         WithdrawSubcommand subcommand = new WithdrawSubcommand(dependencies(economyService));
 
@@ -47,6 +49,7 @@ final class WithdrawSubcommandTest {
 
         verify(economyService).withdrawMaxCustodialToInventory(player);
         verify(economyService, never()).withdrawCustodialAsPhysicalMoney(player, 126L, INVENTORY_ONLY_ROUTING);
+        assertTrue(capturePlainText(player).contains("126 Gold Coins claimed from overflow account."));
     }
 
     @Test
@@ -97,5 +100,11 @@ final class WithdrawSubcommandTest {
                 mock(EnhancedLogger.class),
                 mock(EnhancedLogger.class)
         );
+    }
+
+    private String capturePlainText(Player player) {
+        ArgumentCaptor<Component> captor = ArgumentCaptor.forClass(Component.class);
+        verify(player).sendMessage(captor.capture());
+        return PlainTextComponentSerializer.plainText().serialize(captor.getValue());
     }
 }

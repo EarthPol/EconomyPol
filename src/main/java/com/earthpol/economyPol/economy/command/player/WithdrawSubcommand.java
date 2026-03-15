@@ -41,12 +41,7 @@ public final class WithdrawSubcommand extends AbstractEconomySubcommand {
         if (!admin) {
             if (args.length == 0 || isAllAlias(args[0])) {
                 var result = dependencies.economyService().withdrawMaxCustodialToInventory(player);
-                sender.sendMessage(result.message() + " Withdrawn: " +
-                        dependencies.economyService().denominationService().format(result.processedAmount()) +
-                        ", custodial remaining: " +
-                        dependencies.economyService().denominationService().format(
-                                dependencies.economyService().getCustodialAvailable(player)
-                        ));
+                sendOverflowClaimResult(player, result);
                 return true;
             }
             sender.sendMessage("Specific withdrawal amounts require economypol.admin. Use /economypol withdraw to physicalize as much money as fits in your inventory.");
@@ -55,12 +50,7 @@ public final class WithdrawSubcommand extends AbstractEconomySubcommand {
 
         if (args.length == 0 || isAllAlias(args[0])) {
             var result = dependencies.economyService().withdrawMaxCustodialToInventory(player);
-            sender.sendMessage(result.message() + " Withdrawn: " +
-                    dependencies.economyService().denominationService().format(result.processedAmount()) +
-                    ", custodial remaining: " +
-                    dependencies.economyService().denominationService().format(
-                            dependencies.economyService().getCustodialAvailable(player)
-                    ));
+            sendOverflowClaimResult(player, result);
             return true;
         }
 

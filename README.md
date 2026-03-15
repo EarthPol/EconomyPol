@@ -393,15 +393,18 @@ Current queue table:
 - `/economypol deposit <amount|all>`
 - `/economypol withdraw`
 - `/economypol withdraw <amount>` with `economypol.admin`
+- `/economypol claim`
 - `/economypol paymentdelivery <default|skipinventory|skipinventoryandenderchest>`
 - `/economypol normalizewallet`
 - `/baltop`
 - `/bal`
+- `/claim`
 
 Notes:
 
 - `/economypol withdraw` means “withdraw custodial as physical money”
 - for normal players, `/economypol withdraw` means “withdraw the maximum exact amount that fits in inventory”
+- `/economypol claim` and `/claim` are aliases for the player-facing overflow claim flow
 - specifying a withdraw amount is restricted to `economypol.admin`
 - `/economypol deposit` is restricted to `economypol.admin`
 - `/economypol paymentdelivery` controls how passive incoming money and returned change are routed for that player

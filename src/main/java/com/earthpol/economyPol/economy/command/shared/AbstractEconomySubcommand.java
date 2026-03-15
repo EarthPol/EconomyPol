@@ -1,6 +1,7 @@
 package com.earthpol.economyPol.economy.command.shared;
 
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
+import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.service.money.LiveMoneyService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
@@ -78,6 +79,21 @@ public abstract class AbstractEconomySubcommand implements EconomySubcommand {
         } catch (IllegalStateException exception) {
             sender.sendMessage("Player account does not exist.");
         }
+    }
+
+    protected void sendOverflowClaimResult(Player player, MoneyOperationResult result) {
+        if (!result.success() || result.processedAmount() <= 0L) {
+            player.sendMessage(result.message());
+            return;
+        }
+        String claimedAmount = dependencies.economyService().denominationService().format(result.processedAmount());
+        player.sendMessage(
+                Component.text("[", NamedTextColor.DARK_GRAY)
+                        .append(Component.text("EconomyPol", NamedTextColor.GOLD))
+                        .append(Component.text("] ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text(claimedAmount, NamedTextColor.WHITE))
+                        .append(Component.text(" claimed from overflow account.", NamedTextColor.AQUA))
+        );
     }
 
     protected long parseAmount(String raw) {

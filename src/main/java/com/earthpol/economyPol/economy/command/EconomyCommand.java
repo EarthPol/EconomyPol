@@ -30,6 +30,7 @@ public final class EconomyCommand implements TabExecutor {
     private static final String BALANCE_ALIAS = "bal";
     private static final String BALANCE_TOP_COMMAND = "balancetop";
     private static final String BALANCE_TOP_ALIAS = "baltop";
+    private static final String CLAIM_COMMAND = "claim";
 
     private final Map<String, EconomySubcommand> playerCommands;
     private final Map<String, EconomySubcommand> adminCommands;
@@ -66,6 +67,10 @@ public final class EconomyCommand implements TabExecutor {
             EconomySubcommand balanceTop = playerCommands.get(BALANCE_TOP_COMMAND);
             return balanceTop != null && balanceTop.execute(sender, args);
         }
+        if (isDirectClaimCommand(command, label)) {
+            EconomySubcommand claim = playerCommands.get(CLAIM_COMMAND);
+            return claim != null && claim.execute(sender, args);
+        }
 
         if (args.length == 0) {
             sendRootUsage(sender);
@@ -99,6 +104,13 @@ public final class EconomyCommand implements TabExecutor {
                 return List.of();
             }
             return balanceTop.tabComplete(sender, args);
+        }
+        if (isDirectClaimCommand(command, alias)) {
+            EconomySubcommand claim = playerCommands.get(CLAIM_COMMAND);
+            if (claim == null) {
+                return List.of();
+            }
+            return claim.tabComplete(sender, args);
         }
 
         if (args.length == 1) {
@@ -178,6 +190,7 @@ public final class EconomyCommand implements TabExecutor {
         commands.put(BALANCE_TOP_ALIAS, balanceTopSubcommand);
         register(commands, new DepositSubcommand(dependencies));
         register(commands, new WithdrawSubcommand(dependencies));
+        register(commands, new ClaimSubcommand(dependencies));
         register(commands, new PaymentDeliverySubcommand(dependencies));
         register(commands, new NormalizeWalletSubcommand(dependencies));
         return Collections.unmodifiableMap(new LinkedHashMap<>(commands));
@@ -206,6 +219,12 @@ public final class EconomyCommand implements TabExecutor {
         String commandName = command.getName().toLowerCase(Locale.ROOT);
         String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
         return BALANCE_ALIAS.equals(commandName) || BALANCE_ALIAS.equals(normalizedLabel);
+    }
+
+    private static boolean isDirectClaimCommand(Command command, String label) {
+        String commandName = command.getName().toLowerCase(Locale.ROOT);
+        String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
+        return CLAIM_COMMAND.equals(commandName) || CLAIM_COMMAND.equals(normalizedLabel);
     }
 }
 
