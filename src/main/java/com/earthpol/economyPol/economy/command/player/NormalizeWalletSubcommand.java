@@ -18,7 +18,7 @@ public final class NormalizeWalletSubcommand extends AbstractEconomySubcommand {
 
     @Override
     public String usage() {
-        return "/economypol normalizewallet";
+        return "/compress";
     }
 
     @Override
