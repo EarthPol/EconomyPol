@@ -15,7 +15,6 @@ public final class EnderChestLockListener implements Listener {
         this.playerMoneyLockService = playerMoneyLockService;
     }
 
-    // TODO: Test if this clashes with plugin-based inventory open such as essentials /ec command
     @EventHandler
     public void onInventoryOpen(InventoryOpenEvent event) {
         if (event.getPlayer() instanceof Player player &&
