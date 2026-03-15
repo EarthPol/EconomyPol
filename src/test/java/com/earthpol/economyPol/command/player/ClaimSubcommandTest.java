@@ -4,6 +4,7 @@ import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.command.player.ClaimSubcommand;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.model.MoneyOperationFailureReason;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
@@ -52,6 +53,25 @@ final class ClaimSubcommandTest {
         subcommand.execute(player, new String[] {"10"});
 
         verify(player).sendMessage("/claim");
+    }
+
+    @Test
+    void claimWithNoOverflowMoneyShowsFriendlyMessage() {
+        EconomyService economyService = mock(EconomyService.class);
+        Player player = mock(Player.class);
+
+        when(economyService.withdrawMaxCustodialToInventory(player))
+                .thenReturn(MoneyOperationResult.failure(
+                        0L,
+                        "Insufficient custodial funds.",
+                        MoneyOperationFailureReason.INSUFFICIENT_FUNDS
+                ));
+
+        ClaimSubcommand subcommand = new ClaimSubcommand(dependencies(economyService));
+
+        subcommand.execute(player, new String[0]);
+
+        assertTrue(capturePlainText(player).contains("You have no money in your overflow account."));
     }
 
     private CommandDependencies dependencies(EconomyService economyService) {

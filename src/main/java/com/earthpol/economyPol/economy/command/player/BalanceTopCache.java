@@ -6,6 +6,8 @@ import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
 import com.earthpol.economyPol.economy.service.support.SchedulerService;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -73,12 +75,12 @@ public final class BalanceTopCache {
         }
 
         if (shouldStartBuild) {
-            sender.sendMessage("Rebuilding the balancetop cache. You will receive the results when it completes.");
+            sendMessage(sender, loadingMessage());
             if (!schedulerService.runAsync(this::rebuildCache, "balancetop-cache-rebuild")) {
                 failQueuedRequests("Failed to schedule a balancetop cache rebuild.");
             }
         } else {
-            sender.sendMessage("The balancetop cache is already rebuilding. You will receive the results when it completes.");
+            sendMessage(sender, loadingMessage());
         }
     }
 
@@ -123,7 +125,11 @@ public final class BalanceTopCache {
         }
         for (QueuedRequest queuedRequest : queuedRequests) {
             queuedRequest.resolve().ifPresent(sender ->
-                    schedulerService.runOnCommandSenderContext(sender, () -> sender.sendMessage(message), "balancetop-cache-error")
+                    schedulerService.runOnCommandSenderContext(
+                            sender,
+                            () -> sendMessage(sender, Component.text(message, NamedTextColor.RED)),
+                            "balancetop-cache-error"
+                    )
             );
         }
     }
@@ -188,8 +194,8 @@ public final class BalanceTopCache {
     }
 
     private void sendSnapshot(CommandSender sender, CachedBalanceTop snapshot) {
-        for (String line : formatLines(snapshot)) {
-            sender.sendMessage(line);
+        for (Component line : formatLines(snapshot)) {
+            sendMessage(sender, line);
         }
     }
 
@@ -197,22 +203,53 @@ public final class BalanceTopCache {
         schedulerService.runOnCommandSenderContext(sender, () -> sendSnapshot(sender, snapshot), "balancetop-cache-delivery");
     }
 
-    private List<String> formatLines(CachedBalanceTop snapshot) {
-        List<String> lines = new ArrayList<>();
+    private List<Component> formatLines(CachedBalanceTop snapshot) {
+        List<Component> lines = new ArrayList<>();
         long ageSeconds = Math.max(0L, TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - snapshot.builtAtMillis()));
-        lines.add("Balance Top " + maxEntries + " (cache age: " + ageSeconds + "s)");
+        lines.add(
+                Component.text("[", NamedTextColor.DARK_GRAY)
+                        .append(Component.text("EconomyPol", NamedTextColor.GOLD))
+                        .append(Component.text("] ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text("Top ", NamedTextColor.YELLOW))
+                        .append(Component.text(Integer.toString(maxEntries), NamedTextColor.WHITE))
+                        .append(Component.text(" Balances", NamedTextColor.YELLOW))
+                        .append(Component.text(" (cache age: ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text(ageSeconds + "s", NamedTextColor.WHITE))
+                        .append(Component.text(")", NamedTextColor.DARK_GRAY))
+        );
         if (snapshot.entries().isEmpty()) {
-            lines.add("No player balances were found for the current balancetop scan.");
+            lines.add(Component.text("No player balances were found for the current balancetop scan.", NamedTextColor.YELLOW));
         } else {
             int rank = 1;
             for (BalanceTopEntry entry : snapshot.entries()) {
-                lines.add(rank + ". " + entry.playerName() + " - " + denominationService.format(entry.balance()));
+                lines.add(
+                        Component.text(rank + ". ", NamedTextColor.DARK_GRAY)
+                                .append(Component.text(entry.playerName(), NamedTextColor.AQUA))
+                                .append(Component.text(" - ", NamedTextColor.DARK_GRAY))
+                                .append(Component.text(denominationService.format(entry.balance()), NamedTextColor.WHITE))
+                );
                 rank++;
             }
         }
-        lines.add("Scanned " + snapshot.scannedOnlinePlayers() + " online players and " +
-                snapshot.scannedOfflineSnapshots() + " offline ender-wallet snapshots.");
+        lines.add(
+                Component.text("Scanned ", NamedTextColor.GRAY)
+                        .append(Component.text(Integer.toString(snapshot.scannedOnlinePlayers()), NamedTextColor.WHITE))
+                        .append(Component.text(" online players and ", NamedTextColor.GRAY))
+                        .append(Component.text(Integer.toString(snapshot.scannedOfflineSnapshots()), NamedTextColor.WHITE))
+                        .append(Component.text(" offline ender-wallet snapshots.", NamedTextColor.GRAY))
+        );
         return lines;
+    }
+
+    private Component loadingMessage() {
+        return Component.text("[", NamedTextColor.DARK_GRAY)
+                .append(Component.text("EconomyPol", NamedTextColor.GOLD))
+                .append(Component.text("] ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("Loading top " + maxEntries + " balances", NamedTextColor.YELLOW));
+    }
+
+    private void sendMessage(CommandSender sender, Component message) {
+        sender.sendMessage(message);
     }
 
     private String requestKey(CommandSender sender) {

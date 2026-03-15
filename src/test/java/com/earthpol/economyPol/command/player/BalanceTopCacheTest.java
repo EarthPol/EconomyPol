@@ -12,6 +12,8 @@ import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
 import com.earthpol.economyPol.economy.service.support.SchedulerService;
 import com.earthpol.economyPol.towny.TownyService;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.command.CommandSender;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -102,22 +104,26 @@ final class BalanceTopCacheTest {
 
         verify(schedulerService, times(1)).runAsync(any(Runnable.class), anyString());
 
-        ArgumentCaptor<String> firstMessages = ArgumentCaptor.forClass(String.class);
-        verify(firstSender, times(6)).sendMessage(firstMessages.capture());
-        List<String> firstLines = firstMessages.getAllValues();
-        assertTrue(firstLines.contains("Rebuilding the balancetop cache. You will receive the results when it completes."));
+        List<String> firstLines = capturePlainTextMessages(firstSender, 6);
+        assertTrue(firstLines.contains("[EconomyPol] Loading top 10 balances"));
         assertTrue(firstLines.contains("1. Alice - 50 Gold Coins"));
         assertTrue(firstLines.contains("2. Carol - 30 Gold Coins"));
         assertTrue(firstLines.contains("3. Bob - 10 Gold Coins"));
         assertTrue(firstLines.stream().noneMatch(line -> line.contains("999 Gold Coins")));
 
-        ArgumentCaptor<String> secondMessages = ArgumentCaptor.forClass(String.class);
-        verify(secondSender, times(5)).sendMessage(secondMessages.capture());
-        List<String> secondLines = secondMessages.getAllValues();
-        assertTrue(secondLines.stream().noneMatch(line -> line.contains("Rebuilding the balancetop cache")));
+        List<String> secondLines = capturePlainTextMessages(secondSender, 5);
+        assertTrue(secondLines.stream().noneMatch(line -> line.contains("Loading top 10 balances")));
         assertTrue(secondLines.contains("1. Alice - 50 Gold Coins"));
         assertTrue(secondLines.contains("2. Carol - 30 Gold Coins"));
         assertTrue(secondLines.contains("3. Bob - 10 Gold Coins"));
+    }
+
+    private List<String> capturePlainTextMessages(CommandSender sender, int expectedCalls) {
+        ArgumentCaptor<Component> captor = ArgumentCaptor.forClass(Component.class);
+        verify(sender, times(expectedCalls)).sendMessage(captor.capture());
+        return captor.getAllValues().stream()
+                .map(component -> PlainTextComponentSerializer.plainText().serialize(component))
+                .toList();
     }
 }
 

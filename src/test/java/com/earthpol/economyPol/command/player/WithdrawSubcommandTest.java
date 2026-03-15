@@ -21,7 +21,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -87,7 +86,7 @@ final class WithdrawSubcommandTest {
 
         verify(economyService).withdrawCustodialAsPhysicalMoney(player, 90L, INVENTORY_ONLY_ROUTING);
         verify(economyService, never()).withdrawMaxCustodialToInventory(player);
-        verify(player).sendMessage(eq("Withdraw processed. Delivered: 54 Gold Coins, retained: 36 Gold Coins"));
+        assertTrue(capturePlainText(player).contains("Withdraw processed. Delivered: 54 Gold Coins, retained: 36 Gold Coins"));
     }
 
     private CommandDependencies dependencies(EconomyService economyService) {

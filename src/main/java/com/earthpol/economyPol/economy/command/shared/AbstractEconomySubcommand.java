@@ -1,6 +1,7 @@
 package com.earthpol.economyPol.economy.command.shared;
 
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
+import com.earthpol.economyPol.economy.model.MoneyOperationFailureReason;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.service.money.LiveMoneyService;
 import net.kyori.adventure.text.Component;
@@ -83,6 +84,15 @@ public abstract class AbstractEconomySubcommand implements EconomySubcommand {
 
     protected void sendOverflowClaimResult(Player player, MoneyOperationResult result) {
         if (!result.success() || result.processedAmount() <= 0L) {
+            if (result.failureReason() == MoneyOperationFailureReason.INSUFFICIENT_FUNDS && result.requestedAmount() == 0L) {
+                player.sendMessage(
+                        Component.text("[", NamedTextColor.DARK_GRAY)
+                                .append(Component.text("EconomyPol", NamedTextColor.GOLD))
+                                .append(Component.text("] ", NamedTextColor.DARK_GRAY))
+                                .append(Component.text("You have no money in your overflow account.", NamedTextColor.YELLOW))
+                );
+                return;
+            }
             player.sendMessage(result.message());
             return;
         }

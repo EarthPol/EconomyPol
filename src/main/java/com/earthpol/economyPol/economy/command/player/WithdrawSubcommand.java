@@ -3,6 +3,8 @@ package com.earthpol.economyPol.economy.command.player;
 import com.earthpol.economyPol.economy.command.shared.AbstractEconomySubcommand;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -64,10 +66,22 @@ public final class WithdrawSubcommand extends AbstractEconomySubcommand {
                 amount,
                 INVENTORY_ONLY_ROUTING
         );
-        sender.sendMessage(result.message() + " Delivered: " +
-                dependencies.economyService().denominationService().format(result.processedAmount()) +
-                ", retained: " +
-                dependencies.economyService().denominationService().format(result.remainder()));
+        sender.sendMessage(
+                Component.text("[", NamedTextColor.DARK_GRAY)
+                        .append(Component.text("EconomyPol", NamedTextColor.GOLD))
+                        .append(Component.text("] ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text(result.message() + " ", NamedTextColor.YELLOW))
+                        .append(Component.text("Delivered: ", NamedTextColor.GRAY))
+                        .append(Component.text(
+                                dependencies.economyService().denominationService().format(result.processedAmount()),
+                                NamedTextColor.WHITE
+                        ))
+                        .append(Component.text(", retained: ", NamedTextColor.GRAY))
+                        .append(Component.text(
+                                dependencies.economyService().denominationService().format(result.remainder()),
+                                NamedTextColor.WHITE
+                        ))
+        );
         return true;
     }
 

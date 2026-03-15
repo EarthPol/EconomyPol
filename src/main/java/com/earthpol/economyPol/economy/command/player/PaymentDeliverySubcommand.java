@@ -3,6 +3,8 @@ package com.earthpol.economyPol.economy.command.player;
 import com.earthpol.economyPol.economy.command.shared.AbstractEconomySubcommand;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -39,9 +41,21 @@ public final class PaymentDeliverySubcommand extends AbstractEconomySubcommand {
         if (args.length == 0) {
             IncomingPaymentDeliveryPreference current =
                     dependencies.economyService().getIncomingPaymentDeliveryPreference(player);
-            sender.sendMessage("Current incoming payment delivery preference: " + current.commandToken());
-            sender.sendMessage("Effective routing: " + current.description());
-            sender.sendMessage(usage());
+            player.sendMessage(
+                    Component.text("[", NamedTextColor.DARK_GRAY)
+                            .append(Component.text("EconomyPol", NamedTextColor.GOLD))
+                            .append(Component.text("] ", NamedTextColor.DARK_GRAY))
+                            .append(Component.text("Current incoming payment delivery preference: ", NamedTextColor.GRAY))
+                            .append(Component.text(current.commandToken(), NamedTextColor.YELLOW))
+            );
+            player.sendMessage(
+                    Component.text("Default order: ", NamedTextColor.GRAY)
+                            .append(Component.text(current.description(), NamedTextColor.WHITE))
+            );
+            player.sendMessage(
+                    Component.text("Usage: ", NamedTextColor.GRAY)
+                            .append(Component.text(usage(), NamedTextColor.AQUA))
+            );
             return true;
         }
 

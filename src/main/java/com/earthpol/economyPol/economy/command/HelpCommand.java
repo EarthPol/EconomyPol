@@ -12,14 +12,14 @@ public final class HelpCommand {
 
     private static final List<HelpEntry> PLAYER_COMMANDS = List.of(
             new HelpEntry("/bal", "View your balance breakdown.", null),
-            new HelpEntry("/baltop", "Show the cached top player balances.", null),
+            new HelpEntry("/baltop", "Show top player balances.", null),
             new HelpEntry("/claim", "Claim as much overflow money as fits in your inventory.", null),
             new HelpEntry(
-                    "/economypol paymentdelivery <default|skip_inventory|skip_inventory_and_enderchest>",
-                    "Choose how passive incoming money and returned change are routed.",
+                    "/economypol paymentdelivery <default | skip_inventory | skip_inventory_and_enderchest>",
+                    "Choose how incoming money and returned change are routed. Default order: Inventory -> Enderchest -> Overflow account",
                     null
             ),
-            new HelpEntry("/compress", "Normalize your ender-wallet money layout.", null),
+            new HelpEntry("/compress", "Automatically compress ender chest currency to the largest denomination(s).", null),
             new HelpEntry("/economypol help", "Show this help.", null)
     );
 
@@ -28,7 +28,7 @@ public final class HelpCommand {
             new HelpEntry("/economypol withdraw <amount>", "Withdraw a specific overflow amount into inventory.", null),
             new HelpEntry("/economypol admin balance <player>", "View detailed player balance information and UUID.", null),
             new HelpEntry("/economypol admin check <report>", "Run a database health check report.", null),
-            new HelpEntry("/economypol admin cleanup towny-orphans", "Remove orphaned Towny bindings and legacy rows.", null),
+            new HelpEntry("/economypol admin cleanup towny-orphans", "Remove orphaned Towny accounts.", null),
             new HelpEntry("/economypol admin reload", "Reload runtime settings from config.yml.", null)
     );
 
