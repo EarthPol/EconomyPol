@@ -195,5 +195,22 @@ final class LiveMoneyServiceTest {
 
         assertEquals(36L, maxDeliverable);
     }
+
+    @Test
+    void maxDeliverableToInventoryFallsThroughToSmallerDenominationsWhenLargestDoesNotFitRequestedAmount() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            player.getInventory().setItem(slot, new ItemStack(Material.STONE, 64));
+        }
+        player.getInventory().setItem(0, null);
+
+        long maxDeliverable = service.maxDeliverableToInventory(player, 80L);
+
+        assertEquals(72L, maxDeliverable);
+    }
 }
 

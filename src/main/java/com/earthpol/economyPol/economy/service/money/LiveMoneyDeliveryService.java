@@ -184,7 +184,13 @@ final class LiveMoneyDeliveryService {
         int maxStackSize = denomination.material().getMaxStackSize();
         long maxItemsByAmount = remainingAmount / denominationValue;
         if (maxItemsByAmount <= 0L) {
-            return 0L;
+            return maxDeliverableToInventory(
+                    denominations,
+                    existingStackCapacity,
+                    remainingSlots,
+                    remainingAmount,
+                    denominationIndex + 1
+            );
         }
 
         long freeExistingItems = existingStackCapacity[denominationIndex];
@@ -280,4 +286,3 @@ final class LiveMoneyDeliveryService {
         return leftovers;
     }
 }
-
