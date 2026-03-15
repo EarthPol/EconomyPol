@@ -1,5 +1,5 @@
 name: EconomyPol
-version: 0.1.0
+version: '${project.version}'
 main: com.earthpol.economyPol.EconomyPol
 api-version: '1.21'
 folia-supported: true
