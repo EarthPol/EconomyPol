@@ -26,13 +26,28 @@ final class LiveMoneySnapshotService {
         PluginSettings.WalletSettings walletSettings = walletSettingsSupplier.get();
         long total = 0L;
         if (walletSettings.includeLivePlayerInventory()) {
-            total += countInventory(player.getInventory());
-            total += denominationService.valueOf(player.getInventory().getItemInOffHand());
+            total += countPlayerInventoryMoney(player);
         }
         if (walletSettings.includeLiveEnderChest()) {
-            total += countInventory(player.getEnderChest());
+            total += countPlayerEnderChestMoney(player);
         }
         return total;
+    }
+
+    long countPlayerInventoryMoney(Player player) {
+        PluginSettings.WalletSettings walletSettings = walletSettingsSupplier.get();
+        if (!walletSettings.includeLivePlayerInventory()) {
+            return 0L;
+        }
+        return countInventory(player.getInventory()) + denominationService.valueOf(player.getInventory().getItemInOffHand());
+    }
+
+    long countPlayerEnderChestMoney(Player player) {
+        PluginSettings.WalletSettings walletSettings = walletSettingsSupplier.get();
+        if (!walletSettings.includeLiveEnderChest()) {
+            return 0L;
+        }
+        return countInventory(player.getEnderChest());
     }
 
     long countTopLevelEnderChest(Player player) {
@@ -107,4 +122,3 @@ final class LiveMoneySnapshotService {
         return total;
     }
 }
-

@@ -47,6 +47,13 @@ public final class LiveMoneyService {
         return snapshotService.scanPlayerMoney(player);
     }
 
+    public LiveMoneyBreakdown scanPlayerMoneyBreakdown(Player player) {
+        return new LiveMoneyBreakdown(
+                snapshotService.countPlayerInventoryMoney(player),
+                snapshotService.countPlayerEnderChestMoney(player)
+        );
+    }
+
     public long countTopLevelEnderChest(Player player) {
         return snapshotService.countTopLevelEnderChest(player);
     }
@@ -111,6 +118,13 @@ public final class LiveMoneyService {
     }
 
     public record DeliveryResult(long deliveredToInventory, long deliveredToEnder, long remainder) {}
+
+    public record LiveMoneyBreakdown(long inventory, long enderChest) {
+
+        public long spendable() {
+            return inventory + enderChest;
+        }
+    }
 
     public record NormalizationResult(long normalizedValue, long overflow, boolean malformedStacksFound) {}
 

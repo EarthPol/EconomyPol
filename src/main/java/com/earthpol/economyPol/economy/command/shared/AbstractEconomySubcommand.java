@@ -1,6 +1,10 @@
 package com.earthpol.economyPol.economy.command.shared;
 
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
+import com.earthpol.economyPol.economy.service.money.LiveMoneyService;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
@@ -25,15 +29,55 @@ public abstract class AbstractEconomySubcommand implements EconomySubcommand {
         return null;
     }
 
-    protected void sendBalanceView(CommandSender sender, OfflinePlayer target) {
-        PlayerBalanceView view = dependencies.economyService().balanceView(target);
-        sender.sendMessage("Balance for " + target.getName() + ":");
-        sender.sendMessage("  Spendable: " + dependencies.economyService().denominationService().format(view.spendable()));
-        sender.sendMessage("  Custodial available: " + dependencies.economyService().denominationService().format(view.custodialAvailable()));
-        sender.sendMessage("  Custodial reserved: " + dependencies.economyService().denominationService().format(view.custodialReserved()));
-        sender.sendMessage("  Live money: " + dependencies.economyService().denominationService().format(view.liveMoney()));
-        sender.sendMessage("  Frozen ender wallet: " + dependencies.economyService().denominationService().format(view.frozenEnderWallet()));
-        sender.sendMessage("  Locked: " + view.locked());
+    protected void sendBalanceView(CommandSender sender, Player player) {
+        try {
+            PlayerBalanceView view = dependencies.economyService().balanceView(player);
+            LiveMoneyService.LiveMoneyBreakdown breakdown =
+                    dependencies.economyService().getOnlineLiveMoneyBreakdown(player);
+            String spendable = dependencies.economyService().denominationService().format(breakdown.spendable());
+            String inventory = dependencies.economyService().denominationService().format(breakdown.inventory());
+            String enderChest = dependencies.economyService().denominationService().format(breakdown.enderChest());
+            String overflow = dependencies.economyService().denominationService().format(view.custodialAvailable());
+            player.sendMessage(Component.join(
+                    JoinConfiguration.separator(Component.newline()),
+                    List.of(
+                            Component.text("[", NamedTextColor.DARK_GRAY)
+                                    .append(Component.text("EconomyPol", NamedTextColor.GOLD))
+                                    .append(Component.text("] ", NamedTextColor.DARK_GRAY))
+                                    .append(Component.text("Your Balance:", NamedTextColor.YELLOW)),
+                            Component.text("Spendable: ", NamedTextColor.GRAY)
+                                    .append(Component.text(spendable, NamedTextColor.WHITE))
+                                    .append(Component.text(" (Inventory + enderchest)", NamedTextColor.DARK_GRAY)),
+                            Component.text("Inventory: ", NamedTextColor.GRAY)
+                                    .append(Component.text(inventory, NamedTextColor.WHITE)),
+                            Component.text("Enderchest: ", NamedTextColor.GRAY)
+                                    .append(Component.text(enderChest, NamedTextColor.WHITE)),
+                            Component.text("Overflow account: ", NamedTextColor.GRAY)
+                                    .append(Component.text(overflow, NamedTextColor.WHITE))
+                                    .append(Component.text(" Not spendable. Must withdrawn to spend", NamedTextColor.DARK_GRAY)),
+                            Component.text("Claim overflow balance with ", NamedTextColor.AQUA)
+                                    .append(Component.text("/economypol withdraw", NamedTextColor.YELLOW))
+                    )
+            ));
+        } catch (IllegalStateException exception) {
+            sender.sendMessage("Player account does not exist.");
+        }
+    }
+
+    protected void sendBalanceViewAdmin(CommandSender sender, OfflinePlayer target) {
+        try {
+            PlayerBalanceView view = dependencies.economyService().balanceView(target);
+            sender.sendMessage("Balance for " + target.getName() + ":");
+            sender.sendMessage("  UUID on file: " + target.getUniqueId());
+            sender.sendMessage("  Spendable: " + dependencies.economyService().denominationService().format(view.spendable()));
+            sender.sendMessage("  Custodial available: " + dependencies.economyService().denominationService().format(view.custodialAvailable()));
+            sender.sendMessage("  Custodial reserved: " + dependencies.economyService().denominationService().format(view.custodialReserved()));
+            sender.sendMessage("  Live money: " + dependencies.economyService().denominationService().format(view.liveMoney()));
+            sender.sendMessage("  Frozen ender wallet: " + dependencies.economyService().denominationService().format(view.frozenEnderWallet()));
+            sender.sendMessage("  Locked: " + view.locked());
+        } catch (IllegalStateException exception) {
+            sender.sendMessage("Player account does not exist.");
+        }
     }
 
     protected long parseAmount(String raw) {

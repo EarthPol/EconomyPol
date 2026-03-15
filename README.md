@@ -386,6 +386,7 @@ Current queue table:
 ### Player Commands
 
 - `/economypol balance`
+- `/economypol bal`
 - `/economypol balancetop`
 - `/economypol baltop`
 - `/ecopol ...`
@@ -395,6 +396,7 @@ Current queue table:
 - `/economypol paymentdelivery <default|skipinventory|skipinventoryandenderchest>`
 - `/economypol normalizewallet`
 - `/baltop`
+- `/bal`
 
 Notes:
 
@@ -405,6 +407,7 @@ Notes:
 - `/economypol paymentdelivery` controls how passive incoming money and returned change are routed for that player
 - `/economypol deposit` means “store physical money into custodial”
 - `/economypol balancetop` shows the cached top player balances from online live money plus offline frozen ender-wallet snapshots
+- `/economypol bal` and `/bal` are aliases for `/economypol balance`
 - `/economypol baltop` and `/baltop` are aliases for the same cached leaderboard
 - `/ecopol` is an alias for `/economypol`
 - `/economypol normalizewallet` normalizes the current ender chest money layout

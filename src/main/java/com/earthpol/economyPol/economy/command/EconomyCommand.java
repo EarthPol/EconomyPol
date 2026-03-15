@@ -26,6 +26,8 @@ import java.util.stream.Stream;
 
 public final class EconomyCommand implements TabExecutor {
 
+    private static final String BALANCE_COMMAND = "balance";
+    private static final String BALANCE_ALIAS = "bal";
     private static final String BALANCE_TOP_COMMAND = "balancetop";
     private static final String BALANCE_TOP_ALIAS = "baltop";
 
@@ -56,6 +58,10 @@ public final class EconomyCommand implements TabExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (isDirectBalanceCommand(command, label)) {
+            EconomySubcommand balance = playerCommands.get(BALANCE_COMMAND);
+            return balance != null && balance.execute(sender, args);
+        }
         if (isDirectBalanceTopCommand(command, label)) {
             EconomySubcommand balanceTop = playerCommands.get(BALANCE_TOP_COMMAND);
             return balanceTop != null && balanceTop.execute(sender, args);
@@ -80,6 +86,13 @@ public final class EconomyCommand implements TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (isDirectBalanceCommand(command, alias)) {
+            EconomySubcommand balance = playerCommands.get(BALANCE_COMMAND);
+            if (balance == null) {
+                return List.of();
+            }
+            return balance.tabComplete(sender, args);
+        }
         if (isDirectBalanceTopCommand(command, alias)) {
             EconomySubcommand balanceTop = playerCommands.get(BALANCE_TOP_COMMAND);
             if (balanceTop == null) {
@@ -156,7 +169,9 @@ public final class EconomyCommand implements TabExecutor {
 
     private static Map<String, EconomySubcommand> registerPlayerCommands(CommandDependencies dependencies) {
         Map<String, EconomySubcommand> commands = new LinkedHashMap<>();
-        register(commands, new BalanceSubcommand(dependencies));
+        BalanceSubcommand balanceSubcommand = new BalanceSubcommand(dependencies);
+        register(commands, balanceSubcommand);
+        commands.put(BALANCE_ALIAS, balanceSubcommand);
         BalanceTopSubCommand balanceTopSubcommand =
                 new BalanceTopSubCommand(dependencies);
         register(commands, balanceTopSubcommand);
@@ -185,6 +200,12 @@ public final class EconomyCommand implements TabExecutor {
         String commandName = command.getName().toLowerCase(Locale.ROOT);
         String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
         return BALANCE_TOP_ALIAS.equals(commandName) || BALANCE_TOP_ALIAS.equals(normalizedLabel);
+    }
+
+    private static boolean isDirectBalanceCommand(Command command, String label) {
+        String commandName = command.getName().toLowerCase(Locale.ROOT);
+        String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
+        return BALANCE_ALIAS.equals(commandName) || BALANCE_ALIAS.equals(normalizedLabel);
     }
 }
 
