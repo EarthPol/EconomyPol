@@ -27,7 +27,6 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -242,8 +241,11 @@ final class PlayerPaymentQueueServiceTest {
             ((Runnable) invocation.getArgument(0)).run();
             return true;
         });
-        when(schedulerService.callOnPlayerEntityScheduler(eq(player), any(), anyString()))
-                .thenAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()));
+        when(schedulerService.scheduleOnPlayerEntityScheduler(eq(player), any(Runnable.class), any(Runnable.class), anyString()))
+                .thenAnswer(invocation -> {
+                    ((Runnable) invocation.getArgument(1)).run();
+                    return true;
+                });
         when(pendingPlayerPaymentRepository.claimNextRetryablePayment(eq(playerUuid), anyLong()))
                 .thenReturn(Optional.of(payment), Optional.empty());
         when(accountRegistryService.getIncomingPaymentDeliveryPreference(playerUuid))
@@ -285,5 +287,62 @@ final class PlayerPaymentQueueServiceTest {
                 "PENDING_PLAYER_PAYMENT_OVERFLOW"
         );
         verify(notificationService).notifyIncomingOverflowToCustodial(player, 4L, 4L);
+    }
+
+    @Test
+    void requestDrainRequeuesWhenEntitySchedulerTaskIsRetired() {
+        PlayerMock player = server.addPlayer();
+        UUID playerUuid = player.getUniqueId();
+        AccountRegistryService accountRegistryService = mock(AccountRegistryService.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
+        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        PendingPlayerPayment payment = new PendingPlayerPayment(
+                UUID.randomUUID(),
+                playerUuid,
+                10L,
+                PendingPlayerPaymentStatus.PROCESSING,
+                System.currentTimeMillis(),
+                System.currentTimeMillis(),
+                com.earthpol.economyPol.economy.model.PendingPlayerPaymentAttemptResult.NONE
+        );
+
+        when(schedulerService.runAsync(any(Runnable.class), anyString())).thenAnswer(invocation -> {
+            ((Runnable) invocation.getArgument(0)).run();
+            return true;
+        });
+        when(pendingPlayerPaymentRepository.claimNextRetryablePayment(eq(playerUuid), anyLong()))
+                .thenReturn(Optional.of(payment), Optional.empty());
+        when(accountRegistryService.getIncomingPaymentDeliveryPreference(playerUuid))
+                .thenReturn(IncomingPaymentDeliveryPreference.DEFAULT);
+        when(schedulerService.scheduleOnPlayerEntityScheduler(eq(player), any(Runnable.class), any(Runnable.class), anyString()))
+                .thenAnswer(invocation -> {
+                    ((Runnable) invocation.getArgument(2)).run();
+                    return true;
+                });
+
+        PlayerPaymentQueueService service = new PlayerPaymentQueueService(
+                accountRegistryService,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                liveMoneyService,
+                new PlayerMoneyLockService(),
+                notificationService,
+                schedulerService,
+                operationsLog,
+                auditLog
+        );
+
+        service.requestDrain(playerUuid, "test");
+
+        verify(pendingPlayerPaymentRepository).requeuePayment(
+                payment.pendingPaymentId(),
+                PendingPlayerPaymentAttemptResult.ENTITY_SCHEDULER_UNAVAILABLE
+        );
+        verifyNoInteractions(liveMoneyService);
     }
 }

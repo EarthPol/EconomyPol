@@ -190,6 +190,7 @@ public final class PlayerPaymentQueueService {
                         payment.pendingPaymentId(),
                         PendingPlayerPaymentAttemptResult.OFFLINE_ENDER_WALLET_UNAVAILABLE
                 );
+                logRequeue(payment.pendingPaymentId(), payment.playerUuid(), PendingPlayerPaymentAttemptResult.OFFLINE_ENDER_WALLET_UNAVAILABLE);
                 return ProcessingDecision.STOP;
             }
             auditLog.info("pending-payment-delivered-offline-wallet id=" + payment.pendingPaymentId() +
@@ -202,6 +203,7 @@ public final class PlayerPaymentQueueService {
                     payment.pendingPaymentId(),
                     PendingPlayerPaymentAttemptResult.PLAYER_LOCKED
             );
+            logRequeue(payment.pendingPaymentId(), payment.playerUuid(), PendingPlayerPaymentAttemptResult.PLAYER_LOCKED);
             return ProcessingDecision.STOP;
         }
 
@@ -212,62 +214,23 @@ public final class PlayerPaymentQueueService {
             return ProcessingDecision.CONTINUE;
         }
 
-        LiveDeliveryAttempt attempt = schedulerService.callOnPlayerEntityScheduler(
+        boolean scheduled = schedulerService.scheduleOnPlayerEntityScheduler(
                 player,
-                () -> attemptLiveDeliveryOnPlayerEntityScheduler(player, payment.paymentAmount(), preference.effectiveRoutingOrder()),
+                () -> processClaimedOnlinePaymentOnPlayerEntityScheduler(payment, player),
+                () -> {
+                    requeuePendingPayment(payment.pendingPaymentId(), PendingPlayerPaymentAttemptResult.ENTITY_SCHEDULER_UNAVAILABLE);
+                    logRequeue(payment.pendingPaymentId(), payment.playerUuid(), PendingPlayerPaymentAttemptResult.ENTITY_SCHEDULER_UNAVAILABLE);
+                },
                 "pending-player-payment-live-delivery"
-        ).orElse(null);
-        if (attempt == null) {
+        );
+        if (!scheduled) {
             pendingPlayerPaymentRepository.requeuePayment(
                     payment.pendingPaymentId(),
                     PendingPlayerPaymentAttemptResult.ENTITY_SCHEDULER_UNAVAILABLE
             );
-            return ProcessingDecision.STOP;
+            logRequeue(payment.pendingPaymentId(), payment.playerUuid(), PendingPlayerPaymentAttemptResult.ENTITY_SCHEDULER_UNAVAILABLE);
         }
-        if (attempt.playerLocked()) {
-            pendingPlayerPaymentRepository.requeuePayment(
-                    payment.pendingPaymentId(),
-                    PendingPlayerPaymentAttemptResult.PLAYER_LOCKED
-            );
-            return ProcessingDecision.STOP;
-        }
-        if (attempt.deliveryFailed()) {
-            completeToCustodial(payment, player, payment.paymentAmount(), CUSTODIAL_REASON_DELIVERY_FAILED);
-            return ProcessingDecision.CONTINUE;
-        }
-
-        try {
-            PendingPlayerPaymentRepository.CompletionResult completion =
-                    pendingPlayerPaymentRepository.completePaymentToCustodial(
-                            payment.pendingPaymentId(),
-                            accountRegistryService.requirePlayerAccount(player).accountId(),
-                            attempt.deliveryResult().remainder(),
-                            CUSTODIAL_ENTRY_TYPE,
-                            CUSTODIAL_REASON_OVERFLOW
-                    );
-            if (attempt.deliveryResult().remainder() > 0L && completion.updatedCustodialBalance() != null) {
-                notificationService.notifyIncomingOverflowToCustodial(
-                        player,
-                        attempt.deliveryResult().remainder(),
-                        completion.updatedCustodialBalance().availableBalance()
-                );
-            }
-            auditLog.info("pending-payment-delivered-live id=" + payment.pendingPaymentId() +
-                    " player=" + payment.playerUuid() +
-                    " amount=" + payment.paymentAmount() +
-                    " inventory=" + attempt.deliveryResult().deliveredToInventory() +
-                    " ender=" + attempt.deliveryResult().deliveredToEnder() +
-                    " overflow=" + attempt.deliveryResult().remainder());
-            return ProcessingDecision.CONTINUE;
-        } catch (RuntimeException exception) {
-            operationsLog.severe("Failed to finalize pending live payment " + payment.pendingPaymentId() + ".", exception);
-            restoreSnapshot(player, attempt.preDeliverySnapshot(), payment.pendingPaymentId());
-            pendingPlayerPaymentRepository.requeuePayment(
-                    payment.pendingPaymentId(),
-                    PendingPlayerPaymentAttemptResult.DELIVERY_FAILED
-            );
-            return ProcessingDecision.STOP;
-        }
+        return ProcessingDecision.STOP;
     }
 
     private void completeToCustodial(
@@ -299,74 +262,81 @@ public final class PlayerPaymentQueueService {
                 " reason=" + reason);
     }
 
-    private LiveDeliveryAttempt attemptLiveDeliveryOnPlayerEntityScheduler(
-            Player player,
-            long amount,
-            List<MoneyRouteTarget> routingOrder
-    ) {
+    private void processClaimedOnlinePaymentOnPlayerEntityScheduler(PendingPlayerPayment payment, Player player) {
         if (playerMoneyLockService.isLocked(player.getUniqueId())) {
-            return LiveDeliveryAttempt.lockedOutcome();
+            requeuePendingPayment(payment.pendingPaymentId(), PendingPlayerPaymentAttemptResult.PLAYER_LOCKED);
+            logRequeue(payment.pendingPaymentId(), payment.playerUuid(), PendingPlayerPaymentAttemptResult.PLAYER_LOCKED);
+            return;
         }
+        IncomingPaymentDeliveryPreference preference =
+                accountRegistryService.getIncomingPaymentDeliveryPreference(payment.playerUuid());
+        if (preference == IncomingPaymentDeliveryPreference.SKIP_INVENTORY_AND_ENDERCHEST) {
+            completeToCustodial(payment, player, payment.paymentAmount(), CUSTODIAL_REASON_PREFERENCE);
+            requestDrain(payment.playerUuid(), "post-custodial-preference");
+            return;
+        }
+
         LiveMoneyService.LiveContainerSnapshot preDeliverySnapshot = liveMoneyService.captureLiveContainerSnapshot(player);
         try {
-            LiveMoneyService.DeliveryResult deliveryResult = liveMoneyService.deliver(player, amount, routingOrder);
-            return LiveDeliveryAttempt.successOutcome(preDeliverySnapshot, deliveryResult);
+            LiveMoneyService.DeliveryResult deliveryResult = liveMoneyService.deliver(
+                    player,
+                    payment.paymentAmount(),
+                    preference.effectiveRoutingOrder()
+            );
+            PendingPlayerPaymentRepository.CompletionResult completion =
+                    pendingPlayerPaymentRepository.completePaymentToCustodial(
+                            payment.pendingPaymentId(),
+                            accountRegistryService.requirePlayerAccount(player).accountId(),
+                            deliveryResult.remainder(),
+                            CUSTODIAL_ENTRY_TYPE,
+                            CUSTODIAL_REASON_OVERFLOW
+                    );
+            if (deliveryResult.remainder() > 0L && completion.updatedCustodialBalance() != null) {
+                notificationService.notifyIncomingOverflowToCustodial(
+                        player,
+                        deliveryResult.remainder(),
+                        completion.updatedCustodialBalance().availableBalance()
+                );
+            }
+            auditLog.info("pending-payment-delivered-live id=" + payment.pendingPaymentId() +
+                    " player=" + payment.playerUuid() +
+                    " amount=" + payment.paymentAmount() +
+                    " inventory=" + deliveryResult.deliveredToInventory() +
+                    " ender=" + deliveryResult.deliveredToEnder() +
+                    " overflow=" + deliveryResult.remainder());
+            requestDrain(payment.playerUuid(), "post-live-delivery");
         } catch (Exception exception) {
-            operationsLog.severe("Failed to deliver pending online payment into live containers for " +
-                    player.getUniqueId() + ".", exception);
+            operationsLog.severe("Failed to process pending online payment " + payment.pendingPaymentId() +
+                    " for " + player.getUniqueId() + ".", exception);
             try {
                 liveMoneyService.restoreLiveContainerSnapshot(player, preDeliverySnapshot);
             } catch (RuntimeException restoreException) {
                 operationsLog.severe("Failed to restore live containers after pending payment delivery failure for " +
                         player.getUniqueId() + ".", restoreException);
             }
-            return LiveDeliveryAttempt.deliveryFailedOutcome(preDeliverySnapshot);
+            try {
+                completeToCustodial(payment, player, payment.paymentAmount(), CUSTODIAL_REASON_DELIVERY_FAILED);
+                requestDrain(payment.playerUuid(), "post-delivery-fallback");
+            } catch (RuntimeException fallbackException) {
+                operationsLog.severe("Failed to fallback pending payment " + payment.pendingPaymentId() +
+                        " to custodial.", fallbackException);
+                requeuePendingPayment(payment.pendingPaymentId(), PendingPlayerPaymentAttemptResult.DELIVERY_FAILED);
+                logRequeue(payment.pendingPaymentId(), payment.playerUuid(), PendingPlayerPaymentAttemptResult.DELIVERY_FAILED);
+            }
         }
     }
 
-    private void restoreSnapshot(
-            Player player,
-            LiveMoneyService.LiveContainerSnapshot preDeliverySnapshot,
-            UUID pendingPaymentId
-    ) {
-        schedulerService.callOnPlayerEntityScheduler(
-                player,
-                () -> {
-                    liveMoneyService.restoreLiveContainerSnapshot(player, preDeliverySnapshot);
-                    return Boolean.TRUE;
-                },
-                "pending-player-payment-rollback"
-        ).orElseGet(() -> {
-            operationsLog.severe("Failed to restore live snapshot after pending payment rollback for " +
-                    player.getUniqueId() + " payment=" + pendingPaymentId + ".");
-            return Boolean.FALSE;
-        });
+    private void requeuePendingPayment(UUID pendingPaymentId, PendingPlayerPaymentAttemptResult attemptResult) {
+        pendingPlayerPaymentRepository.requeuePayment(pendingPaymentId, attemptResult);
+    }
+
+    private void logRequeue(UUID pendingPaymentId, UUID playerUuid, PendingPlayerPaymentAttemptResult attemptResult) {
+        auditLog.info("pending-payment-requeued id=" + pendingPaymentId +
+                " player=" + playerUuid + " reason=" + attemptResult);
     }
 
     private enum ProcessingDecision {
         CONTINUE,
         STOP
-    }
-
-    private record LiveDeliveryAttempt(
-            boolean playerLocked,
-            boolean deliveryFailed,
-            LiveMoneyService.LiveContainerSnapshot preDeliverySnapshot,
-            LiveMoneyService.DeliveryResult deliveryResult
-    ) {
-        private static LiveDeliveryAttempt lockedOutcome() {
-            return new LiveDeliveryAttempt(true, false, null, null);
-        }
-
-        private static LiveDeliveryAttempt deliveryFailedOutcome(LiveMoneyService.LiveContainerSnapshot preDeliverySnapshot) {
-            return new LiveDeliveryAttempt(false, true, preDeliverySnapshot, null);
-        }
-
-        private static LiveDeliveryAttempt successOutcome(
-                LiveMoneyService.LiveContainerSnapshot preDeliverySnapshot,
-                LiveMoneyService.DeliveryResult deliveryResult
-        ) {
-            return new LiveDeliveryAttempt(false, false, preDeliverySnapshot, deliveryResult);
-        }
     }
 }

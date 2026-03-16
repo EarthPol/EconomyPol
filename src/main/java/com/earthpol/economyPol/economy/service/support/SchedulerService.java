@@ -75,6 +75,63 @@ public class SchedulerService {
         }, operation).isPresent();
     }
 
+    public boolean scheduleOnPlayerEntityScheduler(
+            Player player,
+            Runnable action,
+            Runnable retiredAction,
+            String operation
+    ) {
+        if (player == null) {
+            return false;
+        }
+        if (isOwnedByCurrentRegion(player)) {
+            try {
+                action.run();
+                return true;
+            } catch (Throwable throwable) {
+                operationsLog.severe("Player entity-scheduler task failed in owned region. operation=" + operation +
+                        " player=" + player.getUniqueId(), throwable);
+                return false;
+            }
+        }
+
+        try {
+            boolean scheduled = player.getScheduler().execute(
+                    plugin,
+                    () -> {
+                        try {
+                            action.run();
+                        } catch (Throwable throwable) {
+                            operationsLog.severe("Player entity-scheduler task failed. operation=" + operation +
+                                    " player=" + player.getUniqueId(), throwable);
+                        }
+                    },
+                    () -> {
+                        operationsLog.warn("Folia player entity-scheduler task retired before execution. operation=" + operation +
+                                " player=" + player.getUniqueId());
+                        if (retiredAction != null) {
+                            try {
+                                retiredAction.run();
+                            } catch (Throwable throwable) {
+                                operationsLog.severe("Retired player entity-scheduler callback failed. operation=" + operation +
+                                        " player=" + player.getUniqueId(), throwable);
+                            }
+                        }
+                    },
+                    1L
+            );
+            if (!scheduled) {
+                operationsLog.warn("Failed to schedule Folia player entity-scheduler task. operation=" + operation +
+                        " player=" + player.getUniqueId());
+            }
+            return scheduled;
+        } catch (Throwable throwable) {
+            operationsLog.severe("Failed to schedule player entity-scheduler task. operation=" + operation +
+                    " player=" + player.getUniqueId(), throwable);
+            return false;
+        }
+    }
+
     public boolean runOnCommandSenderContext(CommandSender sender, Runnable action, String operation) {
         if (sender instanceof Player player) {
             return runOnPlayerEntityScheduler(player, action, operation);
