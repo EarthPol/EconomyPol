@@ -21,7 +21,7 @@ import java.util.UUID;
 
 public final class NotificationService {
 
-    private static final String WITHDRAW_COMMAND = "/economypol withdraw";
+    private static final String WITHDRAW_COMMAND = "/claim";
 
     private final DenominationService denominationService;
     private final NotificationRepository repository;
@@ -225,7 +225,7 @@ public final class NotificationService {
 
     private Component withdrawHint(Locale locale, String key) {
         return translated(locale, key, WITHDRAW_COMMAND)
-                .clickEvent(ClickEvent.suggestCommand("/economypol withdraw"))
+                .clickEvent(ClickEvent.suggestCommand(WITHDRAW_COMMAND))
                 .hoverEvent(HoverEvent.showText(translated(locale, "notifications.withdraw.hover")));
     }
 

@@ -3,7 +3,7 @@ general:
 
 notifications:
   withdraw:
-    hover: "&eWithdraw as much overflow money as fits into your inventory."
+    hover: "&eClaim as much overflow money as fits into your inventory."
 
   incoming_overflow:
     title: "&e&lIncoming Money Routed to Overflow"

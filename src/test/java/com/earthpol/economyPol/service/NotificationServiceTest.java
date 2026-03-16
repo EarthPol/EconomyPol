@@ -94,7 +94,7 @@ final class NotificationServiceTest {
         assertTrue(message.contains("Incoming Money Routed to Custodial"));
         assertTrue(message.contains("Moved to custodial: 18 Gold Coins"));
         assertTrue(message.contains("Custodial balance: 125 Gold Coins"));
-        assertTrue(message.contains("/economypol withdraw"));
+        assertTrue(message.contains("/claim"));
     }
 
     @Test
@@ -107,7 +107,7 @@ final class NotificationServiceTest {
         assertTrue(message.contains("Custodial Balance Available"));
         assertTrue(message.contains("Available in custodial: 42 Gold Coins"));
         assertTrue(message.contains("carry custodial money as physical currency"));
-        assertTrue(message.contains("/economypol withdraw"));
+        assertTrue(message.contains("/claim"));
     }
 
     @Test
@@ -187,7 +187,7 @@ final class NotificationServiceTest {
     private static String translate(String key, Object[] args) {
         Map<String, String> translations = Map.ofEntries(
                 Map.entry("general.prefix", "[EconomyPol] "),
-                Map.entry("notifications.withdraw.hover", "Withdraw as much custodial money as fits into your inventory."),
+                Map.entry("notifications.withdraw.hover", "Claim as much custodial money as fits into your inventory."),
                 Map.entry("notifications.incoming_overflow.title", "Incoming Money Routed to Custodial"),
                 Map.entry("notifications.incoming_overflow.moved", "Moved to custodial: {0}"),
                 Map.entry("notifications.incoming_overflow.balance", "Custodial balance: {0}"),
