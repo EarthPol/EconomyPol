@@ -77,11 +77,7 @@ public final class PlayerEconomyService {
         long frozen = 0L;
         if (player.isOnline() && player.getPlayer() != null) {
             Player onlinePlayer = player.getPlayer();
-            liveMoney = schedulerService.callOnPlayerEntityScheduler(
-                    onlinePlayer,
-                    () -> liveMoneyService.scanPlayerMoney(onlinePlayer),
-                    "balance-view-live-scan"
-            ).orElse(0L);
+            liveMoney = liveMoneyService.scanPlayerMoney(onlinePlayer);
         } else {
             Optional<EnderWalletSnapshot> snapshot = enderWalletService.findSnapshot(player.getUniqueId());
             if (snapshot.isPresent() && snapshot.get().state() == OfflineEnderWalletState.FROZEN) {
@@ -96,11 +92,7 @@ public final class PlayerEconomyService {
     }
 
     public long scanOnlinePlayerMoney(Player player) {
-        return schedulerService.callOnPlayerEntityScheduler(
-                player,
-                () -> liveMoneyService.scanPlayerMoney(player),
-                "balancetop-live-scan"
-        ).orElse(0L);
+        return liveMoneyService.scanPlayerMoney(player);
     }
 
     public long getCustodialAvailable(OfflinePlayer player) {
@@ -117,20 +109,12 @@ public final class PlayerEconomyService {
             if (playerMoneyLockService.isLocked(player.getUniqueId())) {
                 return false;
             }
-            Optional<LiveMoneyService.SpendabilityResult> spendabilityOptional = schedulerService.callOnPlayerEntityScheduler(
+            LiveMoneyService.SpendabilityResult spendability = liveMoneyService.canSpendFromLiveSources(
                     onlinePlayer,
-                    () -> liveMoneyService.canSpendFromLiveSources(
-                            onlinePlayer,
-                            amount,
-                            incomingPaymentRoutingOrder(player.getUniqueId()),
-                            settings.changeOverflowPolicy()
-                    ),
-                    "has-enough-live-spendability"
+                    amount,
+                    incomingPaymentRoutingOrder(player.getUniqueId()),
+                    settings.changeOverflowPolicy()
             );
-            if (spendabilityOptional.isEmpty()) {
-                return false;
-            }
-            LiveMoneyService.SpendabilityResult spendability = spendabilityOptional.get();
             if (!spendability.success()
                     && LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE.equals(spendability.message())) {
                 notificationService.notifyNotEnoughRoomForChange(onlinePlayer);
@@ -167,19 +151,7 @@ public final class PlayerEconomyService {
                 );
             }
             Player onlinePlayer = player.getPlayer();
-            Optional<MoneyOperationResult> withdrawResultOptional = schedulerService.callOnPlayerEntityScheduler(
-                    onlinePlayer,
-                    () -> withdrawOnlinePlayerOnPlayerEntityScheduler(onlinePlayer, amount, reason),
-                    "withdraw-player-live"
-            );
-            if (withdrawResultOptional.isEmpty()) {
-                return MoneyOperationResult.failure(
-                        amount,
-                        "Player money could not be accessed safely.",
-                        MoneyOperationFailureReason.PLAYER_MONEY_ACCESS_UNAVAILABLE
-                );
-            }
-            return withdrawResultOptional.get();
+            return withdrawOnlinePlayerOnPlayerEntityScheduler(onlinePlayer, amount, reason);
         }
 
         MoneyOperationResult walletDebit = enderWalletService.debitOffline(player.getUniqueId(), amount);
