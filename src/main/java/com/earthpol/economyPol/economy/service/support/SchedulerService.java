@@ -11,6 +11,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+/*
+This class centralizes Folia scheduling. If there are folia issues, then the fix is probably here or caused
+by the lack of use of this class.
+ */
 public class SchedulerService {
 
     private static final long PLAYER_ENTITY_SCHEDULER_TIMEOUT_SECONDS = 5L;
@@ -28,6 +32,8 @@ public class SchedulerService {
     }
 
     // This always targets the player's entity scheduler. It is not a location-based region task.
+    // Use this when the caller needs the result immediately and is willing to block waiting for it.
+    // That makes it appropriate for exact, synchronous player-state reads/writes, but risky across regions.
     public <T> Optional<T> callOnPlayerEntityScheduler(Player player, Supplier<T> action, String operation) {
         if (player == null) {
             return Optional.empty();
@@ -68,6 +74,9 @@ public class SchedulerService {
         }
     }
 
+    // Blocking Runnable wrapper over callOnPlayerEntityScheduler(...).
+    // Use this when the work must happen on the player scheduler and the caller needs an immediate success/failure answer,
+    // but does not need to return a value from the scheduled work.
     public boolean runOnPlayerEntityScheduler(Player player, Runnable action, String operation) {
         return callOnPlayerEntityScheduler(player, () -> {
             action.run();
@@ -75,6 +84,9 @@ public class SchedulerService {
         }, operation).isPresent();
     }
 
+    // This also targets the player's entity scheduler, but it does not wait for a result.
+    // Use this when the work must happen on the player scheduler but can complete asynchronously later.
+    // This is the safer choice for cross-region fire-and-forget work like queued payment delivery.
     public boolean scheduleOnPlayerEntityScheduler(
             Player player,
             Runnable action,
@@ -184,5 +196,3 @@ public class SchedulerService {
         }
     }
 }
-
-
