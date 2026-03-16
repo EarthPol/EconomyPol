@@ -11,6 +11,7 @@ import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
+import com.earthpol.economyPol.economy.repository.PendingPlayerPaymentRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.money.LiveMoneyService;
@@ -145,6 +146,7 @@ final class PlayerEconomyAntiDupeTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
@@ -250,6 +252,7 @@ final class PlayerEconomyAntiDupeTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,

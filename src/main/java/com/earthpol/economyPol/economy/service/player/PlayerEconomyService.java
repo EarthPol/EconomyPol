@@ -35,6 +35,7 @@ public final class PlayerEconomyService {
     private final FundsRepository fundsRepository;
     private final LiveMoneyService liveMoneyService;
     private final EnderWalletService enderWalletService;
+    private final PlayerPaymentQueueService playerPaymentQueueService;
     private final PlayerMoneyLockService playerMoneyLockService;
     private final NotificationService notificationService;
     private final SchedulerService schedulerService;
@@ -47,6 +48,7 @@ public final class PlayerEconomyService {
             FundsRepository fundsRepository,
             LiveMoneyService liveMoneyService,
             EnderWalletService enderWalletService,
+            PlayerPaymentQueueService playerPaymentQueueService,
             PlayerMoneyLockService playerMoneyLockService,
             NotificationService notificationService,
             SchedulerService schedulerService,
@@ -58,6 +60,7 @@ public final class PlayerEconomyService {
         this.fundsRepository = fundsRepository;
         this.liveMoneyService = liveMoneyService;
         this.enderWalletService = enderWalletService;
+        this.playerPaymentQueueService = playerPaymentQueueService;
         this.playerMoneyLockService = playerMoneyLockService;
         this.notificationService = notificationService;
         this.schedulerService = schedulerService;
@@ -211,40 +214,7 @@ public final class PlayerEconomyService {
             );
         }
         if (player.isOnline() && player.getPlayer() != null) {
-            Player onlinePlayer = player.getPlayer();
-            Optional<LiveMoneyService.DeliveryResult> deliveryResultOptional = schedulerService.callOnPlayerEntityScheduler(
-                    onlinePlayer,
-                    () -> liveMoneyService.deliver(onlinePlayer, amount, incomingPaymentRoutingOrder(player.getUniqueId())),
-                    "deposit-player-live"
-            );
-            if (deliveryResultOptional.isEmpty()) {
-                if (!player.isOnline() || player.getPlayer() == null) {
-                    return depositOffline(player, amount, reason);
-                }
-                return MoneyOperationResult.failure(
-                        amount,
-                        "Player money could not be delivered safely.",
-                        MoneyOperationFailureReason.PLAYER_MONEY_ACCESS_UNAVAILABLE
-                );
-            }
-            LiveMoneyService.DeliveryResult deliveryResult = deliveryResultOptional.get();
-            if (deliveryResult.remainder() > 0L) {
-                BalanceRecord updatedBalance = creditCustodial(
-                        player.getUniqueId(),
-                        player.getName(),
-                        deliveryResult.remainder(),
-                        "ONLINE_ROUTE_OVERFLOW"
-                );
-                notificationService.notifyIncomingOverflowToCustodial(
-                        onlinePlayer,
-                        deliveryResult.remainder(),
-                        updatedBalance.availableBalance()
-                );
-            }
-            auditLog.info("player-deposit player=" + player.getUniqueId() + " amount=" + amount +
-                    " inventory=" + deliveryResult.deliveredToInventory() + " ender=" + deliveryResult.deliveredToEnder() +
-                    " overflow=" + deliveryResult.remainder() + " reason=" + reason);
-            return MoneyOperationResult.success(amount, amount, 0L, "Funds delivered.");
+            return playerPaymentQueueService.acceptOnlinePayment(player.getPlayer(), amount, reason);
         }
 
         return depositOffline(player, amount, reason);
@@ -341,6 +311,10 @@ public final class PlayerEconomyService {
 
     public boolean isPlayerLocked(UUID playerUuid) {
         return playerMoneyLockService.isLocked(playerUuid);
+    }
+
+    public long getPendingIncomingPaymentBalance(UUID playerUuid) {
+        return playerPaymentQueueService.getPendingBalance(playerUuid);
     }
 
     private MoneyOperationResult depositSelfOnPlayerEntityScheduler(Player player, long amount) {

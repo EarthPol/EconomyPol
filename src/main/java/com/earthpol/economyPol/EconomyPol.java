@@ -17,6 +17,7 @@ import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.EnderWalletRepository;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
 import com.earthpol.economyPol.economy.repository.NotificationRepository;
+import com.earthpol.economyPol.economy.repository.PendingPlayerPaymentRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
 import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
@@ -57,6 +58,7 @@ public final class EconomyPol extends JavaPlugin {
     private AccountRepository accountRepository;
     private PlayerRepository playerRepository;
     private FundsRepository fundsRepository;
+    private PendingPlayerPaymentRepository pendingPlayerPaymentRepository;
     private EnderWalletRepository enderWalletRepository;
     private NotificationRepository notificationRepository;
     private TownyGovernmentRepository townyGovernmentRepository;
@@ -120,6 +122,7 @@ public final class EconomyPol extends JavaPlugin {
         accountRepository = new AccountRepository(dbService, log(), audit());
         playerRepository = new PlayerRepository(dbService, log(), audit());
         fundsRepository = new FundsRepository(dbService, log(), audit());
+        pendingPlayerPaymentRepository = new PendingPlayerPaymentRepository(dbService, log(), audit());
         enderWalletRepository = new EnderWalletRepository(dbService, log(), audit());
         notificationRepository = new NotificationRepository(dbService, log(), audit());
         townyGovernmentRepository = new TownyGovernmentRepository(dbService, log(), audit());
@@ -155,6 +158,7 @@ public final class EconomyPol extends JavaPlugin {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -173,6 +177,7 @@ public final class EconomyPol extends JavaPlugin {
                 denominationService,
                 audit()
         );
+        economyService.startPendingPaymentQueue();
 
         vaultUnlockedAdapter = new VaultUnlockedEconomyAdapter(
                 this,

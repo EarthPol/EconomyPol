@@ -12,6 +12,7 @@ import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
+import com.earthpol.economyPol.economy.repository.PendingPlayerPaymentRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
 import com.earthpol.economyPol.economy.service.account.AccountRegistryService;
 import com.earthpol.economyPol.economy.service.account.SharedAccountService;
@@ -20,6 +21,7 @@ import com.earthpol.economyPol.economy.service.player.EnderWalletService;
 import com.earthpol.economyPol.economy.service.player.NotificationService;
 import com.earthpol.economyPol.economy.service.player.PlayerEconomyService;
 import com.earthpol.economyPol.economy.service.player.PlayerMoneyLockService;
+import com.earthpol.economyPol.economy.service.player.PlayerPaymentQueueService;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.support.ReservationService;
 import com.earthpol.economyPol.economy.service.support.SchedulerService;
@@ -47,11 +49,13 @@ public final class EconomyService {
     private final AccountRegistryService accountRegistryService;
     private final PlayerEconomyService playerEconomyService;
     private final SharedAccountService sharedAccountService;
+    private final PlayerPaymentQueueService playerPaymentQueueService;
 
     public EconomyService(
             AccountRepository accountRepository,
             PlayerRepository playerRepository,
             FundsRepository fundsRepository,
+            PendingPlayerPaymentRepository pendingPlayerPaymentRepository,
             DenominationService denominationService,
             LiveMoneyService liveMoneyService,
             EnderWalletService enderWalletService,
@@ -74,11 +78,23 @@ public final class EconomyService {
                 playerRepository,
                 settings
         );
+        this.playerPaymentQueueService = new PlayerPaymentQueueService(
+                accountRegistryService,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                liveMoneyService,
+                playerMoneyLockService,
+                notificationService,
+                schedulerService,
+                operationsLog,
+                auditLog
+        );
         this.playerEconomyService = new PlayerEconomyService(
                 accountRegistryService,
                 fundsRepository,
                 liveMoneyService,
                 enderWalletService,
+                playerPaymentQueueService,
                 playerMoneyLockService,
                 notificationService,
                 schedulerService,
@@ -100,6 +116,18 @@ public final class EconomyService {
 
     public SchedulerService schedulerService() {
         return schedulerService;
+    }
+
+    public void startPendingPaymentQueue() {
+        playerPaymentQueueService.startRetryLoop();
+    }
+
+    public void requestPendingPaymentDrain(OfflinePlayer player, String trigger) {
+        playerPaymentQueueService.requestDrain(player, trigger);
+    }
+
+    public void requestPendingPaymentDrain(UUID playerUuid, String trigger) {
+        playerPaymentQueueService.requestDrain(playerUuid, trigger);
     }
 
     public ReservationService reservationService() {
@@ -352,6 +380,10 @@ public final class EconomyService {
 
     public boolean isPlayerLocked(UUID playerUuid) {
         return playerEconomyService.isPlayerLocked(playerUuid);
+    }
+
+    public long getPendingIncomingPaymentBalance(UUID playerUuid) {
+        return playerEconomyService.getPendingIncomingPaymentBalance(playerUuid);
     }
 
     public boolean renameAccount(UUID accountId, String name) {

@@ -51,6 +51,35 @@ CREATE TABLE IF NOT EXISTS economy_balances (
     updated_at TIMESTAMP(3) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS economy_pending_player_payment_balances (
+    player_uuid UUID NOT NULL PRIMARY KEY,
+    pending_balance BIGINT NOT NULL,
+    updated_at TIMESTAMP(3) NOT NULL,
+    CONSTRAINT fk_economy_pending_player_payment_balances_player
+        FOREIGN KEY (player_uuid) REFERENCES economy_players(player_uuid)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS economy_pending_player_payments (
+    pending_payment_id UUID NOT NULL PRIMARY KEY,
+    player_uuid UUID NOT NULL,
+    payment_amount BIGINT NOT NULL,
+    status ENUM('PENDING', 'PROCESSING') NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP(3) NOT NULL,
+    last_attempted_delivery_at TIMESTAMP(3) NULL,
+    last_attempted_delivery_result ENUM(
+        'NONE',
+        'PLAYER_LOCKED',
+        'ENTITY_SCHEDULER_UNAVAILABLE',
+        'OFFLINE_ENDER_WALLET_UNAVAILABLE',
+        'DELIVERY_FAILED'
+    ) NOT NULL DEFAULT 'NONE',
+    KEY idx_economy_pending_player_payments_player_status (player_uuid, status, created_at, pending_payment_id),
+    CONSTRAINT fk_economy_pending_player_payments_player
+        FOREIGN KEY (player_uuid) REFERENCES economy_players(player_uuid)
+        ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS economy_ender_wallet_snapshots (
     player_uuid UUID NOT NULL PRIMARY KEY,
     base_units BIGINT NOT NULL,

@@ -9,8 +9,10 @@ import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.model.MoneyOperationFailureReason;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
+import com.earthpol.economyPol.economy.model.PendingPlayerPayment;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
+import com.earthpol.economyPol.economy.repository.PendingPlayerPaymentRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.money.LiveMoneyService;
@@ -75,6 +77,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -125,6 +128,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -159,6 +163,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -200,6 +205,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -238,6 +244,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -271,6 +278,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -298,6 +306,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -331,6 +340,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -358,6 +368,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -390,6 +401,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -415,6 +427,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -440,6 +453,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -466,6 +480,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -508,6 +523,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -529,12 +545,13 @@ final class EconomyServiceTest {
     }
 
     @Test
-    void depositPlayerUsesIncomingPaymentDeliveryPreferenceForPassiveRouting() {
+    void depositPlayerQueuesOnlinePaymentsForLaterDelivery() {
         PlayerMock player = server.addPlayer();
 
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -548,24 +565,27 @@ final class EconomyServiceTest {
 
         UUID accountId = player.getUniqueId();
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
-        List<MoneyRouteTarget> expectedRoutingOrder = List.of(
-                MoneyRouteTarget.ENDER_CHEST,
-                MoneyRouteTarget.CUSTODIAL_ACCOUNT
-        );
-
         when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(account));
         when(playerRepository.getIncomingPaymentDeliveryPreference(player.getUniqueId()))
-                .thenReturn(IncomingPaymentDeliveryPreference.SKIP_INVENTORY);
-        when(liveMoneyService.deliver(player, 10L, expectedRoutingOrder))
-                .thenReturn(new LiveMoneyService.DeliveryResult(0L, 10L, 0L));
-        doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
-                .when(schedulerService)
-                .callOnPlayerEntityScheduler(eq(player), any(), anyString());
+                .thenReturn(IncomingPaymentDeliveryPreference.DEFAULT);
+        when(pendingPlayerPaymentRepository.enqueuePayment(player.getUniqueId(), 10L)).thenReturn(
+                new PendingPlayerPayment(
+                        UUID.randomUUID(),
+                        player.getUniqueId(),
+                        10L,
+                        com.earthpol.economyPol.economy.model.PendingPlayerPaymentStatus.PENDING,
+                        System.currentTimeMillis(),
+                        null,
+                        com.earthpol.economyPol.economy.model.PendingPlayerPaymentAttemptResult.NONE
+                )
+        );
+        when(schedulerService.runAsync(any(Runnable.class), anyString())).thenReturn(true);
 
         EconomyService economyService = new EconomyService(
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -581,8 +601,10 @@ final class EconomyServiceTest {
         MoneyOperationResult result = economyService.depositPlayer(player, 10L, "VAULT2_DEPOSIT:QuickShop-Hikari");
 
         assertTrue(result.success());
-        verify(liveMoneyService).deliver(player, 10L, expectedRoutingOrder);
-        verify(fundsRepository, never()).changeAvailable(any(), anyLong(), anyString(), anyString(), any(), isNull());
+        assertEquals("Funds accepted for delivery.", result.message());
+        verify(pendingPlayerPaymentRepository).enqueuePayment(player.getUniqueId(), 10L);
+        verify(schedulerService).runAsync(any(Runnable.class), anyString());
+        verifyNoInteractions(liveMoneyService);
         verifyNoInteractions(notificationService);
     }
 
@@ -593,6 +615,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -610,6 +633,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -639,6 +663,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -662,6 +687,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -687,6 +713,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -704,6 +731,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -729,6 +757,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -747,6 +776,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,

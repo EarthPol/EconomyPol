@@ -104,6 +104,28 @@ public class SchedulerService {
             return false;
         }
     }
+
+    public boolean runAsyncAtFixedRate(
+            Runnable action,
+            long initialDelay,
+            long period,
+            TimeUnit unit,
+            String operation
+    ) {
+        try {
+            Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task -> {
+                try {
+                    action.run();
+                } catch (Throwable throwable) {
+                    operationsLog.severe("Async fixed-rate task failed. operation=" + operation, throwable);
+                }
+            }, initialDelay, period, unit);
+            return true;
+        } catch (Throwable throwable) {
+            operationsLog.severe("Failed to schedule async fixed-rate task. operation=" + operation, throwable);
+            return false;
+        }
+    }
 }
 
 
