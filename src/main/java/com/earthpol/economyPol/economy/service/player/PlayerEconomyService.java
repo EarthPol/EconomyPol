@@ -73,18 +73,28 @@ public final class PlayerEconomyService {
         AccountRecord account = accountRegistryService.requirePlayerAccount(player);
         BalanceRecord balance = fundsRepository.getBalance(account.accountId());
         boolean locked = playerMoneyLockService.isLocked(player.getUniqueId());
-        long liveMoney = 0L;
+        long inventoryMoney = 0L;
+        long enderChestMoney = 0L;
         long frozen = 0L;
         if (player.isOnline() && player.getPlayer() != null) {
             Player onlinePlayer = player.getPlayer();
-            liveMoney = liveMoneyService.scanPlayerMoney(onlinePlayer);
+            LiveMoneyService.LiveMoneyBreakdown breakdown = liveMoneyService.scanPlayerMoneyBreakdown(onlinePlayer);
+            inventoryMoney = breakdown.inventory();
+            enderChestMoney = breakdown.enderChest();
         } else {
             Optional<EnderWalletSnapshot> snapshot = enderWalletService.findSnapshot(player.getUniqueId());
             if (snapshot.isPresent() && snapshot.get().state() == OfflineEnderWalletState.FROZEN) {
                 frozen = snapshot.get().baseUnits();
             }
         }
-        return new PlayerBalanceView(balance.availableBalance(), balance.reservedBalance(), liveMoney, frozen, locked);
+        return new PlayerBalanceView(
+                balance.availableBalance(),
+                balance.reservedBalance(),
+                inventoryMoney,
+                enderChestMoney,
+                frozen,
+                locked
+        );
     }
 
     public long getBalance(OfflinePlayer player) {
@@ -267,15 +277,6 @@ public final class PlayerEconomyService {
         ));
     }
 
-    public long maxWithdrawableCustodialToInventory(Player player) {
-        accountRegistryService.requirePlayerAccount(player);
-        return schedulerService.callOnPlayerEntityScheduler(
-                player,
-                () -> maxWithdrawableCustodialToInventoryOnPlayerEntityScheduler(player),
-                "max-withdrawable-custodial-to-inventory"
-        ).orElse(0L);
-    }
-
     public BalanceRecord creditCustodial(UUID playerUuid, String playerName, long amount, String reason) {
         AccountRecord account = accountRegistryService.requirePlayerAccount(playerUuid);
         return fundsRepository.changeAvailable(account.accountId(), amount, "CUSTODIAL_CREDIT", reason, playerUuid, null);
@@ -356,7 +357,7 @@ public final class PlayerEconomyService {
     }
 
     private MoneyOperationResult withdrawMaxCustodialToInventoryOnPlayerEntityScheduler(Player player) {
-        long maxWithdrawable = maxWithdrawableCustodialToInventoryOnPlayerEntityScheduler(player);
+        long maxWithdrawable = getMaxWithdrawableToInventory(player);
         if (maxWithdrawable <= 0L) {
             long availableBalance = getCustodialAvailable(player);
             if (availableBalance <= 0L) {
@@ -577,7 +578,7 @@ public final class PlayerEconomyService {
         return effectiveRoutingOrder;
     }
 
-    private long maxWithdrawableCustodialToInventoryOnPlayerEntityScheduler(Player player) {
+    public long getMaxWithdrawableToInventory(Player player) {
         AccountRecord account = accountRegistryService.requirePlayerAccount(player);
         BalanceRecord balance = fundsRepository.getBalance(account.accountId());
         if (balance.availableBalance() <= 0L) {

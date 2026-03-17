@@ -7,7 +7,6 @@ import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
-import com.earthpol.economyPol.economy.service.money.LiveMoneyService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.towny.TownyService;
@@ -30,9 +29,7 @@ final class BalanceSubcommandTest {
         DenominationService denominationService = mock(DenominationService.class);
         Player player = mock(Player.class);
 
-        when(economyService.balanceView(player)).thenReturn(new PlayerBalanceView(40L, 0L, 90L, 0L, false));
-        when(economyService.getOnlineLiveMoneyBreakdown(player))
-                .thenReturn(new LiveMoneyService.LiveMoneyBreakdown(54L, 36L));
+        when(economyService.balanceView(player)).thenReturn(new PlayerBalanceView(40L, 0L, 54L, 36L, 0L, false));
         when(economyService.denominationService()).thenReturn(denominationService);
         when(denominationService.format(90L)).thenReturn("90 Gold Coins");
         when(denominationService.format(54L)).thenReturn("54 Gold Coins");

@@ -11,10 +11,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-/*
-This class centralizes Folia scheduling. If there are folia issues, then the fix is probably here or caused
-by the lack of use of this class.
- */
+// TODO: Remove unecessary usages of this scheduler around the codebase.
+// Methods: callOnPlayerEntityScheduler, runOnPlayerEntityScheduler, scheduleOnPlayerEntityScheduler
+// Of particular importance: callOnPlayerEntityScheduler -- this method causes the calling thread to block until the operation is complete.
 public class SchedulerService {
 
     private static final long PLAYER_ENTITY_SCHEDULER_TIMEOUT_SECONDS = 5L;
@@ -146,7 +145,7 @@ public class SchedulerService {
 
     public boolean runOnCommandSenderContext(CommandSender sender, Runnable action, String operation) {
         if (sender instanceof Player player) {
-            return runOnPlayerEntityScheduler(player, action, operation);
+            return scheduleOnPlayerEntityScheduler(player, action, null, operation);
         }
         try {
             Bukkit.getGlobalRegionScheduler().execute(plugin, action);

@@ -1,6 +1,5 @@
 package com.earthpol.economyPol.service;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.earthPolLib.translation.TranslationService;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.Denomination;
@@ -9,7 +8,6 @@ import com.earthpol.economyPol.economy.model.PlayerNotificationType;
 import com.earthpol.economyPol.economy.repository.NotificationRepository;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.player.NotificationService;
-import com.earthpol.economyPol.economy.service.support.SchedulerService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
@@ -26,11 +24,10 @@ import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -42,7 +39,6 @@ final class NotificationServiceTest {
 
     private NotificationService notificationService;
     private NotificationRepository repository;
-    private SchedulerService schedulerService;
     private TranslationService translationService;
 
     @BeforeEach
@@ -60,13 +56,7 @@ final class NotificationServiceTest {
                 null
         );
         repository = mock(NotificationRepository.class);
-        schedulerService = mock(SchedulerService.class);
         translationService = mock(TranslationService.class);
-        doAnswer(invocation -> {
-            Runnable action = invocation.getArgument(1);
-            action.run();
-            return true;
-        }).when(schedulerService).runOnPlayerEntityScheduler(any(Player.class), any(Runnable.class), anyString());
         lenient().when(translationService.getDefaultLocale()).thenReturn(Locale.US);
         lenient().doAnswer(invocation -> translate(invocation.getArgument(0, String.class), new Object[0]))
                 .when(translationService).translate(anyString(), any(Locale.class));
@@ -78,9 +68,7 @@ final class NotificationServiceTest {
         notificationService = new NotificationService(
                 denominationService,
                 repository,
-                schedulerService,
-                translationService,
-                mock(EnhancedLogger.class)
+                translationService
         );
     }
 

@@ -80,12 +80,6 @@ final class BalanceTopCacheTest {
             action.run();
             return true;
         });
-        when(schedulerService.runOnCommandSenderContext(any(CommandSender.class), any(Runnable.class), anyString())).thenAnswer(invocation -> {
-            Runnable action = invocation.getArgument(1);
-            action.run();
-            return true;
-        });
-
         CommandDependencies dependencies = new CommandDependencies(
                 economyService,
                 enderWalletService,

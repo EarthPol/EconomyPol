@@ -219,15 +219,6 @@ public final class EconomyService {
         return playerEconomyService.scanOnlinePlayerMoney(player);
     }
 
-    public LiveMoneyService.LiveMoneyBreakdown getOnlineLiveMoneyBreakdown(Player player) {
-        accountRegistryService.requirePlayerAccount(player);
-        return schedulerService.callOnPlayerEntityScheduler(
-                player,
-                () -> liveMoneyService.scanPlayerMoneyBreakdown(player),
-                "balance-view-live-breakdown"
-        ).orElse(new LiveMoneyService.LiveMoneyBreakdown(0L, 0L));
-    }
-
     public long getCustodialAvailable(OfflinePlayer player) {
         accountRegistryService.requirePlayerAccount(player);
         return playerEconomyService.getCustodialAvailable(player);
@@ -330,7 +321,7 @@ public final class EconomyService {
 
     public long getMaxWithdrawableCustodialToInventory(Player player) {
         accountRegistryService.requirePlayerAccount(player);
-        return playerEconomyService.maxWithdrawableCustodialToInventory(player);
+        return playerEconomyService.getMaxWithdrawableToInventory(player);
     }
 
     public BalanceRecord creditCustodial(UUID playerUuid, String playerName, long amount, String reason) {

@@ -36,7 +36,7 @@ final class BalanceSubcommandTest {
             UUID playerUuid = target.getUniqueId();
 
             when(economyService.balanceView(argThat(player -> player != null && playerUuid.equals(player.getUniqueId()))))
-                    .thenReturn(new PlayerBalanceView(40L, 5L, 90L, 10L, true));
+                    .thenReturn(new PlayerBalanceView(40L, 5L, 90L, 0L, 10L, true));
             when(economyService.denominationService()).thenReturn(denominationService);
             when(denominationService.format(100L)).thenReturn("100 Gold Coins");
             when(denominationService.format(40L)).thenReturn("40 Gold Coins");

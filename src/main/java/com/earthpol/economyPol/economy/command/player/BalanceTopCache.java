@@ -98,7 +98,7 @@ public final class BalanceTopCache {
             CachedBalanceTop rebuilt = buildSnapshot();
             List<QueuedRequest> queuedRequests = completeRebuild(rebuilt);
             for (QueuedRequest queuedRequest : queuedRequests) {
-                queuedRequest.resolve().ifPresent(sender -> sendSnapshotAsync(sender, rebuilt));
+                queuedRequest.resolve().ifPresent(sender -> sendSnapshot(sender, rebuilt));
             }
         } catch (Exception exception) {
             operationsLog.severe("Failed to rebuild balancetop cache.", exception);
@@ -125,11 +125,7 @@ public final class BalanceTopCache {
         }
         for (QueuedRequest queuedRequest : queuedRequests) {
             queuedRequest.resolve().ifPresent(sender ->
-                    schedulerService.runOnCommandSenderContext(
-                            sender,
-                            () -> sendMessage(sender, Component.text(message, NamedTextColor.RED)),
-                            "balancetop-cache-error"
-                    )
+                    sendMessage(sender, Component.text(message, NamedTextColor.RED))
             );
         }
     }
@@ -197,10 +193,6 @@ public final class BalanceTopCache {
         for (Component line : formatLines(snapshot)) {
             sendMessage(sender, line);
         }
-    }
-
-    private void sendSnapshotAsync(CommandSender sender, CachedBalanceTop snapshot) {
-        schedulerService.runOnCommandSenderContext(sender, () -> sendSnapshot(sender, snapshot), "balancetop-cache-delivery");
     }
 
     private List<Component> formatLines(CachedBalanceTop snapshot) {

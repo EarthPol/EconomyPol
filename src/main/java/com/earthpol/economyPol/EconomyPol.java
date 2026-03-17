@@ -137,9 +137,7 @@ public final class EconomyPol extends JavaPlugin {
         notificationService = new NotificationService(
                 denominationService,
                 notificationRepository,
-                schedulerService,
-                translationService,
-                log()
+                translationService
         );
         playerMoneyLockService = new PlayerMoneyLockService();
         reservationService = new ReservationService(fundsRepository, audit());

@@ -107,7 +107,7 @@ final class EconomyPolApiProviderTest {
                 auditLog
         );
         UUID playerUuid = UUID.randomUUID();
-        PlayerBalanceView expectedView = new PlayerBalanceView(125L, 25L, 75L, 10L, false);
+        PlayerBalanceView expectedView = new PlayerBalanceView(125L, 25L, 30L, 45L, 10L, false);
 
         when(economyService.balanceView(argThat(hasUuid(playerUuid)))).thenReturn(expectedView);
         when(economyService.getPlayerSpendableBalance(argThat(hasUuid(playerUuid)))).thenReturn(85L);
@@ -319,7 +319,7 @@ final class EconomyPolApiProviderTest {
         EnhancedLogger auditLog = mock(EnhancedLogger.class);
         Plugin callerPlugin = MockBukkit.createMockPlugin();
         UUID playerUuid = UUID.randomUUID();
-        PlayerBalanceView expectedView = new PlayerBalanceView(125L, 25L, 75L, 10L, false);
+        PlayerBalanceView expectedView = new PlayerBalanceView(125L, 25L, 30L, 45L, 10L, false);
         EconomyPolApiProvider provider = new EconomyPolApiProvider(
                 economyService,
                 reservationService,

@@ -447,7 +447,8 @@ final class EconomyServiceTest {
         doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
                 .when(schedulerService)
                 .callOnPlayerEntityScheduler(eq(player), any(), anyString());
-        when(liveMoneyService.scanPlayerMoney(player)).thenReturn(50L);
+        when(liveMoneyService.scanPlayerMoneyBreakdown(player))
+                .thenReturn(new LiveMoneyService.LiveMoneyBreakdown(50L, 0L));
 
         EconomyService economyService = new EconomyService(
                 accountRepository,

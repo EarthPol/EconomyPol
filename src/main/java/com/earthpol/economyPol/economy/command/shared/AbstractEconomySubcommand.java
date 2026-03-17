@@ -3,7 +3,6 @@ package com.earthpol.economyPol.economy.command.shared;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.model.MoneyOperationFailureReason;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
-import com.earthpol.economyPol.economy.service.money.LiveMoneyService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -34,11 +33,9 @@ public abstract class AbstractEconomySubcommand implements EconomySubcommand {
     protected void sendBalanceView(CommandSender sender, Player player) {
         try {
             PlayerBalanceView view = dependencies.economyService().balanceView(player);
-            LiveMoneyService.LiveMoneyBreakdown breakdown =
-                    dependencies.economyService().getOnlineLiveMoneyBreakdown(player);
-            String spendable = dependencies.economyService().denominationService().format(breakdown.spendable());
-            String inventory = dependencies.economyService().denominationService().format(breakdown.inventory());
-            String enderChest = dependencies.economyService().denominationService().format(breakdown.enderChest());
+            String spendable = dependencies.economyService().denominationService().format(view.liveMoney());
+            String inventory = dependencies.economyService().denominationService().format(view.inventoryMoney());
+            String enderChest = dependencies.economyService().denominationService().format(view.enderChestMoney());
             String overflow = dependencies.economyService().denominationService().format(view.custodialAvailable());
             player.sendMessage(Component.join(
                     JoinConfiguration.separator(Component.newline()),
