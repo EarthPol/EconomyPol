@@ -548,7 +548,11 @@ public final class PlayerEconomyService {
             }
         }
 
-        auditLog.info("player-withdraw player=" + player.getUniqueId() + " amount=" + amount +
+        auditLog.info("player-withdraw player=" + player.getUniqueId() +
+                accountRegistryService.resolvePlayerUsername(player.getUniqueId())
+                        .map(name -> " username=" + name)
+                        .orElse("") +
+                " amount=" + amount +
                 " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount() +
                 " change_routed_to_custodial=" + spendResult.changeRoutedToCustodial() +
                 " reason=" + reason);

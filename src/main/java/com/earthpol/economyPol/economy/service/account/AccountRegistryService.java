@@ -6,6 +6,8 @@ import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.OfflinePlayer;
 
 import java.util.List;
@@ -75,6 +77,20 @@ public final class AccountRegistryService {
         requirePlayerAccount(playerUuid);
         IncomingPaymentDeliveryPreference preference = playerRepository.getIncomingPaymentDeliveryPreference(playerUuid);
         return preference == null ? IncomingPaymentDeliveryPreference.DEFAULT : preference;
+    }
+
+    public Optional<String> resolvePlayerUsername(UUID playerUuid) {
+        if (playerUuid == null) {
+            return Optional.empty();
+        }
+        Player onlinePlayer = Bukkit.getPlayer(playerUuid);
+        if (onlinePlayer != null) {
+            String playerName = onlinePlayer.getName();
+            if (playerName != null && !playerName.isBlank()) {
+                return Optional.of(playerName);
+            }
+        }
+        return playerRepository.findUsername(playerUuid);
     }
 
     public IncomingPaymentDeliveryPreference setIncomingPaymentDeliveryPreference(

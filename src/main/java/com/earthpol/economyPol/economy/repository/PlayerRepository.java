@@ -61,6 +61,17 @@ public final class PlayerRepository extends AbstractRepositorySupport {
         return preference.orElse(IncomingPaymentDeliveryPreference.DEFAULT);
     }
 
+    public Optional<String> findUsername(UUID playerUuid) {
+        return queryOne("""
+                        SELECT username
+                        FROM economy_players
+                        WHERE player_uuid = ?
+                        """,
+                statement -> bind(statement, uuid(playerUuid)),
+                resultSet -> resultSet.getString("username")
+        ).filter(username -> username != null && !username.isBlank());
+    }
+
     public void setIncomingPaymentDeliveryPreference(UUID playerUuid, IncomingPaymentDeliveryPreference preference) {
         update("""
                 UPDATE economy_players

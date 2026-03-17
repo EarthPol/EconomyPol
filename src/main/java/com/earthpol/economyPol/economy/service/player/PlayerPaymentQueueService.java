@@ -111,6 +111,9 @@ public final class PlayerPaymentQueueService {
                     null
             );
             auditLog.info("player-deposit-custodial-preference player=" + player.getUniqueId() +
+                    accountRegistryService.resolvePlayerUsername(player.getUniqueId())
+                            .map(name -> " username=" + name)
+                            .orElse("") +
                     " amount=" + amount + " balance=" +
                     (updatedBalance == null ? 0L : updatedBalance.availableBalance()) + " reason=" + reason);
             return MoneyOperationResult.success(amount, amount, 0L, "Funds credited to custodial.");
