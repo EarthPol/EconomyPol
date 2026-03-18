@@ -1,9 +1,9 @@
 package com.earthpol.economyPol.command.player;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.command.player.ClaimSubcommand;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.MoneyOperationFailureReason;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.service.EconomyService;
@@ -81,8 +81,7 @@ final class ClaimSubcommandTest {
                 mock(DatabaseCheckService.class),
                 mock(TownyService.class),
                 mock(PluginSettings.class),
-                mock(EnhancedLogger.class),
-                mock(EnhancedLogger.class)
+                mock(EconomyLoggers.class)
         );
     }
 

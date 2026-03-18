@@ -1,9 +1,9 @@
 package com.earthpol.economyPol.command.player;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.command.player.BalanceTopCache;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
 import com.earthpol.economyPol.economy.model.OfflineEnderWalletState;
 import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
@@ -61,8 +61,7 @@ final class BalanceTopCacheTest {
         SchedulerService schedulerService = mock(SchedulerService.class);
         DenominationService denominationService = mock(DenominationService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLogger = mock(EnhancedLogger.class);
-        EnhancedLogger healthcheckLogger = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         when(economyService.schedulerService()).thenReturn(schedulerService);
         when(economyService.denominationService()).thenReturn(denominationService);
@@ -86,8 +85,7 @@ final class BalanceTopCacheTest {
                 mock(DatabaseCheckService.class),
                 new TownyService(),
                 settings,
-                operationsLogger,
-                healthcheckLogger
+                loggers
         );
         BalanceTopCache cache = new BalanceTopCache(dependencies, 10);
         CommandSender firstSender = mock(CommandSender.class);

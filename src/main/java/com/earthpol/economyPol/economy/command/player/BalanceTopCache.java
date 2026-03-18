@@ -1,6 +1,8 @@
 package com.earthpol.economyPol.economy.command.player;
 
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.EconomyService;
@@ -34,7 +36,7 @@ public final class BalanceTopCache {
     private final EnderWalletService enderWalletService;
     private final SchedulerService schedulerService;
     private final DenominationService denominationService;
-    private final com.earthpol.earthPolLib.logging.EnhancedLogger operationsLog;
+    private final EconomyLoggers loggers;
     private final CommandDependencies dependencies;
     private final int maxEntries;
     private final Object lock = new Object();
@@ -49,7 +51,7 @@ public final class BalanceTopCache {
         this.enderWalletService = dependencies.enderWalletService();
         this.schedulerService = dependencies.economyService().schedulerService();
         this.denominationService = dependencies.economyService().denominationService();
-        this.operationsLog = dependencies.operationsLogger();
+        this.loggers = dependencies.loggers();
         this.maxEntries = maxEntries;
     }
 
@@ -101,7 +103,7 @@ public final class BalanceTopCache {
                 queuedRequest.resolve().ifPresent(sender -> sendSnapshot(sender, rebuilt));
             }
         } catch (Exception exception) {
-            operationsLog.severe("Failed to rebuild balancetop cache.", exception);
+            loggers.logSevere("Failed to rebuild balancetop cache.", LogType.OPERATIONS, exception);
             failQueuedRequests("Failed to rebuild the balancetop cache. Check the server logs for details.");
         }
     }

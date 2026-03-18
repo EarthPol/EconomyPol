@@ -1,8 +1,8 @@
 package com.earthpol.economyPol.vault;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.EconomyPol;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
@@ -137,7 +137,7 @@ final class EconomyVaultAdapterTest {
                         new DenominationService(new PluginSettings.CurrencySettings("Gold Coin", "Gold Coins", List.of()), null)
                 ),
                 new PluginSettings.CurrencySettings("Gold Coin", "Gold Coins", List.of()),
-                mock(EnhancedLogger.class)
+                mock(EconomyLoggers.class)
         );
     }
 }

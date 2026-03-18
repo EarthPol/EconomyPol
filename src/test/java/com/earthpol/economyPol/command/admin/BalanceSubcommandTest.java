@@ -1,8 +1,8 @@
 package com.earthpol.economyPol.command.admin;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
@@ -69,8 +69,7 @@ final class BalanceSubcommandTest {
                 mock(DatabaseCheckService.class),
                 mock(TownyService.class),
                 mock(PluginSettings.class),
-                mock(EnhancedLogger.class),
-                mock(EnhancedLogger.class)
+                mock(EconomyLoggers.class)
         );
     }
 }

@@ -1,10 +1,11 @@
 package com.earthpol.economyPol.api;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.api.EconomyPolAPI;
 import com.earthpol.economyPol.economy.api.EconomyPolApiFactory;
 import com.earthpol.economyPol.economy.api.EconomyPolApiProvider;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
@@ -98,13 +99,13 @@ final class EconomyPolApiProviderTest {
         EconomyService economyService = mock(EconomyService.class);
         ReservationService reservationService = mock(ReservationService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
         EconomyPolApiProvider api = new EconomyPolApiProvider(
                 economyService,
                 reservationService,
                 enderWalletService,
                 denominationService,
-                auditLog
+                loggers
         );
         UUID playerUuid = UUID.randomUUID();
         PlayerBalanceView expectedView = new PlayerBalanceView(125L, 25L, 30L, 45L, 10L, false);
@@ -146,13 +147,13 @@ final class EconomyPolApiProviderTest {
         EconomyService economyService = mock(EconomyService.class);
         ReservationService reservationService = mock(ReservationService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
         EconomyPolApiProvider api = new EconomyPolApiProvider(
                 economyService,
                 reservationService,
                 enderWalletService,
                 denominationService,
-                auditLog
+                loggers
         );
         UUID accountId = UUID.randomUUID();
         UUID ownerUuid = UUID.randomUUID();
@@ -228,13 +229,13 @@ final class EconomyPolApiProviderTest {
         EconomyService economyService = mock(EconomyService.class);
         ReservationService reservationService = mock(ReservationService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
         EconomyPolApiProvider api = new EconomyPolApiProvider(
                 economyService,
                 reservationService,
                 enderWalletService,
                 denominationService,
-                auditLog
+                loggers
         );
         UUID playerUuid = UUID.randomUUID();
         Player player = mock(Player.class);
@@ -281,13 +282,13 @@ final class EconomyPolApiProviderTest {
 
     @Test
     void denominationHelpersExposeCommodityUtilities() {
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
         EconomyPolApiProvider api = new EconomyPolApiProvider(
                 mock(EconomyService.class),
                 mock(ReservationService.class),
                 mock(EnderWalletService.class),
                 denominationService,
-                auditLog
+                loggers
         );
 
         List<Denomination> denominations = api.denominations();
@@ -316,7 +317,7 @@ final class EconomyPolApiProviderTest {
         EconomyService economyService = mock(EconomyService.class);
         ReservationService reservationService = mock(ReservationService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
         Plugin callerPlugin = MockBukkit.createMockPlugin();
         UUID playerUuid = UUID.randomUUID();
         PlayerBalanceView expectedView = new PlayerBalanceView(125L, 25L, 30L, 45L, 10L, false);
@@ -325,7 +326,7 @@ final class EconomyPolApiProviderTest {
                 reservationService,
                 enderWalletService,
                 denominationService,
-                auditLog
+                loggers
         );
 
         when(economyService.balanceView(argThat(hasUuid(playerUuid)))).thenReturn(expectedView);
@@ -333,8 +334,8 @@ final class EconomyPolApiProviderTest {
         EconomyPolAPI api = provider.getInstance(callerPlugin);
 
         assertSame(expectedView, api.getPlayerBalanceView(playerUuid));
-        verify(auditLog).info(contains("api-call caller=" + callerPlugin.getName()));
-        verify(auditLog).info(contains("method=getPlayerBalanceView"));
+        verify(loggers).log(contains("api-call caller=" + callerPlugin.getName()), eq(LogType.AUDIT));
+        verify(loggers).log(contains("method=getPlayerBalanceView"), eq(LogType.AUDIT));
     }
 
     private static ArgumentMatcher<org.bukkit.OfflinePlayer> hasUuid(UUID uuid) {

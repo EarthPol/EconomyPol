@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.economy.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
 import com.earthpol.economyPol.economy.model.OfflineEnderWalletState;
 
@@ -14,8 +14,8 @@ import java.util.UUID;
 
 public final class EnderWalletRepository extends AbstractRepositorySupport {
 
-    public EnderWalletRepository(DatabaseService databaseService, EnhancedLogger operationsLog, EnhancedLogger auditLog) {
-        super(databaseService, operationsLog, auditLog);
+    public EnderWalletRepository(DatabaseService databaseService, EconomyLoggers loggers) {
+        super(databaseService, loggers);
     }
 
     public Optional<EnderWalletSnapshot> findEnderWalletSnapshot(UUID playerUuid) {

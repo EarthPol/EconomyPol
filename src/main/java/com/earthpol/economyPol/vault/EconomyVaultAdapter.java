@@ -1,8 +1,9 @@
 package com.earthpol.economyPol.vault;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.EconomyPol;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
@@ -23,20 +24,20 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
     private final EconomyService economyService;
     private final NumericalConsistencyService numericalConsistencyService;
     private final PluginSettings.CurrencySettings currencySettings;
-    private final EnhancedLogger logger;
+    private final EconomyLoggers loggers;
 
     public EconomyVaultAdapter(
             EconomyPol plugin,
             EconomyService economyService,
             NumericalConsistencyService numericalConsistencyService,
             PluginSettings.CurrencySettings currencySettings,
-            EnhancedLogger logger
+            EconomyLoggers loggers
     ) {
         this.plugin = plugin;
         this.economyService = economyService;
         this.numericalConsistencyService = numericalConsistencyService;
         this.currencySettings = currencySettings;
-        this.logger = logger;
+        this.loggers = loggers;
     }
 
     @Override
@@ -349,7 +350,7 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
             }
             return Optional.of(Bukkit.getOfflinePlayer(playerName));
         } catch (Exception exception) {
-            logger.warn("Failed to resolve player '" + playerName + "': " + exception.getMessage());
+            loggers.logWarn("Failed to resolve player '" + playerName + "': " + exception.getMessage(), LogType.OPERATIONS);
             return Optional.empty();
         }
     }

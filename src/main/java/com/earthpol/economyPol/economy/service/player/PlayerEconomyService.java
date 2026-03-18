@@ -1,7 +1,8 @@
 package com.earthpol.economyPol.economy.service.player;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.EnderWalletSnapshot;
@@ -40,8 +41,7 @@ public final class PlayerEconomyService {
     private final NotificationService notificationService;
     private final SchedulerService schedulerService;
     private final PluginSettings settings;
-    private final EnhancedLogger operationsLog;
-    private final EnhancedLogger auditLog;
+    private final EconomyLoggers loggers;
 
     public PlayerEconomyService(
             AccountRegistryService accountRegistryService,
@@ -53,8 +53,7 @@ public final class PlayerEconomyService {
             NotificationService notificationService,
             SchedulerService schedulerService,
             PluginSettings settings,
-            EnhancedLogger operationsLog,
-            EnhancedLogger auditLog
+            EconomyLoggers loggers
     ) {
         this.accountRegistryService = accountRegistryService;
         this.fundsRepository = fundsRepository;
@@ -65,8 +64,7 @@ public final class PlayerEconomyService {
         this.notificationService = notificationService;
         this.schedulerService = schedulerService;
         this.settings = settings;
-        this.operationsLog = operationsLog;
-        this.auditLog = auditLog;
+        this.loggers = loggers;
     }
 
     public PlayerBalanceView balanceView(OfflinePlayer player) {
@@ -175,8 +173,8 @@ public final class PlayerEconomyService {
                     MoneyOperationFailureReason.INSUFFICIENT_FUNDS
             );
         }
-        auditLog.info("offline-withdraw player=" + player.getUniqueId() + " amount=" + amount +
-                " ender=" + walletDebit.processedAmount() + " reason=" + reason);
+        loggers.log("offline-withdraw player=" + player.getUniqueId() + " amount=" + amount +
+                " ender=" + walletDebit.processedAmount() + " reason=" + reason, LogType.AUDIT);
         return MoneyOperationResult.success(amount, amount, 0L, "Funds withdrawn.");
     }
 
@@ -334,7 +332,8 @@ public final class PlayerEconomyService {
                     null
             );
         } catch (RuntimeException exception) {
-            operationsLog.severe("Failed to deposit live player money into custodial for " + player.getUniqueId() + ".", exception);
+            loggers.logSevere("Failed to deposit live player money into custodial for " + player.getUniqueId() + ".",
+                    LogType.OPERATIONS, exception);
             liveMoneyService.restoreLiveContainerSnapshot(player, liveSnapshot);
             return MoneyOperationResult.failure(
                     requested,
@@ -349,10 +348,10 @@ public final class PlayerEconomyService {
                     updatedBalance.availableBalance()
             );
         }
-        auditLog.info("self-deposit player=" + player.getUniqueId() + " amount=" + requested +
+        loggers.log("self-deposit player=" + player.getUniqueId() + " amount=" + requested +
                 " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount() +
                 " change_routed_to_custodial=" + spendResult.changeRoutedToCustodial() +
-                " total_credited=" + totalCredited);
+                " total_credited=" + totalCredited, LogType.AUDIT);
         return MoneyOperationResult.success(requested, totalCredited, 0L, "Funds deposited.");
     }
 
@@ -460,11 +459,12 @@ public final class PlayerEconomyService {
                         updatedBalance.availableBalance()
                 );
             } catch (RuntimeException exception) {
-                operationsLog.severe("Failed to send custodial remainder notification to " + player.getUniqueId() + ".", exception);
+                loggers.logSevere("Failed to send custodial remainder notification to " + player.getUniqueId() + ".",
+                        LogType.OPERATIONS, exception);
             }
         }
-        auditLog.info("self-withdraw player=" + player.getUniqueId() + " requested=" + amount +
-                " delivered=" + delivered + " retained=" + deliveryResult.remainder());
+        loggers.log("self-withdraw player=" + player.getUniqueId() + " requested=" + amount +
+                " delivered=" + delivered + " retained=" + deliveryResult.remainder(), LogType.AUDIT);
         return MoneyOperationResult.success(amount, delivered, deliveryResult.remainder(), "Withdraw processed.");
     }
 
@@ -475,18 +475,19 @@ public final class PlayerEconomyService {
             long reservedAmount,
             Exception exception
     ) {
-        operationsLog.severe("Failed to convert custodial funds into physical money for " + player.getUniqueId() + ".", exception);
+        loggers.logSevere("Failed to convert custodial funds into physical money for " + player.getUniqueId() + ".",
+                LogType.OPERATIONS, exception);
         try {
             liveMoneyService.restoreLiveContainerSnapshot(player, liveSnapshot);
         } catch (RuntimeException restoreException) {
-            operationsLog.severe("Failed to restore live money containers after custodial withdraw rollback for " +
-                    player.getUniqueId() + ".", restoreException);
+            loggers.logSevere("Failed to restore live money containers after custodial withdraw rollback for " +
+                    player.getUniqueId() + ".", LogType.OPERATIONS, restoreException);
         }
         try {
             fundsRepository.releaseReserved(accountId, reservedAmount, "SELF_WITHDRAW_ROLLBACK");
         } catch (RuntimeException releaseException) {
-            operationsLog.severe("Failed to release reserved custodial funds after rollback for " +
-                    player.getUniqueId() + ".", releaseException);
+            loggers.logSevere("Failed to release reserved custodial funds after rollback for " +
+                    player.getUniqueId() + ".", LogType.OPERATIONS, releaseException);
         }
     }
 
@@ -501,7 +502,8 @@ public final class PlayerEconomyService {
                 amount,
                 updatedBalance.availableBalance()
         );
-        auditLog.info("offline-deposit-custodial player=" + player.getUniqueId() + " amount=" + amount + " reason=" + reason);
+        loggers.log("offline-deposit-custodial player=" + player.getUniqueId() + " amount=" + amount + " reason=" + reason,
+                LogType.AUDIT);
         return MoneyOperationResult.success(amount, amount, 0L, "Funds credited to custodial.");
     }
 
@@ -538,7 +540,8 @@ public final class PlayerEconomyService {
                         updatedBalance.availableBalance()
                 );
             } catch (RuntimeException exception) {
-                operationsLog.severe("Failed to route returned change into custodial for " + player.getUniqueId() + ".", exception);
+                loggers.logSevere("Failed to route returned change into custodial for " + player.getUniqueId() + ".",
+                        LogType.OPERATIONS, exception);
                 liveMoneyService.restoreLiveContainerSnapshot(player, liveSnapshot);
                 return MoneyOperationResult.failure(
                         amount,
@@ -548,14 +551,14 @@ public final class PlayerEconomyService {
             }
         }
 
-        auditLog.info("player-withdraw player=" + player.getUniqueId() +
+        loggers.log("player-withdraw player=" + player.getUniqueId() +
                 accountRegistryService.resolvePlayerUsername(player.getUniqueId())
                         .map(name -> " username=" + name)
                         .orElse("") +
                 " amount=" + amount +
                 " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount() +
                 " change_routed_to_custodial=" + spendResult.changeRoutedToCustodial() +
-                " reason=" + reason);
+                " reason=" + reason, LogType.AUDIT);
         return MoneyOperationResult.success(amount, amount, 0L, "Funds withdrawn.");
     }
 
@@ -574,8 +577,8 @@ public final class PlayerEconomyService {
         EnumSet<MoneyRouteTarget> seen = EnumSet.noneOf(MoneyRouteTarget.class);
         for (MoneyRouteTarget target : effectiveRoutingOrder) {
             if (!seen.add(target)) {
-                operationsLog.warn("Rejecting explicit custodial withdraw with duplicate routing target. amount="
-                        + amount + " target=" + target);
+                loggers.logWarn("Rejecting explicit custodial withdraw with duplicate routing target. amount="
+                        + amount + " target=" + target, LogType.OPERATIONS);
                 return List.of();
             }
         }

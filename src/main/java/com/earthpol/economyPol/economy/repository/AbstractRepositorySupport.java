@@ -1,7 +1,8 @@
 package com.earthpol.economyPol.economy.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 
 import java.nio.ByteBuffer;
 import java.sql.Connection;
@@ -18,13 +19,11 @@ import java.util.UUID;
 public abstract class AbstractRepositorySupport {
 
     private final DatabaseService databaseService;
-    protected final EnhancedLogger operationsLog;
-    protected final EnhancedLogger auditLog;
+    protected final EconomyLoggers loggers;
 
-    protected AbstractRepositorySupport(DatabaseService databaseService, EnhancedLogger operationsLog, EnhancedLogger auditLog) {
+    protected AbstractRepositorySupport(DatabaseService databaseService, EconomyLoggers loggers) {
         this.databaseService = databaseService;
-        this.operationsLog = operationsLog;
-        this.auditLog = auditLog;
+        this.loggers = loggers;
     }
 
     protected <T> T inTransaction(SqlFunction<Connection, T> function) {
@@ -42,7 +41,7 @@ public abstract class AbstractRepositorySupport {
                 throw exception;
             }
         } catch (Exception exception) {
-            operationsLog.severe("Database transaction failed.", exception);
+            loggers.logSevere("Database transaction failed.", LogType.OPERATIONS, exception);
             throw new RuntimeException(exception);
         }
     }
@@ -53,7 +52,7 @@ public abstract class AbstractRepositorySupport {
             bind(statement, parameters);
             statement.executeUpdate();
         } catch (SQLException exception) {
-            operationsLog.severe("Database update failed: " + sql, exception);
+            loggers.logSevere("Database update failed: " + sql, LogType.OPERATIONS, exception);
             throw new RuntimeException(exception);
         }
     }
@@ -64,7 +63,7 @@ public abstract class AbstractRepositorySupport {
             bind(statement, parameters);
             return statement.executeUpdate();
         } catch (SQLException exception) {
-            operationsLog.severe("Database update failed: " + sql, exception);
+            loggers.logSevere("Database update failed: " + sql, LogType.OPERATIONS, exception);
             throw new RuntimeException(exception);
         }
     }
@@ -80,7 +79,7 @@ public abstract class AbstractRepositorySupport {
                 return Optional.of(mapper.apply(resultSet));
             }
         } catch (Exception exception) {
-            operationsLog.severe("Database query failed: " + sql, exception);
+            loggers.logSevere("Database query failed: " + sql, LogType.OPERATIONS, exception);
             throw new RuntimeException(exception);
         }
     }
@@ -96,7 +95,7 @@ public abstract class AbstractRepositorySupport {
                 }
             }
         } catch (Exception exception) {
-            operationsLog.severe("Database list query failed: " + sql, exception);
+            loggers.logSevere("Database list query failed: " + sql, LogType.OPERATIONS, exception);
             throw new RuntimeException(exception);
         }
         return results;

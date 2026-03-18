@@ -1,8 +1,9 @@
 package com.earthpol.economyPol.vault;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.EconomyPol;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.support.NumericalConsistencyService;
@@ -31,7 +32,7 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
     private final EconomyService economyService;
     private final NumericalConsistencyService numericalConsistencyService;
     private final PluginSettings.CurrencySettings currencySettings;
-    private final EnhancedLogger logger;
+    private final EconomyLoggers loggers;
     private final String defaultCurrencyId;
 
     public VaultUnlockedEconomyAdapter(
@@ -39,13 +40,13 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
             EconomyService economyService,
             NumericalConsistencyService numericalConsistencyService,
             PluginSettings.CurrencySettings currencySettings,
-            EnhancedLogger logger
+            EconomyLoggers loggers
     ) {
         this.plugin = plugin;
         this.economyService = economyService;
         this.numericalConsistencyService = numericalConsistencyService;
         this.currencySettings = currencySettings;
-        this.logger = logger;
+        this.loggers = loggers;
         this.defaultCurrencyId = sanitizeCurrencyId(currencySettings.singularName());
     }
 
@@ -177,7 +178,7 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
     public boolean renameAccount(String pluginName, UUID accountID, String name) {
         boolean renamed = economyService.renameAccount(accountID, name);
         if (renamed) {
-            logger.info("vault2-rename plugin=" + pluginName + " account=" + accountID + " name=" + name);
+            loggers.log("vault2-rename plugin=" + pluginName + " account=" + accountID + " name=" + name, LogType.OPERATIONS);
         }
         return renamed;
     }
@@ -186,7 +187,7 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
     public boolean deleteAccount(String pluginName, UUID accountID) {
         boolean deleted = economyService.deleteSharedAccount(accountID);
         if (deleted) {
-            logger.info("vault2-delete plugin=" + pluginName + " account=" + accountID);
+            loggers.log("vault2-delete plugin=" + pluginName + " account=" + accountID, LogType.OPERATIONS);
         }
         return deleted;
     }
@@ -291,7 +292,8 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
     public boolean createSharedAccount(String pluginName, UUID accountID, String name, UUID owner) {
         boolean created = economyService.createSharedAccount(accountID, name, owner);
         if (created) {
-            logger.info("vault2-create-shared plugin=" + pluginName + " account=" + accountID + " owner=" + owner + " name=" + name);
+            loggers.log("vault2-create-shared plugin=" + pluginName + " account=" + accountID + " owner=" + owner + " name=" + name,
+                    LogType.OPERATIONS);
         }
         return created;
     }
@@ -305,7 +307,8 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
     public boolean setOwner(String pluginName, UUID accountID, UUID uuid) {
         boolean updated = economyService.setSharedAccountOwner(accountID, uuid);
         if (updated) {
-            logger.info("vault2-owner-update plugin=" + pluginName + " account=" + accountID + " owner=" + uuid);
+            loggers.log("vault2-owner-update plugin=" + pluginName + " account=" + accountID + " owner=" + uuid,
+                    LogType.OPERATIONS);
         }
         return updated;
     }
@@ -319,7 +322,8 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
     public boolean addAccountMember(String pluginName, UUID accountID, UUID uuid) {
         boolean added = economyService.addSharedAccountMember(accountID, uuid);
         if (added) {
-            logger.info("vault2-member-add plugin=" + pluginName + " account=" + accountID + " member=" + uuid);
+            loggers.log("vault2-member-add plugin=" + pluginName + " account=" + accountID + " member=" + uuid,
+                    LogType.OPERATIONS);
         }
         return added;
     }
@@ -334,7 +338,8 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
             }
         }
         if (initialPermissions != null && initialPermissions.length > 0) {
-            logger.warn("Vault2 initial member permissions are reduced to the standard member role for account " + accountID + ".");
+            loggers.logWarn("Vault2 initial member permissions are reduced to the standard member role for account " + accountID + ".",
+                    LogType.OPERATIONS);
         }
         return addAccountMember(pluginName, accountID, uuid);
     }
@@ -343,7 +348,8 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
     public boolean removeAccountMember(String pluginName, UUID accountID, UUID uuid) {
         boolean removed = economyService.removeSharedAccountMember(accountID, uuid);
         if (removed) {
-            logger.info("vault2-member-remove plugin=" + pluginName + " account=" + accountID + " member=" + uuid);
+            loggers.log("vault2-member-remove plugin=" + pluginName + " account=" + accountID + " member=" + uuid,
+                    LogType.OPERATIONS);
         }
         return removed;
     }
@@ -370,8 +376,9 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
         if (permission != null && BASIC_MEMBER_PERMISSIONS.contains(permission) && value) {
             return addAccountMember(pluginName, accountID, uuid);
         }
-        logger.warn("Vault2 permission update is not fully supported. plugin=" + pluginName +
-                " account=" + accountID + " member=" + uuid + " permission=" + permission + " value=" + value);
+        loggers.logWarn("Vault2 permission update is not fully supported. plugin=" + pluginName +
+                " account=" + accountID + " member=" + uuid + " permission=" + permission + " value=" + value,
+                LogType.OPERATIONS);
         return false;
     }
 

@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.service;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
@@ -86,8 +86,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -137,8 +136,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.withdrawCustodialAsPhysicalMoney(player, 10L, routingOrder);
@@ -172,8 +170,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -214,8 +211,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.withdrawCustodialAsPhysicalMoney(player, 10L, routingOrder);
@@ -253,8 +249,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -287,8 +282,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.withdrawPlayer(player, 10L, "VAULT2_WITHDRAW:QuickShop");
@@ -315,8 +309,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -349,8 +342,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.withdrawPlayer(player, 10L, "PLAYER_MARKET_BUY");
@@ -377,8 +369,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -410,8 +401,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         boolean hasEnough = economyService.hasEnough(player, 10L);
@@ -436,8 +426,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
         UUID accountId = player.getUniqueId();
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
 
@@ -463,8 +452,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         boolean hasEnough = economyService.hasEnough(player, 10L);
@@ -490,8 +478,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -533,8 +520,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.withdrawPlayer(player, 10L, "VAULT2_WITHDRAW:Towny");
@@ -561,8 +547,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         UUID accountId = player.getUniqueId();
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
@@ -595,8 +580,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.depositPlayer(player, 10L, "VAULT2_DEPOSIT:QuickShop-Hikari");
@@ -625,8 +609,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.empty());
 
@@ -643,8 +626,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult depositResult = economyService.depositToPlayerAccount(player, 10L, "PAYMENT");
@@ -673,8 +655,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         UUID accountId = player.getUniqueId();
         when(accountRepository.findPlayerAccount(accountId)).thenReturn(Optional.of(
@@ -697,8 +678,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         economyService.syncPlayerIdentity(player);
@@ -723,8 +703,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.empty());
 
@@ -741,8 +720,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         economyService.syncPlayerIdentity(player);
@@ -767,8 +745,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         when(accountRepository.findSharedAccount(accountId)).thenReturn(Optional.empty());
         when(accountRepository.findAccount(accountId)).thenReturn(Optional.empty());
@@ -786,8 +763,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         assertThrows(IllegalStateException.class, () -> economyService.getSharedAccountBalance(accountId));

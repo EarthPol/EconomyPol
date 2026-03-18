@@ -1,7 +1,8 @@
 package com.earthpol.economyPol.economy.service.support;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.Denomination;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -16,14 +17,14 @@ public final class DenominationService {
 
     private final PluginSettings.CurrencySettings currencySettings;
     private final List<Denomination> descending;
-    private final @Nullable EnhancedLogger logger;
+    private final @Nullable EconomyLoggers loggers;
 
-    public DenominationService(PluginSettings.CurrencySettings currencySettings, @Nullable EnhancedLogger logger) {
+    public DenominationService(PluginSettings.CurrencySettings currencySettings, @Nullable EconomyLoggers loggers) {
         this.currencySettings = currencySettings;
         List<Denomination> sorted = new ArrayList<>(currencySettings.denominations());
         sorted.sort(Comparator.comparingLong(Denomination::baseUnits).reversed());
         this.descending = List.copyOf(sorted);
-        this.logger = logger;
+        this.loggers = loggers;
     }
 
     public Optional<Denomination> find(Material material) {
@@ -65,8 +66,8 @@ public final class DenominationService {
             }
             remaining %= denomination.baseUnits();
         }
-        if (remaining != 0L && logger != null) {
-            logger.warn("Failed to materialize value cleanly. remainder=" + remaining);
+        if (remaining != 0L && loggers != null) {
+            loggers.logWarn("Failed to materialize value cleanly. remainder=" + remaining, LogType.OPERATIONS);
         }
         return stacks;
     }

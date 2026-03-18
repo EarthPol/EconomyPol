@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.economy.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 
 import java.sql.Timestamp;
@@ -10,8 +10,8 @@ import java.util.UUID;
 
 public final class PlayerRepository extends AbstractRepositorySupport {
 
-    public PlayerRepository(DatabaseService databaseService, EnhancedLogger operationsLog, EnhancedLogger auditLog) {
-        super(databaseService, operationsLog, auditLog);
+    public PlayerRepository(DatabaseService databaseService, EconomyLoggers loggers) {
+        super(databaseService, loggers);
     }
 
     public void ensurePlayer(UUID playerUuid, String username) {

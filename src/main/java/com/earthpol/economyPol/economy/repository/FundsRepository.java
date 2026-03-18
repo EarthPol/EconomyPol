@@ -1,7 +1,8 @@
 package com.earthpol.economyPol.economy.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.ReservationRecord;
@@ -18,8 +19,8 @@ import java.util.UUID;
 
 public final class FundsRepository extends AbstractRepositorySupport {
 
-    public FundsRepository(DatabaseService databaseService, EnhancedLogger operationsLog, EnhancedLogger auditLog) {
-        super(databaseService, operationsLog, auditLog);
+    public FundsRepository(DatabaseService databaseService, EconomyLoggers loggers) {
+        super(databaseService, loggers);
     }
 
     public BalanceRecord getBalance(UUID accountId) {
@@ -49,10 +50,11 @@ public final class FundsRepository extends AbstractRepositorySupport {
             }
             updateBalance(connection, accountId, nextAvailable, current.reservedBalance());
             insertLedger(connection, accountId, relatedAccountId, playerUuid, delta, nextAvailable, current.reservedBalance(), entryType, reason);
-            auditLog.info("balance-change account=" + accountId +
+            loggers.log("balance-change account=" + accountId +
                     resolveAccountIdentitySuffix(connection, accountId) +
                     " delta=" + delta + " available=" + nextAvailable +
-                    " reserved=" + current.reservedBalance() + " type=" + entryType + " reason=" + reason);
+                    " reserved=" + current.reservedBalance() + " type=" + entryType + " reason=" + reason,
+                    LogType.AUDIT);
             return new BalanceRecord(nextAvailable, current.reservedBalance());
         });
     }
@@ -165,7 +167,8 @@ public final class FundsRepository extends AbstractRepositorySupport {
                 nowTimestamp(),
                 timestampFromMillis(expiresAt)
         );
-        auditLog.info("reservation-create id=" + reservationId + " account=" + accountId + " amount=" + amount + " reason=" + reason);
+        loggers.log("reservation-create id=" + reservationId + " account=" + accountId + " amount=" + amount + " reason=" + reason,
+                LogType.AUDIT);
         return new ReservationRecord(reservationId, accountId, amount, ReservationStatus.ACTIVE, reason, expiresAt);
     }
 
@@ -189,7 +192,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
 
     public void updateReservationStatus(UUID reservationId, ReservationStatus status) {
         update("UPDATE economy_reservations SET status = ? WHERE reservation_id = ?", status.name(), uuid(reservationId));
-        auditLog.info("reservation-status id=" + reservationId + " status=" + status);
+        loggers.log("reservation-status id=" + reservationId + " status=" + status, LogType.AUDIT);
     }
 
     private void ensureBalanceRow(UUID accountId) {

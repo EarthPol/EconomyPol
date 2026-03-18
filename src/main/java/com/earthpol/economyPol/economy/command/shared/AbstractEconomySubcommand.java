@@ -3,6 +3,7 @@ package com.earthpol.economyPol.economy.command.shared;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.model.MoneyOperationFailureReason;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -110,7 +111,7 @@ public abstract class AbstractEconomySubcommand implements EconomySubcommand {
         try {
             return Long.parseLong(raw);
         } catch (NumberFormatException exception) {
-            dependencies.operationsLogger().warn("Failed to parse amount: " + raw);
+            dependencies.loggers().logWarn("Failed to parse amount: " + raw, LogType.OPERATIONS);
             return -1L;
         }
     }

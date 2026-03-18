@@ -1,8 +1,8 @@
 package com.earthpol.economyPol.command;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.command.EconomyCommand;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
@@ -75,8 +75,7 @@ final class HelpCommandTest {
                 mock(DatabaseCheckService.class),
                 mock(TownyService.class),
                 mock(PluginSettings.class),
-                mock(EnhancedLogger.class),
-                mock(EnhancedLogger.class)
+                mock(EconomyLoggers.class)
         );
     }
 

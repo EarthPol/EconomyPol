@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.antidupe;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
@@ -152,8 +152,7 @@ final class PlayerEconomyAntiDupeTest {
         SchedulerService schedulerService = mock(SchedulerService.class);
         ReservationService reservationService = mock(ReservationService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         AtomicLong availableBalance = new AtomicLong(initialAvailableBalance);
         AtomicLong reservedBalance = new AtomicLong(0L);
@@ -261,8 +260,7 @@ final class PlayerEconomyAntiDupeTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
         return new Harness(economyService, liveMoneyService, availableBalance, reservedBalance);
     }

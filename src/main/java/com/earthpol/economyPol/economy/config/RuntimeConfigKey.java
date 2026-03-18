@@ -87,11 +87,7 @@ enum RuntimeConfigKey implements ReloadableConfiguration {
     ));
 
     private final ReloadableConfigNode<?> node;
-
-    RuntimeConfigKey(ReloadableConfigNode<?> node) {
-        this.node = node;
-    }
-
+    RuntimeConfigKey(ReloadableConfigNode<?> node) {this.node = node;}
     @Override
     public ReloadableConfigNode<?> node() {
         return node;

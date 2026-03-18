@@ -1,7 +1,8 @@
 package com.earthpol.economyPol.economy.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.PlayerNotificationRecord;
 import com.earthpol.economyPol.economy.model.PlayerNotificationType;
 
@@ -10,8 +11,8 @@ import java.util.UUID;
 
 public final class NotificationRepository extends AbstractRepositorySupport {
 
-    public NotificationRepository(DatabaseService databaseService, EnhancedLogger operationsLog, EnhancedLogger auditLog) {
-        super(databaseService, operationsLog, auditLog);
+    public NotificationRepository(DatabaseService databaseService, EconomyLoggers loggers) {
+        super(databaseService, loggers);
     }
 
     public void createPlayerNotification(
@@ -35,7 +36,7 @@ public final class NotificationRepository extends AbstractRepositorySupport {
                 flagValue,
                 nowTimestamp()
         );
-        auditLog.info("player-notification-create player=" + playerUuid + " type=" + notificationType);
+        loggers.log("player-notification-create player=" + playerUuid + " type=" + notificationType, LogType.AUDIT);
     }
 
     public List<PlayerNotificationRecord> listPlayerNotifications(UUID playerUuid) {

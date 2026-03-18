@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.economy.service;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
@@ -44,7 +44,7 @@ public final class EconomyService {
     private final LiveMoneyService liveMoneyService;
     private final ReservationService reservationService;
     private final SchedulerService schedulerService;
-    private final EnhancedLogger operationsLog;
+    private final EconomyLoggers loggers;
 
     private final AccountRegistryService accountRegistryService;
     private final PlayerEconomyService playerEconomyService;
@@ -64,14 +64,13 @@ public final class EconomyService {
             NotificationService notificationService,
             SchedulerService schedulerService,
             PluginSettings settings,
-            EnhancedLogger operationsLog,
-            EnhancedLogger auditLog
+            EconomyLoggers loggers
     ) {
         this.denominationService = denominationService;
         this.liveMoneyService = liveMoneyService;
         this.reservationService = reservationService;
         this.schedulerService = schedulerService;
-        this.operationsLog = operationsLog;
+        this.loggers = loggers;
 
         this.accountRegistryService = new AccountRegistryService(
                 accountRepository,
@@ -86,8 +85,7 @@ public final class EconomyService {
                 playerMoneyLockService,
                 notificationService,
                 schedulerService,
-                operationsLog,
-                auditLog
+                loggers
         );
         this.playerEconomyService = new PlayerEconomyService(
                 accountRegistryService,
@@ -99,14 +97,13 @@ public final class EconomyService {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
         this.sharedAccountService = new SharedAccountService(
                 accountRegistryService,
                 accountRepository,
                 fundsRepository,
-                auditLog
+                loggers
         );
     }
 
@@ -471,7 +468,7 @@ public final class EconomyService {
         return denominationService;
     }
 
-    public EnhancedLogger operationsLog() {
-        return operationsLog;
+    public EconomyLoggers loggers() {
+        return loggers;
     }
 }

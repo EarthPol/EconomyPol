@@ -1,6 +1,7 @@
 package com.earthpol.economyPol.towny;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.DatabaseCheckFinding;
 import com.earthpol.economyPol.economy.service.EconomyService;
@@ -34,16 +35,16 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
 
     private final EconomyService economyService;
     private final TownyGovernmentRepository townyGovernmentRepository;
-    private final EnhancedLogger operationsLog;
+    private final EconomyLoggers loggers;
 
     public TownyIntegrationBackend(
             EconomyService economyService,
             TownyGovernmentRepository townyGovernmentRepository,
-            EnhancedLogger operationsLog
+            EconomyLoggers loggers
     ) {
         this.economyService = economyService;
         this.townyGovernmentRepository = townyGovernmentRepository;
-        this.operationsLog = operationsLog;
+        this.loggers = loggers;
     }
 
     @Override
@@ -64,14 +65,14 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
                 synchronizedCount++;
             }
         }
-        operationsLog.info("Towny synchronization completed. synchronized_governments=" + synchronizedCount);
+        loggers.log("Towny synchronization completed. synchronized_governments=" + synchronizedCount, LogType.OPERATIONS);
     }
 
     @Override
     public void refreshTown(UUID townUuid) {
         Town town = TownyAPI.getInstance().getTown(townUuid);
         if (town == null) {
-            operationsLog.warn("Towny refresh requested for missing town uuid=" + townUuid);
+            loggers.logWarn("Towny refresh requested for missing town uuid=" + townUuid, LogType.OPERATIONS);
             return;
         }
         syncGovernment(town);
@@ -81,7 +82,7 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
     public void refreshNation(UUID nationUuid) {
         Nation nation = TownyAPI.getInstance().getNation(nationUuid);
         if (nation == null) {
-            operationsLog.warn("Towny refresh requested for missing nation uuid=" + nationUuid);
+            loggers.logWarn("Towny refresh requested for missing nation uuid=" + nationUuid, LogType.OPERATIONS);
             return;
         }
         syncGovernment(nation);
@@ -187,33 +188,34 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
     ) {
         Optional<TownyGovernmentBinding> existingBinding = townyGovernmentRepository.findByGovernment(governmentType, governmentUuid);
         if (existingBinding.isPresent() && !existingBinding.get().accountId().equals(bankAccountUuid)) {
-            operationsLog.severe("Towny binding UUID mismatch detected during sync. government_type=" + governmentType +
+            loggers.logSevere("Towny binding UUID mismatch detected during sync. government_type=" + governmentType +
                     " government_uuid=" + governmentUuid +
                     " bound_account_id=" + existingBinding.get().accountId() +
                     " current_bank_account_uuid=" + bankAccountUuid +
-                    " account_name=" + bankAccountName);
+                    " account_name=" + bankAccountName, LogType.OPERATIONS);
             return false;
         }
 
         Optional<AccountRecord> conflictingByName = economyService.findSharedAccount(bankAccountName);
         if (conflictingByName.isPresent() && !conflictingByName.get().accountId().equals(bankAccountUuid)) {
             Optional<TownyGovernmentBinding> conflictingBinding = townyGovernmentRepository.findByAccountId(conflictingByName.get().accountId());
-            operationsLog.warn("Towny sync found a conflicting shared account name. government_type=" + governmentType +
+            loggers.logWarn("Towny sync found a conflicting shared account name. government_type=" + governmentType +
                     " government_uuid=" + governmentUuid +
                     " expected_account_id=" + bankAccountUuid +
                     " conflicting_account_id=" + conflictingByName.get().accountId() +
                     " account_name=" + bankAccountName +
                     " conflicting_bound=" + conflictingBinding.isPresent() +
-                    ". Run '/economypol admin check towny-accounts' and '/economypol admin cleanup towny-orphans' if this row is stale.");
+                    ". Run '/economypol admin check towny-accounts' and '/economypol admin cleanup towny-orphans' if this row is stale.",
+                    LogType.OPERATIONS);
             return false;
         }
 
         boolean created = economyService.createSharedAccount(bankAccountUuid, bankAccountName, bankAccountUuid);
         if (!created) {
-            operationsLog.warn("Towny sync could not create or validate the shared account. government_type=" + governmentType +
+            loggers.logWarn("Towny sync could not create or validate the shared account. government_type=" + governmentType +
                     " government_uuid=" + governmentUuid +
                     " bank_account_uuid=" + bankAccountUuid +
-                    " bank_account_name=" + bankAccountName);
+                    " bank_account_name=" + bankAccountName, LogType.OPERATIONS);
             return false;
         }
 
@@ -227,50 +229,50 @@ public final class TownyIntegrationBackend implements TownyService.Backend {
                 governmentName,
                 bankAccountName
         );
-        operationsLog.info("towny-sync government_type=" + governmentType +
+        loggers.log("towny-sync government_type=" + governmentType +
                 " government_uuid=" + governmentUuid +
                 " bank_account_uuid=" + bankAccountUuid +
-                " bank_account_name=" + bankAccountName);
+                " bank_account_name=" + bankAccountName, LogType.OPERATIONS);
         return true;
     }
 
     private void deleteGovernment(TownyGovernmentType governmentType, UUID governmentUuid, String governmentName) {
         Optional<TownyGovernmentBinding> binding = townyGovernmentRepository.findByGovernment(governmentType, governmentUuid);
         if (binding.isPresent() && economyService.deleteSharedAccount(binding.get().accountId())) {
-            operationsLog.info("towny-delete-cleanup government_type=" + governmentType +
+            loggers.log("towny-delete-cleanup government_type=" + governmentType +
                     " government_uuid=" + governmentUuid +
                     " bank_account_uuid=" + binding.get().accountId() +
-                    " government_name=" + governmentName);
+                    " government_name=" + governmentName, LogType.OPERATIONS);
             return;
         }
 
         UUID fallbackBankUuid = TownyEconomyHandler.modifyNPCUUID(governmentUuid);
         if (economyService.deleteSharedAccount(fallbackBankUuid)) {
-            operationsLog.warn("towny-delete-cleanup-fallback government_type=" + governmentType +
+            loggers.logWarn("towny-delete-cleanup-fallback government_type=" + governmentType +
                     " government_uuid=" + governmentUuid +
                     " bank_account_uuid=" + fallbackBankUuid +
-                    " government_name=" + governmentName);
+                    " government_name=" + governmentName, LogType.OPERATIONS);
             return;
         }
 
         String expectedBankName = trimmedBankAccountName(governmentType, governmentName);
         Optional<AccountRecord> fallbackByName = economyService.findSharedAccount(expectedBankName);
         if (fallbackByName.isPresent() && economyService.deleteSharedAccount(fallbackByName.get().accountId())) {
-            operationsLog.warn("towny-delete-cleanup-name-fallback government_type=" + governmentType +
+            loggers.logWarn("towny-delete-cleanup-name-fallback government_type=" + governmentType +
                     " government_uuid=" + governmentUuid +
                     " deleted_account_id=" + fallbackByName.get().accountId() +
-                    " bank_account_name=" + expectedBankName);
+                    " bank_account_name=" + expectedBankName, LogType.OPERATIONS);
             return;
         }
 
         // Towny removes government accounts through the economy provider before it fires the delete event.
         // If nothing is left here, cleanup already happened and this is a normal no-op.
-        operationsLog.info("towny-delete-successfully-completed government_type=" + governmentType +
+        loggers.log("towny-delete-successfully-completed government_type=" + governmentType +
                 " government_uuid=" + governmentUuid +
                 " government_name=" + governmentName +
                 " expected_bank_account_uuid=" + fallbackBankUuid +
                 " expected_bank_account_name=" + expectedBankName +
-                " reason=account_already_removed");
+                " reason=account_already_removed", LogType.OPERATIONS);
     }
 
     private InspectionSnapshot inspectAccounts() {

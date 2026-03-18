@@ -1,6 +1,5 @@
 package com.earthpol.economyPol.economy.api;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.Denomination;
@@ -10,6 +9,8 @@ import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.model.ReservationRecord;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
@@ -35,20 +36,20 @@ public final class EconomyPolApiProvider implements EconomyPolAPI, EconomyPolApi
     private final ReservationService reservationService;
     private final EnderWalletService enderWalletService;
     private final DenominationService denominationService;
-    private final EnhancedLogger auditLog;
+    private final EconomyLoggers loggers;
 
     public EconomyPolApiProvider(
             EconomyService economyService,
             ReservationService reservationService,
             EnderWalletService enderWalletService,
             DenominationService denominationService,
-            EnhancedLogger auditLog
+            EconomyLoggers loggers
     ) {
         this.economyService = economyService;
         this.reservationService = reservationService;
         this.enderWalletService = enderWalletService;
         this.denominationService = denominationService;
-        this.auditLog = auditLog;
+        this.loggers = loggers;
     }
 
     @Override
@@ -323,16 +324,16 @@ public final class EconomyPolApiProvider implements EconomyPolAPI, EconomyPolApi
 
         try {
             Object result = method.invoke(this, args);
-            auditLog.info("api-call caller=" + callerPlugin.getName() +
+            loggers.log("api-call caller=" + callerPlugin.getName() +
                     " method=" + method.getName() +
                     " args=" + summarizeArgs(args) +
-                    " result=" + summarize(result));
+                    " result=" + summarize(result), LogType.AUDIT);
             return result;
         } catch (InvocationTargetException exception) {
             Throwable cause = exception.getCause() == null ? exception : exception.getCause();
-            auditLog.severe("api-call-failed caller=" + callerPlugin.getName() +
+            loggers.logSevere("api-call-failed caller=" + callerPlugin.getName() +
                     " method=" + method.getName() +
-                    " args=" + summarizeArgs(args), cause);
+                    " args=" + summarizeArgs(args), LogType.AUDIT, cause);
             throw cause;
         }
     }
@@ -400,4 +401,3 @@ public final class EconomyPolApiProvider implements EconomyPolAPI, EconomyPolApi
         return String.valueOf(value);
     }
 }
-

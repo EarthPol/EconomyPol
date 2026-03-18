@@ -1,7 +1,8 @@
 package com.earthpol.economyPol.economy.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.OfflineEnderWalletState;
 import com.earthpol.economyPol.economy.model.PendingPlayerPayment;
@@ -19,8 +20,8 @@ import java.util.UUID;
 
 public final class PendingPlayerPaymentRepository extends AbstractRepositorySupport {
 
-    public PendingPlayerPaymentRepository(DatabaseService databaseService, EnhancedLogger operationsLog, EnhancedLogger auditLog) {
-        super(databaseService, operationsLog, auditLog);
+    public PendingPlayerPaymentRepository(DatabaseService databaseService, EconomyLoggers loggers) {
+        super(databaseService, loggers);
     }
 
     public PendingPlayerPayment enqueuePayment(UUID playerUuid, long amount) {
@@ -58,8 +59,8 @@ public final class PendingPlayerPaymentRepository extends AbstractRepositorySupp
             }
             return payment;
         });
-        auditLog.info("pending-payment-enqueue id=" + payment.pendingPaymentId() +
-                " player=" + playerUuid + " amount=" + amount);
+        loggers.log("pending-payment-enqueue id=" + payment.pendingPaymentId() +
+                " player=" + playerUuid + " amount=" + amount, LogType.AUDIT);
         return payment;
     }
 
@@ -118,8 +119,8 @@ public final class PendingPlayerPaymentRepository extends AbstractRepositorySupp
             updateOfflineWalletSnapshot(connection, payment.playerUuid(), snapshot.baseUnits() + payment.paymentAmount(), snapshot.state());
             decrementPendingBalance(connection, payment.playerUuid(), payment.paymentAmount());
             deletePayment(connection, pendingPaymentId);
-            auditLog.info("pending-payment-complete-offline-wallet id=" + pendingPaymentId +
-                    " player=" + payment.playerUuid() + " amount=" + payment.paymentAmount());
+            loggers.log("pending-payment-complete-offline-wallet id=" + pendingPaymentId +
+                    " player=" + payment.playerUuid() + " amount=" + payment.paymentAmount(), LogType.AUDIT);
             return true;
         });
     }
@@ -206,10 +207,10 @@ public final class PendingPlayerPaymentRepository extends AbstractRepositorySupp
                 updatedCustodialBalance = new BalanceRecord(nextAvailable, current.reservedBalance());
             }
 
-            auditLog.info("pending-payment-complete id=" + pendingPaymentId +
+            loggers.log("pending-payment-complete id=" + pendingPaymentId +
                     " player=" + payment.playerUuid() +
                     " amount=" + payment.paymentAmount() +
-                    " custodial=" + amountToCustodial);
+                    " custodial=" + amountToCustodial, LogType.AUDIT);
             return new CompletionResult(payment.paymentAmount(), updatedCustodialBalance);
         });
     }

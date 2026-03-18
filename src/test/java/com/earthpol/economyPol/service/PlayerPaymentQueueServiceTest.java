@@ -1,6 +1,5 @@
 package com.earthpol.economyPol.service;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
@@ -8,6 +7,7 @@ import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.model.PendingPlayerPayment;
 import com.earthpol.economyPol.economy.model.PendingPlayerPaymentAttemptResult;
 import com.earthpol.economyPol.economy.model.PendingPlayerPaymentStatus;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
 import com.earthpol.economyPol.economy.repository.PendingPlayerPaymentRepository;
 import com.earthpol.economyPol.economy.service.account.AccountRegistryService;
@@ -64,8 +64,7 @@ final class PlayerPaymentQueueServiceTest {
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         AccountRecord account = new AccountRecord(player.getUniqueId(), AccountType.PLAYER, player.getUniqueId(), player.getName());
         when(accountRegistryService.getIncomingPaymentDeliveryPreference(player.getUniqueId()))
@@ -88,8 +87,7 @@ final class PlayerPaymentQueueServiceTest {
                 new PlayerMoneyLockService(),
                 notificationService,
                 schedulerService,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         var result = service.acceptOnlinePayment(player, 10L, "VAULT2_DEPOSIT:QuickShop-Hikari");
@@ -117,8 +115,7 @@ final class PlayerPaymentQueueServiceTest {
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
         PlayerMoneyLockService playerMoneyLockService = new PlayerMoneyLockService();
         PendingPlayerPayment payment = new PendingPlayerPayment(
                 UUID.randomUUID(),
@@ -146,8 +143,7 @@ final class PlayerPaymentQueueServiceTest {
                 playerMoneyLockService,
                 notificationService,
                 schedulerService,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         service.requestDrain(player.getUniqueId(), "test");
@@ -170,8 +166,7 @@ final class PlayerPaymentQueueServiceTest {
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         PendingPlayerPayment payment = new PendingPlayerPayment(
                 UUID.randomUUID(),
@@ -199,8 +194,7 @@ final class PlayerPaymentQueueServiceTest {
                 new PlayerMoneyLockService(),
                 notificationService,
                 schedulerService,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         service.requestDrain(playerUuid, "test");
@@ -219,8 +213,7 @@ final class PlayerPaymentQueueServiceTest {
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
         AccountRecord account = new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, player.getName());
         PendingPlayerPayment payment = new PendingPlayerPayment(
                 UUID.randomUUID(),
@@ -273,8 +266,7 @@ final class PlayerPaymentQueueServiceTest {
                 new PlayerMoneyLockService(),
                 notificationService,
                 schedulerService,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         service.requestDrain(playerUuid, "test");
@@ -299,8 +291,7 @@ final class PlayerPaymentQueueServiceTest {
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
         PendingPlayerPayment payment = new PendingPlayerPayment(
                 UUID.randomUUID(),
                 playerUuid,
@@ -333,8 +324,7 @@ final class PlayerPaymentQueueServiceTest {
                 new PlayerMoneyLockService(),
                 notificationService,
                 schedulerService,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         service.requestDrain(playerUuid, "test");

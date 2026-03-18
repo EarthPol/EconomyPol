@@ -2,6 +2,7 @@ package com.earthpol.economyPol.economy.command.admin;
 
 import com.earthpol.economyPol.economy.command.shared.AbstractEconomySubcommand;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.DatabaseCheckReport;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -32,7 +33,7 @@ public final class CheckSubcommand extends AbstractEconomySubcommand {
         }
 
         DatabaseCheckReport report = dependencies.databaseCheckService().runReport(args[0]);
-        dependencies.healthcheckLogger().info(report.toString());
+        dependencies.loggers().log(report.toString(), LogType.HEALTHCHECK);
 
         int findingLimit = sender instanceof Player ? 15 : report.findings().size();
         sender.sendMessage(report.toChatMessage(findingLimit));

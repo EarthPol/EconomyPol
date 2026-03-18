@@ -1,6 +1,7 @@
 package com.earthpol.economyPol.economy.service.account;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
@@ -23,18 +24,18 @@ public final class SharedAccountService {
     private final AccountRegistryService accountRegistryService;
     private final AccountRepository accountRepository;
     private final FundsRepository fundsRepository;
-    private final EnhancedLogger auditLog;
+    private final EconomyLoggers loggers;
 
     public SharedAccountService(
             AccountRegistryService accountRegistryService,
             AccountRepository accountRepository,
             FundsRepository fundsRepository,
-            EnhancedLogger auditLog
+            EconomyLoggers loggers
     ) {
         this.accountRegistryService = accountRegistryService;
         this.accountRepository = accountRepository;
         this.fundsRepository = fundsRepository;
-        this.auditLog = auditLog;
+        this.loggers = loggers;
     }
 
     public MoneyOperationResult bankDeposit(String bankName, OfflinePlayer owner, long amount, String reason) {
@@ -102,7 +103,7 @@ public final class SharedAccountService {
             );
         }
         fundsRepository.changeAvailable(accountId, amount, "SHARED_DEPOSIT", reason, null, null);
-        auditLog.info("shared-deposit account=" + accountId + " amount=" + amount + " reason=" + reason);
+        loggers.log("shared-deposit account=" + accountId + " amount=" + amount + " reason=" + reason, LogType.AUDIT);
         return MoneyOperationResult.success(amount, amount, 0L, "Funds deposited.");
     }
 
@@ -139,7 +140,7 @@ public final class SharedAccountService {
         }
         accountRegistryService.registerPlayer(Bukkit.getOfflinePlayer(memberUuid));
         accountRepository.upsertAccountMember(accountId, memberUuid, "MEMBER");
-        auditLog.info("shared-member-add account=" + accountId + " member=" + memberUuid);
+        loggers.log("shared-member-add account=" + accountId + " member=" + memberUuid, LogType.AUDIT);
         return true;
     }
 
@@ -150,7 +151,7 @@ public final class SharedAccountService {
         }
         boolean removed = accountRepository.removeAccountMember(accountId, memberUuid);
         if (removed) {
-            auditLog.info("shared-member-remove account=" + accountId + " member=" + memberUuid);
+            loggers.log("shared-member-remove account=" + accountId + " member=" + memberUuid, LogType.AUDIT);
         }
         return removed;
     }
@@ -176,7 +177,7 @@ public final class SharedAccountService {
         if ("BANK_WITHDRAW".equals(entryType)) {
             return MoneyOperationResult.success(amount, amount, 0L, "Bank withdrawal completed.");
         }
-        auditLog.info("shared-withdraw account=" + accountId + " amount=" + amount + " reason=" + reason);
+        loggers.log("shared-withdraw account=" + accountId + " amount=" + amount + " reason=" + reason, LogType.AUDIT);
         return MoneyOperationResult.success(amount, amount, 0L, "Funds withdrawn.");
     }
 }

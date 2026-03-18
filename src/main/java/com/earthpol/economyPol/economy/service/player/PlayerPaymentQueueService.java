@@ -1,6 +1,7 @@
 package com.earthpol.economyPol.economy.service.player;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
@@ -43,8 +44,7 @@ public final class PlayerPaymentQueueService {
     private final PlayerMoneyLockService playerMoneyLockService;
     private final NotificationService notificationService;
     private final SchedulerService schedulerService;
-    private final EnhancedLogger operationsLog;
-    private final EnhancedLogger auditLog;
+    private final EconomyLoggers loggers;
     private final Set<UUID> inFlightPlayers = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean retryLoopStarted = new AtomicBoolean(false);
 
@@ -56,8 +56,7 @@ public final class PlayerPaymentQueueService {
             PlayerMoneyLockService playerMoneyLockService,
             NotificationService notificationService,
             SchedulerService schedulerService,
-            EnhancedLogger operationsLog,
-            EnhancedLogger auditLog
+            EconomyLoggers loggers
     ) {
         this.accountRegistryService = accountRegistryService;
         this.fundsRepository = fundsRepository;
@@ -66,8 +65,7 @@ public final class PlayerPaymentQueueService {
         this.playerMoneyLockService = playerMoneyLockService;
         this.notificationService = notificationService;
         this.schedulerService = schedulerService;
-        this.operationsLog = operationsLog;
-        this.auditLog = auditLog;
+        this.loggers = loggers;
     }
 
     public void startRetryLoop() {
@@ -110,19 +108,20 @@ public final class PlayerPaymentQueueService {
                     player.getUniqueId(),
                     null
             );
-            auditLog.info("player-deposit-custodial-preference player=" + player.getUniqueId() +
+            loggers.log("player-deposit-custodial-preference player=" + player.getUniqueId() +
                     accountRegistryService.resolvePlayerUsername(player.getUniqueId())
                             .map(name -> " username=" + name)
                             .orElse("") +
                     " amount=" + amount + " balance=" +
-                    (updatedBalance == null ? 0L : updatedBalance.availableBalance()) + " reason=" + reason);
+                    (updatedBalance == null ? 0L : updatedBalance.availableBalance()) + " reason=" + reason,
+                    LogType.AUDIT);
             return MoneyOperationResult.success(amount, amount, 0L, "Funds credited to custodial.");
         }
 
         PendingPlayerPayment payment = pendingPlayerPaymentRepository.enqueuePayment(player.getUniqueId(), amount);
-        auditLog.info("player-deposit-queued player=" + player.getUniqueId() +
+        loggers.log("player-deposit-queued player=" + player.getUniqueId() +
                 " payment=" + payment.pendingPaymentId() +
-                " amount=" + amount + " reason=" + reason);
+                " amount=" + amount + " reason=" + reason, LogType.AUDIT);
         requestDrain(player.getUniqueId(), "online-payment-enqueue");
         return MoneyOperationResult.success(amount, amount, 0L, "Funds accepted for delivery.");
     }
@@ -178,7 +177,8 @@ public final class PlayerPaymentQueueService {
                 }
             }
         } catch (RuntimeException exception) {
-            operationsLog.severe("Pending player payment drain failed for " + playerUuid + " trigger=" + trigger + ".", exception);
+            loggers.logSevere("Pending player payment drain failed for " + playerUuid + " trigger=" + trigger + ".",
+                    LogType.OPERATIONS, exception);
         } finally {
             inFlightPlayers.remove(playerUuid);
         }
@@ -196,8 +196,8 @@ public final class PlayerPaymentQueueService {
                 logRequeue(payment.pendingPaymentId(), payment.playerUuid(), PendingPlayerPaymentAttemptResult.OFFLINE_ENDER_WALLET_UNAVAILABLE);
                 return ProcessingDecision.STOP;
             }
-            auditLog.info("pending-payment-delivered-offline-wallet id=" + payment.pendingPaymentId() +
-                    " player=" + payment.playerUuid() + " amount=" + payment.paymentAmount());
+            loggers.log("pending-payment-delivered-offline-wallet id=" + payment.pendingPaymentId() +
+                    " player=" + payment.playerUuid() + " amount=" + payment.paymentAmount(), LogType.AUDIT);
             return ProcessingDecision.CONTINUE;
         }
 
@@ -258,11 +258,11 @@ public final class PlayerPaymentQueueService {
                     completion.updatedCustodialBalance().availableBalance()
             );
         }
-        auditLog.info("pending-payment-delivered-custodial id=" + payment.pendingPaymentId() +
+        loggers.log("pending-payment-delivered-custodial id=" + payment.pendingPaymentId() +
                 " player=" + payment.playerUuid() +
                 " amount=" + payment.paymentAmount() +
                 " credited=" + amountToCustodial +
-                " reason=" + reason);
+                " reason=" + reason, LogType.AUDIT);
     }
 
     private void processClaimedOnlinePaymentOnPlayerEntityScheduler(PendingPlayerPayment payment, Player player) {
@@ -301,28 +301,28 @@ public final class PlayerPaymentQueueService {
                         completion.updatedCustodialBalance().availableBalance()
                 );
             }
-            auditLog.info("pending-payment-delivered-live id=" + payment.pendingPaymentId() +
+            loggers.log("pending-payment-delivered-live id=" + payment.pendingPaymentId() +
                     " player=" + payment.playerUuid() +
                     " amount=" + payment.paymentAmount() +
                     " inventory=" + deliveryResult.deliveredToInventory() +
                     " ender=" + deliveryResult.deliveredToEnder() +
-                    " overflow=" + deliveryResult.remainder());
+                    " overflow=" + deliveryResult.remainder(), LogType.AUDIT);
             requestDrain(payment.playerUuid(), "post-live-delivery");
         } catch (Exception exception) {
-            operationsLog.severe("Failed to process pending online payment " + payment.pendingPaymentId() +
-                    " for " + player.getUniqueId() + ".", exception);
+            loggers.logSevere("Failed to process pending online payment " + payment.pendingPaymentId() +
+                    " for " + player.getUniqueId() + ".", LogType.OPERATIONS, exception);
             try {
                 liveMoneyService.restoreLiveContainerSnapshot(player, preDeliverySnapshot);
             } catch (RuntimeException restoreException) {
-                operationsLog.severe("Failed to restore live containers after pending payment delivery failure for " +
-                        player.getUniqueId() + ".", restoreException);
+                loggers.logSevere("Failed to restore live containers after pending payment delivery failure for " +
+                        player.getUniqueId() + ".", LogType.OPERATIONS, restoreException);
             }
             try {
                 completeToCustodial(payment, player, payment.paymentAmount(), CUSTODIAL_REASON_DELIVERY_FAILED);
                 requestDrain(payment.playerUuid(), "post-delivery-fallback");
             } catch (RuntimeException fallbackException) {
-                operationsLog.severe("Failed to fallback pending payment " + payment.pendingPaymentId() +
-                        " to custodial.", fallbackException);
+                loggers.logSevere("Failed to fallback pending payment " + payment.pendingPaymentId() +
+                        " to custodial.", LogType.OPERATIONS, fallbackException);
                 requeuePendingPayment(payment.pendingPaymentId(), PendingPlayerPaymentAttemptResult.DELIVERY_FAILED);
                 logRequeue(payment.pendingPaymentId(), payment.playerUuid(), PendingPlayerPaymentAttemptResult.DELIVERY_FAILED);
             }
@@ -334,8 +334,8 @@ public final class PlayerPaymentQueueService {
     }
 
     private void logRequeue(UUID pendingPaymentId, UUID playerUuid, PendingPlayerPaymentAttemptResult attemptResult) {
-        auditLog.info("pending-payment-requeued id=" + pendingPaymentId +
-                " player=" + playerUuid + " reason=" + attemptResult);
+        loggers.log("pending-payment-requeued id=" + pendingPaymentId +
+                " player=" + playerUuid + " reason=" + attemptResult, LogType.AUDIT);
     }
 
     private enum ProcessingDecision {

@@ -1,6 +1,7 @@
 package com.earthpol.economyPol.economy.service.support;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.ReservationRecord;
 import com.earthpol.economyPol.economy.model.ReservationStatus;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
@@ -11,17 +12,18 @@ import java.util.UUID;
 public final class ReservationService {
 
     private final FundsRepository repository;
-    private final EnhancedLogger auditLogger;
+    private final EconomyLoggers loggers;
 
-    public ReservationService(FundsRepository repository, EnhancedLogger auditLogger) {
+    public ReservationService(FundsRepository repository, EconomyLoggers loggers) {
         this.repository = repository;
-        this.auditLogger = auditLogger;
+        this.loggers = loggers;
     }
 
     public ReservationRecord reserve(UUID accountId, long amount, String reason, Long expiresAt) {
         repository.reserveAvailable(accountId, amount, reason);
         ReservationRecord reservation = repository.createReservation(accountId, amount, reason, expiresAt);
-        auditLogger.info("reservation-active id=" + reservation.reservationId() + " account=" + accountId + " amount=" + amount);
+        loggers.log("reservation-active id=" + reservation.reservationId() + " account=" + accountId + " amount=" + amount,
+                LogType.AUDIT);
         return reservation;
     }
 

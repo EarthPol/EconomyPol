@@ -50,6 +50,8 @@ import java.util.logging.Level;
 // TODO: More testing.
 // TODO: Tidy up database schema, especially the economy_accounts.
 
+// TODO: Improve economylogger. Introduce comprehensive startup logging and a "main log" that logs everything
+
 public final class EconomyPol extends JavaPlugin {
 
     private PluginSettings settings;
@@ -97,18 +99,19 @@ public final class EconomyPol extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        loggers = new EconomyLoggers(
+                EnhancedLogger.create(this, "operations"),
+                EnhancedLogger.create(this, "audit"),
+                EnhancedLogger.create(this, "healthcheck"),
+                this
+        );
         try {
-            settings = PluginSettings.load(this);
+            settings = PluginSettings.load(this, loggers);
         } catch (IOException | RuntimeException exception) {
-            getLogger().log(Level.SEVERE, "Failed to load EconomyPol configuration.", exception);
+            loggers.logSevere("Failed to load EconomyPol configuration.", EconomyLoggers.LogType.OPERATIONS, exception);
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        loggers = new EconomyLoggers(
-                EnhancedLogger.create(this, "operations", settings.logging().debug()),
-                EnhancedLogger.create(this, "audit", false),
-                EnhancedLogger.create(this, "healthcheck", false)
-        );
         loggers.applyRetentionPolicy(settings.logging().retentionPolicy());
 
         uncleanBoot = detectUncleanBoot();
@@ -119,19 +122,19 @@ public final class EconomyPol extends JavaPlugin {
             return;
         }
 
-        accountRepository = new AccountRepository(dbService, log(), audit());
-        playerRepository = new PlayerRepository(dbService, log(), audit());
-        fundsRepository = new FundsRepository(dbService, log(), audit());
-        pendingPlayerPaymentRepository = new PendingPlayerPaymentRepository(dbService, log(), audit());
-        enderWalletRepository = new EnderWalletRepository(dbService, log(), audit());
-        notificationRepository = new NotificationRepository(dbService, log(), audit());
-        townyGovernmentRepository = new TownyGovernmentRepository(dbService, log(), audit());
+        accountRepository = new AccountRepository(dbService, loggers);
+        playerRepository = new PlayerRepository(dbService, loggers);
+        fundsRepository = new FundsRepository(dbService, loggers);
+        pendingPlayerPaymentRepository = new PendingPlayerPaymentRepository(dbService, loggers);
+        enderWalletRepository = new EnderWalletRepository(dbService, loggers);
+        notificationRepository = new NotificationRepository(dbService, loggers);
+        townyGovernmentRepository = new TownyGovernmentRepository(dbService, loggers);
         logRecoveredUncleanSnapshots(enderWalletRepository.markStaleSnapshotsDisabled());
 
-        denominationService = new DenominationService(settings.currency(), log());
+        denominationService = new DenominationService(settings.currency(), loggers);
         numericalConsistencyService = new NumericalConsistencyService(settings, denominationService);
         liveMoneyService = new LiveMoneyService(denominationService, settings);
-        schedulerService = new SchedulerService(this, log());
+        schedulerService = new SchedulerService(this, loggers);
         translationService = new TranslationService(this, EconomyPol.class);
         translationService.load();
         notificationService = new NotificationService(
@@ -140,7 +143,7 @@ public final class EconomyPol extends JavaPlugin {
                 translationService
         );
         playerMoneyLockService = new PlayerMoneyLockService();
-        reservationService = new ReservationService(fundsRepository, audit());
+        reservationService = new ReservationService(fundsRepository, loggers);
         townyService = new TownyService();
         enderWalletService = new EnderWalletService(
                 this,
@@ -148,7 +151,7 @@ public final class EconomyPol extends JavaPlugin {
                 playerMoneyLockService,
                 notificationService,
                 schedulerService,
-                audit(),
+                loggers,
                 uncleanBoot
         );
         databaseCheckService = new DatabaseCheckService(dbService, townyService);
@@ -165,15 +168,14 @@ public final class EconomyPol extends JavaPlugin {
                 notificationService,
                 schedulerService,
                 settings,
-                log(),
-                audit()
+                loggers
         );
         economyPolApiFactory = new EconomyPolApiProvider(
                 economyService,
                 reservationService,
                 enderWalletService,
                 denominationService,
-                audit()
+                loggers
         );
         economyService.startPendingPaymentQueue();
 
@@ -182,23 +184,24 @@ public final class EconomyPol extends JavaPlugin {
                 economyService,
                 numericalConsistencyService,
                 settings.currency(),
-                log()
+                loggers
         );
         vaultAdapter = new EconomyVaultAdapter(
                 this,
                 economyService,
                 numericalConsistencyService,
                 settings.currency(),
-                log()
+                loggers
         );
         getServer().getServicesManager().register(EconomyPolApiFactory.class, economyPolApiFactory, this, ServicePriority.Highest);
         getServer().getServicesManager().register(net.milkbowl.vault2.economy.Economy.class, vaultUnlockedAdapter, this, ServicePriority.Highest);
         getServer().getServicesManager().register(net.milkbowl.vault.economy.Economy.class, vaultAdapter, this, ServicePriority.Highest);
-        log().info("Registered EconomyPol API factory, VaultUnlocked v2, and legacy Vault economy providers.");
+        loggers.log("Registered EconomyPol API factory, VaultUnlocked v2, and legacy Vault economy providers.",
+                EconomyLoggers.LogType.OPERATIONS);
 
         registerListeners();
         registerCommands();
-        log().info("EconomyPol enabled.");
+        loggers.log("EconomyPol enabled.", EconomyLoggers.LogType.OPERATIONS);
     }
 
     @Override
@@ -211,13 +214,13 @@ public final class EconomyPol extends JavaPlugin {
                 dbService.getDB().shutdown();
             } catch (Exception exception) {
                 if (loggers != null) {
-                    log().severe("Failed to shutdown database cleanly.", exception);
+                    loggers.logSevere("Failed to shutdown database cleanly.", EconomyLoggers.LogType.OPERATIONS, exception);
                 }
             }
         }
         deleteRuntimeMarker();
         if (loggers != null) {
-            log().info("EconomyPol disabled.");
+            loggers.log("EconomyPol disabled.", EconomyLoggers.LogType.OPERATIONS);
             loggers.close();
         }
     }
@@ -238,7 +241,7 @@ public final class EconomyPol extends JavaPlugin {
         );
         dbService.start();
         if (!dbService.isRunning()) {
-            log().severe("Database did not start successfully.");
+            loggers.logSevere("Database did not start successfully.", EconomyLoggers.LogType.OPERATIONS);
             return;
         }
         FlywaySupport.migrate(dbService.getDB(), this, java.util.List.of("db/migration/economypol"), log());
@@ -255,7 +258,7 @@ public final class EconomyPol extends JavaPlugin {
                 townyService,
                 economyService,
                 townyGovernmentRepository,
-                log()
+                loggers
         );
         getServer().getPluginManager().registerEvents(townyBootstrapListener, this);
         townyBootstrapListener.registerIfTownyEnabled();
@@ -288,8 +291,7 @@ public final class EconomyPol extends JavaPlugin {
                 databaseCheckService,
                 townyService,
                 settings,
-                log(),
-                healthcheck()
+                loggers
         );
         economyCommand.setExecutor(executor);
         economyCommand.setTabCompleter(executor);
@@ -316,7 +318,7 @@ public final class EconomyPol extends JavaPlugin {
             Files.createDirectories(getDataFolder().toPath());
             Files.writeString(runtimeMarkerPath(), Long.toString(System.currentTimeMillis()));
         } catch (IOException exception) {
-            log().warn("Failed to write runtime marker: " + exception.getMessage());
+            loggers.logWarn("Failed to write runtime marker: " + exception.getMessage(), EconomyLoggers.LogType.OPERATIONS);
         }
     }
 
@@ -325,7 +327,7 @@ public final class EconomyPol extends JavaPlugin {
             Files.deleteIfExists(runtimeMarkerPath());
         } catch (IOException exception) {
             if (loggers != null) {
-                log().warn("Failed to delete runtime marker: " + exception.getMessage());
+                loggers.logWarn("Failed to delete runtime marker: " + exception.getMessage(), EconomyLoggers.LogType.OPERATIONS);
             }
         }
     }
@@ -334,14 +336,14 @@ public final class EconomyPol extends JavaPlugin {
         if (recoveredSnapshots.isEmpty()) {
             return;
         }
-        log().severe("Startup recovery quarantined " + recoveredSnapshots.size() +
+        loggers.logSevere("Startup recovery quarantined " + recoveredSnapshots.size() +
                 " managed ender-wallet snapshot(s) left in SYNCING from a previous unclean shutdown. " +
                 "They were marked DISABLED_UNCLEAN to prevent ambiguous offline wallet use. " +
-                "Run '/economypol admin check unclean-snapshots' for details.");
+                "Run '/economypol admin check unclean-snapshots' for details.", EconomyLoggers.LogType.OPERATIONS);
         for (EnderWalletSnapshot snapshot : recoveredSnapshots) {
-            log().severe("unclean-snapshot player=" + snapshot.playerUuid() +
+            loggers.logSevere("unclean-snapshot player=" + snapshot.playerUuid() +
                     " base_units=" + snapshot.baseUnits() +
-                    " last_clean_sync_at=" + snapshot.lastCleanSyncAt());
+                    " last_clean_sync_at=" + snapshot.lastCleanSyncAt(), EconomyLoggers.LogType.OPERATIONS);
         }
     }
 }

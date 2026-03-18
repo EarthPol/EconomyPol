@@ -1,6 +1,5 @@
 package com.earthpol.economyPol.economy.command;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.command.admin.CheckSubcommand;
 import com.earthpol.economyPol.economy.command.admin.CleanupSubcommand;
 import com.earthpol.economyPol.economy.command.admin.ReloadSubcommand;
@@ -8,6 +7,7 @@ import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.command.shared.EconomySubcommand;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.command.player.*;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
@@ -45,8 +45,7 @@ public final class EconomyCommand implements TabExecutor {
             DatabaseCheckService databaseCheckService,
             TownyService townyService,
             PluginSettings settings,
-            EnhancedLogger logger,
-            EnhancedLogger healthcheckLogger
+            EconomyLoggers loggers
     ) {
         CommandDependencies dependencies = new CommandDependencies(
                 economyService,
@@ -54,8 +53,7 @@ public final class EconomyCommand implements TabExecutor {
                 databaseCheckService,
                 townyService,
                 settings,
-                logger,
-                healthcheckLogger
+                loggers
         );
         this.playerCommands = registerPlayerCommands(dependencies);
         this.adminCommands = registerAdminCommands(dependencies);
