@@ -35,6 +35,7 @@ public final class EconomyLoggers {
 
         this.plugin = plugin;
         this.main = EnhancedLogger.create(plugin,"main");
+        main.enableConsoleLogger(false);
     }
 
     public EnhancedLogger operations() {
@@ -58,6 +59,13 @@ public final class EconomyLoggers {
         applyRetentionPolicy(operations, retentionPolicy);
         applyRetentionPolicy(audit, retentionPolicy);
         applyRetentionPolicy(healthcheck, retentionPolicy);
+    }
+
+    public void applyConsoleLogging(boolean enabled) {
+        operations.enableConsoleLogger(enabled);
+        audit.enableConsoleLogger(enabled);
+        healthcheck.enableConsoleLogger(enabled);
+        main.enableConsoleLogger(false);
     }
 
     public void close() {

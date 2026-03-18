@@ -40,6 +40,7 @@ public final class ReloadSubcommand extends AbstractEconomySubcommand {
 
         PluginSettings.LoggingSettings loggingSettings = dependencies.settings().logging();
         dependencies.loggers().applyRetentionPolicy(loggingSettings.retentionPolicy());
+        dependencies.loggers().applyConsoleLogging(loggingSettings.consoleEnabled());
 
         dependencies.loggers().log("Reloaded EconomyPol runtime configuration from config.yml.", LogType.OPERATIONS);
         sender.sendMessage(result.message());

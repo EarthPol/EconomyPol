@@ -113,6 +113,7 @@ public final class EconomyPol extends JavaPlugin {
             return;
         }
         loggers.applyRetentionPolicy(settings.logging().retentionPolicy());
+        loggers.applyConsoleLogging(settings.logging().consoleEnabled());
 
         uncleanBoot = detectUncleanBoot();
         writeRuntimeMarker();

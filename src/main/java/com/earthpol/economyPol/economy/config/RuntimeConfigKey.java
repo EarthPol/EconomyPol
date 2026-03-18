@@ -68,12 +68,18 @@ enum RuntimeConfigKey implements ReloadableConfiguration {
     LOGGING_SECTION(SectionHeaderNode.of(
             "logging",
             "Runtime logging controls.",
-            "debug is applied on reload.",
-            "debug controls the debug level of the operations logger.",
-            "retention-policy applies to the operations, audit, and healthcheck logs."
+            "debug is currently reserved for future use.",
+            "console-enabled controls whether the operations, audit, and healthcheck logs also print to the server console.",
+            "The main log never prints to console, which prevents duplicate console lines.",
+            "retention-policy applies to the main, operations, audit, and healthcheck logs."
     )),
     LOGGING_DEBUG(ReloadableConfigNode.of(
             "logging.debug",
+            Boolean.class,
+            false
+    )),
+    LOGGING_CONSOLE_ENABLED(ReloadableConfigNode.of(
+            "logging.console-enabled",
             Boolean.class,
             false
     )),

@@ -61,6 +61,7 @@ public final class PluginSettings {
         DatabaseSettings database = loadDatabaseSettings(databaseConfig);
         CurrencySettings currency = loadCurrencySettings(currencyConfig);
         RuntimeSettings runtime = loadRuntimeSettings(runtimeConfig);
+        loggers.applyConsoleLogging(runtime.logging().consoleEnabled());
         loggers.log("Loaded EconomyPol configuration files.", LogType.OPERATIONS);
         return new PluginSettings(plugin, loggers, database, currency, runtimeConfig, runtime);
     }
@@ -70,6 +71,7 @@ public final class PluginSettings {
             boolean cleanReload = runtimeConfig.reload();
             RuntimeSettings reloaded = loadRuntimeSettings(runtimeConfig);
             runtime = reloaded;
+            loggers.applyConsoleLogging(reloaded.logging().consoleEnabled());
 
             List<String> warnings = new ArrayList<>();
             if (!cleanReload) {
@@ -190,6 +192,7 @@ public final class PluginSettings {
 
         LoggingSettings logging = new LoggingSettings(
                 RuntimeConfigKey.LOGGING_DEBUG.getBool(),
+                RuntimeConfigKey.LOGGING_CONSOLE_ENABLED.getBool(),
                 parseEnum(
                         LogRetentionPolicy.class,
                         RuntimeConfigKey.LOGGING_RETENTION_POLICY.getString(),
@@ -286,6 +289,7 @@ public final class PluginSettings {
 
     public record LoggingSettings(
             boolean debug,
+            boolean consoleEnabled,
             LogRetentionPolicy retentionPolicy
     ) {}
 
