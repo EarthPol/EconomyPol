@@ -68,10 +68,16 @@ public final class EconomyPolApiProvider implements EconomyPolAPI, EconomyPolApi
     public AccountRecord ensurePlayerAccount(UUID playerUuid, String playerName) {
         return economyService.ensurePlayerAccount(playerUuid, playerName);
     }
+    public AccountRecord ensurePlayerAccount(Player player) {
+        return economyService.ensurePlayerAccount(player);
+    }
 
     @Override
     public void registerPlayer(UUID playerUuid, String playerName) {
         economyService.registerPlayer(playerUuid, playerName);
+    }
+    public void registerPlayer(Player player) {
+        economyService.registerPlayer(player);
     }
 
     @Override
@@ -82,6 +88,9 @@ public final class EconomyPolApiProvider implements EconomyPolAPI, EconomyPolApi
     @Override
     public Optional<AccountRecord> findPlayerAccount(UUID playerUuid) {
         return economyService.findPlayerAccount(playerUuid);
+    }
+    public Optional<AccountRecord> findPlayerAccount(Player player) {
+        return economyService.findPlayerAccount(player.getUniqueId());
     }
 
     @Override

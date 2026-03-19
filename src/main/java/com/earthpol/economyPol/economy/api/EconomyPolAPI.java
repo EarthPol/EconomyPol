@@ -22,7 +22,7 @@ public interface EconomyPolAPI extends
     /**
      * Resolve the currently-registered EconomyPol API service.
      */
-    static Optional<EconomyPolAPI> resolve(Plugin callerPlugin) {
+    static Optional<EconomyPolAPI> getInstance(Plugin callerPlugin) {
         EconomyPolApiFactory factory = Bukkit.getServicesManager().load(EconomyPolApiFactory.class);
         if (factory == null) {
             return Optional.empty();

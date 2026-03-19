@@ -91,7 +91,7 @@ final class EconomyPolApiProviderTest {
         when(factory.getInstance(callerPlugin)).thenReturn(api);
         Bukkit.getServicesManager().register(EconomyPolApiFactory.class, factory, plugin, ServicePriority.Highest);
 
-        assertSame(api, EconomyPolAPI.resolve(callerPlugin).orElseThrow());
+        assertSame(api, EconomyPolAPI.getInstance(callerPlugin).orElseThrow());
     }
 
     @Test
