@@ -225,15 +225,14 @@ public final class AccountRepository extends AbstractRepositorySupport {
         });
     }
 
-    public void upsertAccountMember(UUID accountId, UUID memberUuid, String role) {
+    public void upsertAccountMember(UUID accountId, UUID memberUuid) {
         update("""
-                INSERT INTO economy_account_members (account_id, member_uuid, membership_role, created_at)
-                VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE membership_role = VALUES(membership_role)
+                INSERT INTO economy_account_members (account_id, member_uuid, created_at)
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE created_at = created_at
                 """,
                 uuid(accountId),
                 uuid(memberUuid),
-                role,
                 nowTimestamp()
         );
     }
@@ -246,9 +245,9 @@ public final class AccountRepository extends AbstractRepositorySupport {
         ) > 0;
     }
 
-    public Optional<String> findAccountMemberRole(UUID accountId, UUID memberUuid) {
+    public boolean isAccountMember(UUID accountId, UUID memberUuid) {
         return queryOne("""
-                SELECT membership_role
+                SELECT 1
                 FROM economy_account_members
                 WHERE account_id = ? AND member_uuid = ?
                 """,
@@ -256,8 +255,8 @@ public final class AccountRepository extends AbstractRepositorySupport {
                     statement.setObject(1, uuid(accountId));
                     statement.setObject(2, uuid(memberUuid));
                 },
-                resultSet -> resultSet.getString("membership_role")
-        );
+                resultSet -> true
+        ).orElse(false);
     }
 
     private AccountRecord readAccount(ResultSet resultSet) throws SQLException {

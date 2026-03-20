@@ -130,7 +130,7 @@ public final class SharedAccountService {
         if (isAccountOwner(accountId, subjectUuid)) {
             return true;
         }
-        return accountRepository.findAccountMemberRole(accountId, subjectUuid).isPresent();
+        return accountRepository.isAccountMember(accountId, subjectUuid);
     }
 
     public boolean addSharedAccountMember(UUID accountId, UUID memberUuid) {
@@ -139,7 +139,7 @@ public final class SharedAccountService {
             return false;
         }
         accountRegistryService.registerPlayer(Bukkit.getOfflinePlayer(memberUuid));
-        accountRepository.upsertAccountMember(accountId, memberUuid, "MEMBER");
+        accountRepository.upsertAccountMember(accountId, memberUuid);
         loggers.log("shared-member-add account=" + accountId + " member=" + memberUuid, LogType.AUDIT);
         return true;
     }

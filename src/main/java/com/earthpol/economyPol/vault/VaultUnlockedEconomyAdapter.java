@@ -338,7 +338,7 @@ public final class VaultUnlockedEconomyAdapter implements Economy {
             }
         }
         if (initialPermissions != null && initialPermissions.length > 0) {
-            loggers.logWarn("Vault2 initial member permissions are reduced to the standard member role for account " + accountID + ".",
+            loggers.logWarn("Vault2 initial member permissions are ignored for account " + accountID + ".",
                     LogType.OPERATIONS);
         }
         return addAccountMember(pluginName, accountID, uuid);

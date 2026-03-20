@@ -36,7 +36,6 @@ CREATE TABLE IF NOT EXISTS economy_towny_governments (
 CREATE TABLE IF NOT EXISTS economy_account_members (
     account_id UUID NOT NULL,
     member_uuid UUID NOT NULL,
-    membership_role VARCHAR(32) NOT NULL,
     created_at TIMESTAMP(3) NOT NULL,
     PRIMARY KEY (account_id, member_uuid),
     CONSTRAINT fk_economy_account_members_member
