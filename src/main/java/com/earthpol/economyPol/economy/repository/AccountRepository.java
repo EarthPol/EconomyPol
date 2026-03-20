@@ -33,7 +33,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                         updated_at = VALUES(updated_at)
                     """,
                     uuid(playerUuid),
-                    AccountType.PLAYER.name(),
+                    AccountType.PLAYER,
                     uuid(playerUuid),
                     namePlan.storedName(),
                     now,
@@ -48,7 +48,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                         updated_at = VALUES(updated_at)
                     """,
                     uuid(playerUuid),
-                    AccountType.PLAYER.name(),
+                    AccountType.PLAYER,
                     uuid(playerUuid),
                     namePlan.storedName(),
                     now,
@@ -81,7 +81,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                     updated_at = VALUES(updated_at)
                 """,
                 uuid(accountId),
-                AccountType.SHARED.name(),
+                AccountType.SHARED,
                 uuid(resolvedOwnerUuid),
                 name,
                 now,
@@ -110,7 +110,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 """,
                 statement -> {
                     statement.setObject(1, uuid(playerUuid));
-                    statement.setString(2, AccountType.PLAYER.name());
+                    bindEnum(statement, 2, AccountType.PLAYER);
                 },
                 this::readAccount
         );
@@ -124,7 +124,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 """,
                 statement -> {
                     statement.setString(1, name);
-                    statement.setString(2, AccountType.SHARED.name());
+                    bindEnum(statement, 2, AccountType.SHARED);
                 },
                 this::readAccount
         );
@@ -138,7 +138,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 """,
                 statement -> {
                     statement.setObject(1, uuid(accountId));
-                    statement.setString(2, AccountType.SHARED.name());
+                    bindEnum(statement, 2, AccountType.SHARED);
                 },
                 this::readAccount
         );
@@ -158,7 +158,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
     public List<String> listSharedAccountNames() {
         return queryList(
                 "SELECT account_name FROM economy_accounts WHERE account_type = ? ORDER BY account_name ASC",
-                statement -> statement.setString(1, AccountType.SHARED.name()),
+                statement -> bindEnum(statement, 1, AccountType.SHARED),
                 resultSet -> resultSet.getString(1)
         );
     }
@@ -171,7 +171,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 WHERE account_type = ?
                 ORDER BY account_name ASC
                 """,
-                statement -> statement.setString(1, AccountType.SHARED.name()),
+                statement -> bindEnum(statement, 1, AccountType.SHARED),
                 this::readAccount
         );
     }
@@ -205,7 +205,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 uuid(ownerUuid),
                 nowTimestamp(),
                 uuid(accountId),
-                AccountType.SHARED.name()
+                AccountType.SHARED
         ) > 0;
     }
 
@@ -219,7 +219,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                     connection,
                     "DELETE FROM economy_accounts WHERE account_id = ? AND account_type = ?",
                     uuid(accountId),
-                    AccountType.SHARED.name()
+                    AccountType.SHARED
             );
             return deletedAccounts > 0;
         });
@@ -263,7 +263,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
     private AccountRecord readAccount(ResultSet resultSet) throws SQLException {
         return new AccountRecord(
                 parseUuid(resultSet.getObject("account_id")),
-                AccountType.valueOf(resultSet.getString("account_type")),
+                parseEnum(resultSet, "account_type", AccountType.class),
                 parseUuid(resultSet.getObject("owner_uuid")),
                 resultSet.getString("account_name")
         );

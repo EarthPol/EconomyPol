@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS economy_players (
 
 CREATE TABLE IF NOT EXISTS economy_accounts (
     account_id UUID NOT NULL PRIMARY KEY,
-    account_type VARCHAR(32) NOT NULL,
+    account_type ENUM('PLAYER', 'SHARED') NOT NULL,
     owner_uuid UUID NULL,
     account_name VARCHAR(191) NOT NULL,
     created_at TIMESTAMP(3) NOT NULL,
@@ -109,6 +109,8 @@ CREATE TABLE IF NOT EXISTS economy_ledger_entries (
     delta BIGINT NOT NULL,
     available_balance BIGINT NULL,
     reserved_balance BIGINT NULL,
+    -- Kept as VARCHAR because ledger entry kinds are expected to grow over time,
+    -- and forcing a Flyway migration for every new operational entry type adds friction to development.
     entry_type VARCHAR(64) NOT NULL,
     reason VARCHAR(255) NOT NULL,
     created_at TIMESTAMP(3) NOT NULL,

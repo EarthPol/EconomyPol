@@ -109,6 +109,8 @@ public abstract class AbstractRepositorySupport {
                 statement.setObject(jdbcIndex, null);
             } else if (parameter instanceof UUID uuid) {
                 statement.setObject(jdbcIndex, uuid);
+            } else if (parameter instanceof Enum<?> enumValue) {
+                bindEnum(statement, jdbcIndex, enumValue);
             } else if (parameter instanceof String string) {
                 statement.setString(jdbcIndex, string);
             } else if (parameter instanceof Boolean bool) {
@@ -123,6 +125,14 @@ public abstract class AbstractRepositorySupport {
                 statement.setObject(jdbcIndex, parameter);
             }
         }
+    }
+
+    protected static void bindEnum(PreparedStatement statement, int jdbcIndex, Enum<?> enumValue) throws SQLException {
+        if (enumValue == null) {
+            statement.setObject(jdbcIndex, null);
+            return;
+        }
+        statement.setString(jdbcIndex, enumValue.name());
     }
 
     protected int deleteWhere(Connection connection, String sql, Object... parameters) throws SQLException {
@@ -153,6 +163,12 @@ public abstract class AbstractRepositorySupport {
     protected static Long nullableLong(ResultSet resultSet, String columnName) throws SQLException {
         long value = resultSet.getLong(columnName);
         return resultSet.wasNull() ? null : value;
+    }
+
+    protected static <E extends Enum<E>> E parseEnum(ResultSet resultSet, String columnName, Class<E> enumType)
+            throws SQLException {
+        String raw = resultSet.getString(columnName);
+        return raw == null ? null : Enum.valueOf(enumType, raw);
     }
 
     protected static Timestamp nowTimestamp() {

@@ -247,7 +247,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
                 if (!resultSet.next()) {
                     return "";
                 }
-                AccountType accountType = AccountType.valueOf(resultSet.getString("account_type"));
+                AccountType accountType = parseEnum(resultSet, "account_type", AccountType.class);
                 if (accountType != AccountType.PLAYER) {
                     String accountName = resultSet.getString("account_name");
                     if (accountName == null || accountName.isBlank()) {
