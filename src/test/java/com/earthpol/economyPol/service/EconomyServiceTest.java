@@ -640,7 +640,7 @@ final class EconomyServiceTest {
     }
 
     @Test
-    void syncPlayerIdentityRefreshesExistingPlayerAccountNameOnJoin() {
+    void syncPlayerIdentityNormalizesExistingPlayerAccountNameOnJoin() {
         PlayerMock player = server.addPlayer("Bustun");
 
         AccountRepository accountRepository = mock(AccountRepository.class);
@@ -662,7 +662,7 @@ final class EconomyServiceTest {
                 new AccountRecord(accountId, AccountType.PLAYER, accountId, "OldName")
         ));
         when(accountRepository.ensurePlayerAccount(accountId, player.getName())).thenReturn(
-                new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName())
+                new AccountRecord(accountId, AccountType.PLAYER, accountId, accountId.toString())
         );
 
         EconomyService economyService = new EconomyService(
@@ -685,6 +685,98 @@ final class EconomyServiceTest {
 
         verify(playerRepository).ensurePlayer(accountId, player.getName());
         verify(accountRepository).ensurePlayerAccount(accountId, player.getName());
+    }
+
+    @Test
+    void ensurePlayerAccountDoesNotTreatDisplayNameAsCanonicalAccountName() {
+        UUID playerUuid = UUID.randomUUID();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        AccountRecord playerAccount = new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerUuid.toString());
+        when(accountRepository.findAccountByName(playerUuid.toString())).thenReturn(Optional.empty());
+        when(accountRepository.ensurePlayerAccount(playerUuid, "Alice")).thenReturn(playerAccount);
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        AccountRecord created = economyService.ensurePlayerAccount(playerUuid, "Alice");
+
+        assertEquals(playerAccount, created);
+        verify(playerRepository).ensurePlayer(playerUuid, "Alice");
+        verify(accountRepository).findAccountByName(playerUuid.toString());
+        verify(accountRepository).ensurePlayerAccount(playerUuid, "Alice");
+        verify(accountRepository, never()).findAccountByName("Alice");
+    }
+
+    @Test
+    void ensurePlayerAccountRejectsStableStorageNameCollisionWithDifferentAccount() {
+        UUID playerUuid = UUID.randomUUID();
+        UUID conflictingAccountId = UUID.randomUUID();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        when(accountRepository.findAccountByName(playerUuid.toString())).thenReturn(Optional.of(
+                new AccountRecord(conflictingAccountId, AccountType.SHARED, conflictingAccountId, playerUuid.toString())
+        ));
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        assertThrows(IllegalStateException.class, () -> economyService.ensurePlayerAccount(playerUuid, "Alice"));
+        verify(accountRepository).findAccountByName(playerUuid.toString());
+        verify(playerRepository, never()).ensurePlayer(any(UUID.class), anyString());
+        verify(accountRepository, never()).ensurePlayerAccount(any(UUID.class), anyString());
     }
 
     @Test
@@ -727,6 +819,90 @@ final class EconomyServiceTest {
 
         verify(playerRepository).ensurePlayer(player.getUniqueId(), player.getName());
         verify(accountRepository, never()).ensurePlayerAccount(any(UUID.class), anyString());
+    }
+
+    @Test
+    void getAccountNameReturnsPlayerUsernameInsteadOfStableStoredKey() {
+        UUID playerUuid = UUID.randomUUID();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        when(accountRepository.findAccount(playerUuid)).thenReturn(Optional.of(
+                new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerUuid.toString())
+        ));
+        when(playerRepository.findUsername(playerUuid)).thenReturn(Optional.of("Alice"));
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        assertEquals(Optional.of("Alice"), economyService.getAccountName(playerUuid));
+    }
+
+    @Test
+    void renameAccountRejectsPlayerAccounts() {
+        UUID playerUuid = UUID.randomUUID();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        when(accountRepository.findAccount(playerUuid)).thenReturn(Optional.of(
+                new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerUuid.toString())
+        ));
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        assertFalse(economyService.renameAccount(playerUuid, "Alice"));
+        verify(accountRepository, never()).renameAccount(any(UUID.class), anyString());
     }
 
     @Test

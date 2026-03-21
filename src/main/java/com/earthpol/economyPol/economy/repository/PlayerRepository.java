@@ -5,6 +5,8 @@ import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 
 import java.sql.Timestamp;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -70,6 +72,27 @@ public final class PlayerRepository extends AbstractRepositorySupport {
                 statement -> bind(statement, uuid(playerUuid)),
                 resultSet -> resultSet.getString("username")
         ).filter(username -> username != null && !username.isBlank());
+    }
+
+    public Map<UUID, String> listUsernames() {
+        Map<UUID, String> usernames = new LinkedHashMap<>();
+        queryList(
+                """
+                SELECT player_uuid, username
+                FROM economy_players
+                ORDER BY username ASC
+                """,
+                statement -> {
+                },
+                resultSet -> {
+                    String username = resultSet.getString("username");
+                    if (username != null && !username.isBlank()) {
+                        usernames.put(parseUuid(resultSet.getObject("player_uuid")), username);
+                    }
+                    return null;
+                }
+        );
+        return Map.copyOf(usernames);
     }
 
     public void setIncomingPaymentDeliveryPreference(UUID playerUuid, IncomingPaymentDeliveryPreference preference) {

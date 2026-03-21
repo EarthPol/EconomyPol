@@ -20,47 +20,29 @@ public final class AccountRepository extends AbstractRepositorySupport {
         super(databaseService, loggers);
     }
 
-    public AccountRecord ensurePlayerAccount(UUID playerUuid, String playerName) {
-        PlayerNameUpsertPlan namePlan = PlayerNameUpsertPlan.from(playerUuid, playerName);
+    public AccountRecord ensurePlayerAccount(UUID playerUuid, String ignoredPlayerName) {
+        // Player accounts are keyed internally by a stable UUID-backed name.
+        // Mutable display usernames live in economy_players.username instead.
+        String storedName = playerUuid.toString();
         Timestamp now = nowTimestamp();
-        if (namePlan.overwriteExisting()) {
-            update("""
-                    INSERT INTO economy_accounts (
-                        account_id, account_type, owner_uuid, account_name, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        account_name = VALUES(account_name),
-                        updated_at = VALUES(updated_at)
-                    """,
-                    uuid(playerUuid),
-                    AccountType.PLAYER,
-                    uuid(playerUuid),
-                    namePlan.storedName(),
-                    now,
-                    now
-            );
-        } else {
-            update("""
-                    INSERT INTO economy_accounts (
-                        account_id, account_type, owner_uuid, account_name, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE
-                        updated_at = VALUES(updated_at)
-                    """,
-                    uuid(playerUuid),
-                    AccountType.PLAYER,
-                    uuid(playerUuid),
-                    namePlan.storedName(),
-                    now,
-                    now
-            );
-        }
+        update("""
+                INSERT INTO economy_accounts (
+                    account_id, account_type, owner_uuid, account_name, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    account_name = VALUES(account_name),
+                    updated_at = VALUES(updated_at)
+                """,
+                uuid(playerUuid),
+                AccountType.PLAYER,
+                uuid(playerUuid),
+                storedName,
+                now,
+                now
+        );
         ensureBalanceRow(playerUuid);
-        if (namePlan.overwriteExisting()) {
-            return new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, namePlan.storedName());
-        }
         return findPlayerAccount(playerUuid)
-                .orElse(new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, namePlan.storedName()));
+                .orElse(new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, storedName));
     }
 
     public AccountRecord ensureSharedAccount(String name, UUID ownerUuid) {
@@ -188,6 +170,19 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 }
         );
         return Map.copyOf(names);
+    }
+
+    public List<AccountRecord> listAccounts() {
+        return queryList(
+                """
+                SELECT account_id, account_type, owner_uuid, account_name
+                FROM economy_accounts
+                ORDER BY account_name ASC
+                """,
+                statement -> {
+                },
+                this::readAccount
+        );
     }
 
     public boolean renameAccount(UUID accountId, String newName) {

@@ -300,12 +300,31 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
 
     @Override
     public boolean createPlayerAccount(String playerName) {
-        return resolvePlayer(playerName).map(economyService::ensurePlayerAccount).isPresent();
+        Optional<OfflinePlayer> player = resolvePlayer(playerName);
+        if (player.isEmpty() || !isEligibleForLegacyPlayerAccountCreation(player.get())) {
+            return false;
+        }
+        try {
+            return economyService.ensurePlayerAccount(player.get()) != null;
+        } catch (RuntimeException exception) {
+            loggers.logWarn("Failed to create legacy Vault player account for '" + playerName + "': " +
+                    exception.getMessage(), LogType.OPERATIONS);
+            return false;
+        }
     }
 
     @Override
     public boolean createPlayerAccount(OfflinePlayer player) {
-        return player != null && economyService.ensurePlayerAccount(player) != null;
+        if (!isEligibleForLegacyPlayerAccountCreation(player)) {
+            return false;
+        }
+        try {
+            return economyService.ensurePlayerAccount(player) != null;
+        } catch (RuntimeException exception) {
+            loggers.logWarn("Failed to create legacy Vault player account for '" + player.getUniqueId() + "': " +
+                    exception.getMessage(), LogType.OPERATIONS);
+            return false;
+        }
     }
 
     @Override
@@ -364,11 +383,6 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
             return findExistingPlayerAccount(playerUuid);
         } catch (IllegalArgumentException ignored) {
         }
-
-        Optional<AccountRecord> byName = economyService.findAccountByName(playerName).filter(this::isPlayerAccount);
-        if (byName.isPresent()) {
-            return byName;
-        }
         return resolvePlayer(playerName).flatMap(this::findExistingPlayerAccount);
     }
 
@@ -377,6 +391,10 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
             return Optional.empty();
         }
         return findExistingPlayerAccount(player.getUniqueId());
+    }
+
+    private boolean isEligibleForLegacyPlayerAccountCreation(OfflinePlayer player) {
+        return player != null && (player.isOnline() || player.hasPlayedBefore());
     }
 
     private Optional<AccountRecord> findExistingPlayerAccount(UUID playerUuid) {
