@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS economy_accounts (
     account_name VARCHAR(191) NOT NULL,
     created_at TIMESTAMP(3) NOT NULL,
     updated_at TIMESTAMP(3) NOT NULL,
-    UNIQUE KEY uq_economy_accounts_owner (account_type, owner_uuid),
+    -- owner_uuid is metadata for owner checks and listing; shared-account identity is account_id.
+    -- This remains indexed, but not unique, so one owner can hold multiple shared accounts.
+    KEY idx_economy_accounts_owner (account_type, owner_uuid),
     UNIQUE KEY uq_economy_accounts_name (account_name)
 );
 
