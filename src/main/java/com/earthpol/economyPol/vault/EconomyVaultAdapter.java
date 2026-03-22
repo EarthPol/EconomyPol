@@ -367,7 +367,16 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
                 return Optional.of(Bukkit.getOfflinePlayer(playerUuid));
             } catch (IllegalArgumentException ignored) {
             }
-            return Optional.of(Bukkit.getOfflinePlayer(playerName));
+            Optional<UUID> storedPlayerUuid = economyService.findPlayerUuidByUsername(playerName);
+            if (storedPlayerUuid.isPresent()) {
+                return Optional.of(Bukkit.getOfflinePlayer(storedPlayerUuid.get()));
+            }
+            org.bukkit.entity.Player onlinePlayer = Bukkit.getPlayerExact(playerName);
+            if (onlinePlayer != null) {
+                return Optional.of(onlinePlayer);
+            }
+            OfflinePlayer cachedPlayer = Bukkit.getOfflinePlayerIfCached(playerName);
+            return Optional.ofNullable(cachedPlayer);
         } catch (Exception exception) {
             loggers.logWarn("Failed to resolve player '" + playerName + "': " + exception.getMessage(), LogType.OPERATIONS);
             return Optional.empty();

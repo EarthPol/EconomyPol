@@ -74,6 +74,20 @@ public final class PlayerRepository extends AbstractRepositorySupport {
         ).filter(username -> username != null && !username.isBlank());
     }
 
+    public Optional<UUID> findPlayerUuidByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return Optional.empty();
+        }
+        return queryOne("""
+                        SELECT player_uuid
+                        FROM economy_players
+                        WHERE username = ?
+                        """,
+                statement -> bind(statement, username),
+                resultSet -> parseUuid(resultSet.getObject("player_uuid"))
+        );
+    }
+
     public Map<UUID, String> listUsernames() {
         Map<UUID, String> usernames = new LinkedHashMap<>();
         queryList(

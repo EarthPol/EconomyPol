@@ -143,6 +143,10 @@ public final class EconomyService {
         return accountRegistryService.findPlayerAccount(playerUuid);
     }
 
+    public Optional<UUID> findPlayerUuidByUsername(String username) {
+        return accountRegistryService.findPlayerUuidByUsername(username);
+    }
+
     public void registerPlayer(OfflinePlayer player) {
         accountRegistryService.registerPlayer(player);
     }

@@ -97,24 +97,18 @@ final class EconomyVaultAdapterTest {
     void hasAccountByNameDoesNotCreateGhostPlayerAccounts() {
         EconomyService economyService = mock(EconomyService.class);
         EconomyVaultAdapter adapter = newAdapter(economyService);
-        OfflinePlayer player = mock(OfflinePlayer.class);
-        UUID playerUuid = UUID.randomUUID();
-
-        when(player.getUniqueId()).thenReturn(playerUuid);
-        when(economyService.findAccount(playerUuid)).thenReturn(Optional.empty());
+        when(economyService.findPlayerUuidByUsername("GhostPlayer")).thenReturn(Optional.empty());
 
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
-            bukkit.when(() -> Bukkit.getOfflinePlayer("GhostPlayer")).thenReturn(player);
-
             assertFalse(adapter.hasAccount("GhostPlayer"));
         }
 
-        verify(economyService).findAccount(playerUuid);
+        verify(economyService).findPlayerUuidByUsername("GhostPlayer");
         verifyNoMoreInteractions(economyService);
     }
 
     @Test
-    void hasAccountByNameResolvesCurrentUsernameToUuidBackedPlayerAccount() {
+    void hasAccountByNameResolvesCurrentUsernameToUuidBackedPlayerAccountFromDatabase() {
         EconomyService economyService = mock(EconomyService.class);
         EconomyVaultAdapter adapter = newAdapter(economyService);
         OfflinePlayer player = mock(OfflinePlayer.class);
@@ -122,16 +116,40 @@ final class EconomyVaultAdapterTest {
         AccountRecord account = new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerUuid.toString());
 
         when(player.getUniqueId()).thenReturn(playerUuid);
+        when(economyService.findPlayerUuidByUsername("Alice")).thenReturn(Optional.of(playerUuid));
         when(economyService.findAccount(playerUuid)).thenReturn(Optional.of(account));
 
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
-            bukkit.when(() -> Bukkit.getOfflinePlayer("Alice")).thenReturn(player);
+            bukkit.when(() -> Bukkit.getOfflinePlayer(playerUuid)).thenReturn(player);
+            assertTrue(adapter.hasAccount("Alice"));
+        }
+
+        verify(economyService).findPlayerUuidByUsername("Alice");
+        verify(economyService).findAccount(playerUuid);
+        verify(economyService, never()).findAccountByName("Alice");
+    }
+
+    @Test
+    void hasAccountByNameFallsBackToCachedBukkitPlayerWhenDatabaseMisses() {
+        EconomyService economyService = mock(EconomyService.class);
+        EconomyVaultAdapter adapter = newAdapter(economyService);
+        OfflinePlayer cachedPlayer = mock(OfflinePlayer.class);
+        UUID playerUuid = UUID.randomUUID();
+        AccountRecord account = new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerUuid.toString());
+
+        when(economyService.findPlayerUuidByUsername("Alice")).thenReturn(Optional.empty());
+        when(cachedPlayer.getUniqueId()).thenReturn(playerUuid);
+        when(economyService.findAccount(playerUuid)).thenReturn(Optional.of(account));
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getPlayerExact("Alice")).thenReturn(null);
+            bukkit.when(() -> Bukkit.getOfflinePlayerIfCached("Alice")).thenReturn(cachedPlayer);
 
             assertTrue(adapter.hasAccount("Alice"));
         }
 
+        verify(economyService).findPlayerUuidByUsername("Alice");
         verify(economyService).findAccount(playerUuid);
-        verify(economyService, never()).findAccountByName("Alice");
     }
 
     @Test
@@ -166,18 +184,16 @@ final class EconomyVaultAdapterTest {
     void createPlayerAccountByNameRejectsGhostOfflinePlayer() {
         EconomyService economyService = mock(EconomyService.class);
         EconomyVaultAdapter adapter = newAdapter(economyService);
-        OfflinePlayer player = mock(OfflinePlayer.class);
-
-        when(player.isOnline()).thenReturn(false);
-        when(player.hasPlayedBefore()).thenReturn(false);
+        when(economyService.findPlayerUuidByUsername("GhostPlayer")).thenReturn(Optional.empty());
 
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
-            bukkit.when(() -> Bukkit.getOfflinePlayer("GhostPlayer")).thenReturn(player);
+            bukkit.when(() -> Bukkit.getPlayerExact("GhostPlayer")).thenReturn(null);
+            bukkit.when(() -> Bukkit.getOfflinePlayerIfCached("GhostPlayer")).thenReturn(null);
 
             assertFalse(adapter.createPlayerAccount("GhostPlayer"));
         }
 
-        verify(economyService, never()).ensurePlayerAccount(player);
+        verify(economyService, never()).ensurePlayerAccount(org.mockito.ArgumentMatchers.any(OfflinePlayer.class));
     }
 
     @Test
@@ -185,14 +201,16 @@ final class EconomyVaultAdapterTest {
         EconomyService economyService = mock(EconomyService.class);
         EconomyVaultAdapter adapter = newAdapter(economyService);
         OfflinePlayer player = mock(OfflinePlayer.class);
+        UUID playerUuid = UUID.randomUUID();
 
         when(player.isOnline()).thenReturn(false);
         when(player.hasPlayedBefore()).thenReturn(true);
-        when(player.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(player.getUniqueId()).thenReturn(playerUuid);
+        when(economyService.findPlayerUuidByUsername("Alice")).thenReturn(Optional.of(playerUuid));
         when(economyService.ensurePlayerAccount(player)).thenThrow(new IllegalStateException("name collision"));
 
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
-            bukkit.when(() -> Bukkit.getOfflinePlayer("Alice")).thenReturn(player);
+            bukkit.when(() -> Bukkit.getOfflinePlayer(playerUuid)).thenReturn(player);
 
             assertFalse(adapter.createPlayerAccount("Alice"));
         }

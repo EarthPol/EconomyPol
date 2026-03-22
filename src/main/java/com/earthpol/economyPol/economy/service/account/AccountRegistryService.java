@@ -98,6 +98,10 @@ public final class AccountRegistryService {
         return playerRepository.findUsername(playerUuid);
     }
 
+    public Optional<UUID> findPlayerUuidByUsername(String username) {
+        return playerRepository.findPlayerUuidByUsername(username);
+    }
+
     public IncomingPaymentDeliveryPreference setIncomingPaymentDeliveryPreference(
             UUID playerUuid,
             String playerName,
