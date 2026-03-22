@@ -88,7 +88,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
         return queryOne("""
                 SELECT account_id, account_type, owner_uuid, account_name
                 FROM economy_accounts
-                WHERE owner_uuid = ? AND account_type = ?
+                WHERE account_id = ? AND account_type = ?
                 """,
                 statement -> {
                     statement.setObject(1, uuid(playerUuid));
