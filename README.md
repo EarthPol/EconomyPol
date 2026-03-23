@@ -173,6 +173,70 @@ They support:
 
 This is the correct model for towns, nations, server treasuries, and other non-player entities.
 
+## Handling of Non-Player vs Player Accounts
+
+`economy_balances` is EconomyPol's per-account database balance table.
+
+For every `account_id`, it stores:
+
+- `available_balance`
+- `reserved_balance`
+
+This table is the source of truth for all database-backed balance movement. Reservations, custodial credits, custodial withdrawals, and shared-account deposits or withdrawals all flow through it.
+
+### Non-Player Accounts
+
+For non-player accounts, meaning shared accounts such as:
+
+- towns
+- nations
+- server treasuries
+- admin-created banks
+
+`economy_balances` is the actual balance.
+
+That means:
+
+- the shared account's money lives entirely in the database
+- `available_balance` is the spendable bank balance
+- `reserved_balance` is money temporarily locked for an in-flight operation
+- shared accounts do not have a physical-inventory money state
+
+So when TNE shared accounts are migrated into EconomyPol, their balances are meant to land in `economy_balances`.
+
+### Player Accounts
+
+For player accounts, `economy_balances` means something different.
+
+It is the player's custodial balance, not the player's normal carried money.
+
+Player money is intentionally split across multiple states:
+
+- live physical money in inventory/offhand/ender chest
+- frozen offline ender-wallet snapshot value
+- custodial database money in `economy_balances`
+
+Important current rule:
+
+- player `spendable` balance does **not** include custodial
+
+So a player can have money in `economy_balances` and still be unable to spend through normal Vault/player withdraw flows until they explicitly materialize that money back into physical form.
+
+In practice, player custodial is used for cases like:
+
+- explicit self-deposit of physical money into storage
+- overflow when incoming money or returned change does not fully fit physically
+- offline fallback credits when the managed offline wallet cannot be used
+- temporary reservation during custodial-to-physical withdrawal
+
+### Practical Effect
+
+If you populate `economy_balances` for a shared account, you are setting that bank's real balance.
+
+If you populate `economy_balances` for a player account, you are giving that player custodial stored value, not money directly in their inventory.
+
+That distinction is intentional and is central to how EconomyPol separates non-player ledger balances from player-held physical money.
+
 ## Routing
 
 EconomyPol has one canonical routing order:
