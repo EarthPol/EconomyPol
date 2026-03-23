@@ -13,6 +13,8 @@ import java.util.List;
 
 final class LiveMoneyDeliveryService {
 
+    private record PlacementResult(long delivered, long remainder) {}
+
     private final DenominationService denominationService;
     private final LiveMoneySnapshotService snapshotService;
 
@@ -22,86 +24,54 @@ final class LiveMoneyDeliveryService {
     }
 
     LiveMoneyService.DeliveryResult deliver(Player player, long amount, List<MoneyRouteTarget> routingOrder) {
-        long remaining = amount;
-        List<ItemStack> pending = denominationService.materialize(amount);
         long deliveredToInventory = 0L;
         long deliveredToEnder = 0L;
 
         for (MoneyRouteTarget target : routingOrder) {
-            if (pending.isEmpty() || target == MoneyRouteTarget.CUSTODIAL_ACCOUNT) {
+            if (amount <= 0L || target == MoneyRouteTarget.CUSTODIAL_ACCOUNT) {
                 break;
             }
-            Inventory destination = target == MoneyRouteTarget.INVENTORY ? player.getInventory() : player.getEnderChest();
-            List<ItemStack> leftovers = addToInventory(destination, pending);
-            long deliveredNow = denominationService.countStacks(pending) - denominationService.countStacks(leftovers);
+            PlacementResult placement = switch (target) {
+                case INVENTORY -> deliverToInventory(player.getInventory(), player.getInventory().getContents(), amount);
+                case ENDER_CHEST -> deliverToInventory(player.getEnderChest(), player.getEnderChest().getContents(), amount);
+                case CUSTODIAL_ACCOUNT -> new PlacementResult(0L, amount);
+            };
+            long deliveredNow = placement.delivered();
             if (target == MoneyRouteTarget.INVENTORY) {
                 deliveredToInventory += deliveredNow;
             } else {
                 deliveredToEnder += deliveredNow;
             }
-            pending = leftovers;
-            remaining = denominationService.countStacks(pending);
+            amount = placement.remainder();
         }
 
-        return new LiveMoneyService.DeliveryResult(deliveredToInventory, deliveredToEnder, remaining);
+        return new LiveMoneyService.DeliveryResult(deliveredToInventory, deliveredToEnder, amount);
     }
 
     long maxDeliverableToInventory(LiveMoneyService.LiveContainerSnapshot snapshot, long maxAmount) {
-        if (maxAmount <= 0L) {
-            return 0L;
-        }
-
-        List<Denomination> denominations = denominationService.descending();
-        long[] existingStackCapacity = new long[denominations.size()];
-        int emptySlots = 0;
-        for (ItemStack itemStack : snapshot.inventoryContents()) {
-            if (itemStack == null || itemStack.getType() == Material.AIR) {
-                emptySlots++;
-                continue;
-            }
-            for (int index = 0; index < denominations.size(); index++) {
-                Denomination denomination = denominations.get(index);
-                if (denomination.material() != itemStack.getType()) {
-                    continue;
-                }
-                int freeItems = itemStack.getMaxStackSize() - itemStack.getAmount();
-                if (freeItems > 0) {
-                    existingStackCapacity[index] += freeItems;
-                }
-                break;
-            }
-        }
-        return maxDeliverableToInventory(
-                denominations,
-                existingStackCapacity,
-                emptySlots,
-                Math.max(0L, maxAmount),
-                0
-        );
+        return maxDeliverableToContents(snapshot.inventoryContents(), maxAmount);
     }
 
     LiveMoneyService.DeliveryResult deliver(LiveMoneySimulatedState simulatedState, long amount, List<MoneyRouteTarget> routingOrder) {
         long remaining = amount;
-        List<ItemStack> pending = denominationService.materialize(amount);
         long deliveredToInventory = 0L;
         long deliveredToEnder = 0L;
 
         for (MoneyRouteTarget target : routingOrder) {
-            if (pending.isEmpty() || target == MoneyRouteTarget.CUSTODIAL_ACCOUNT) {
+            if (remaining <= 0L || target == MoneyRouteTarget.CUSTODIAL_ACCOUNT) {
                 break;
             }
             ItemStack[] destination = target == MoneyRouteTarget.INVENTORY
                     ? simulatedState.inventoryContents()
                     : simulatedState.enderChestContents();
-            List<ItemStack> leftovers = addToContents(destination, pending);
-            long deliveredNow = denominationService.countStacks(pending) - denominationService.countStacks(leftovers);
+            PlacementResult placement = deliverToContents(destination, remaining);
+            long deliveredNow = placement.delivered();
             if (target == MoneyRouteTarget.INVENTORY) {
                 deliveredToInventory += deliveredNow;
             } else {
                 deliveredToEnder += deliveredNow;
             }
-            pending = leftovers;
-            remaining = denominationService.countStacks(pending);
+            remaining = placement.remainder();
         }
 
         return new LiveMoneyService.DeliveryResult(deliveredToInventory, deliveredToEnder, remaining);
@@ -124,12 +94,10 @@ final class LiveMoneyDeliveryService {
             targetContents[slot] = null;
         }
 
-        List<ItemStack> pending = new ArrayList<>();
-        for (ItemStack itemStack : denominationService.materialize(targetBaseUnits)) {
-            pending.add(snapshotService.cloneStack(itemStack));
-        }
-        List<ItemStack> leftovers = placeIntoEmptySlots(targetContents, pending);
-        long overflow = denominationService.countStacks(leftovers);
+        long deliverable = maxDeliverableToContents(targetContents, targetBaseUnits);
+        List<ItemStack> leftovers = placeIntoEmptySlots(targetContents, denominationService.materialize(deliverable));
+        long delivered = deliverable - denominationService.countStacks(leftovers);
+        long overflow = Math.max(0L, targetBaseUnits - delivered);
         return new LiveMoneyService.ManagedEnderWalletSyncPlan(
                 targetBaseUnits,
                 existingTopLevelMoneyValue,
@@ -155,9 +123,65 @@ final class LiveMoneyDeliveryService {
             enderChest.setItem(slot, null);
         }
 
-        List<ItemStack> leftovers = addToInventory(enderChest, denominationService.materialize(total));
-        long overflow = denominationService.countStacks(leftovers);
+        long deliverable = maxDeliverableToContents(enderChest.getContents(), total);
+        List<ItemStack> leftovers = addToInventory(enderChest, denominationService.materialize(deliverable));
+        long delivered = deliverable - denominationService.countStacks(leftovers);
+        long overflow = Math.max(0L, total - delivered);
         return new LiveMoneyService.NormalizationResult(total, overflow, malformed);
+    }
+
+    private PlacementResult deliverToInventory(Inventory inventory, ItemStack[] currentContents, long remainingAmount) {
+        long deliverable = maxDeliverableToContents(currentContents, remainingAmount);
+        if (deliverable <= 0L) {
+            return new PlacementResult(0L, remainingAmount);
+        }
+        List<ItemStack> leftovers = addToInventory(inventory, denominationService.materialize(deliverable));
+        long delivered = deliverable - denominationService.countStacks(leftovers);
+        return new PlacementResult(delivered, Math.max(0L, remainingAmount - delivered));
+    }
+
+    private PlacementResult deliverToContents(ItemStack[] contents, long remainingAmount) {
+        long deliverable = maxDeliverableToContents(contents, remainingAmount);
+        if (deliverable <= 0L) {
+            return new PlacementResult(0L, remainingAmount);
+        }
+        List<ItemStack> leftovers = addToContents(contents, denominationService.materialize(deliverable));
+        long delivered = deliverable - denominationService.countStacks(leftovers);
+        return new PlacementResult(delivered, Math.max(0L, remainingAmount - delivered));
+    }
+
+    private long maxDeliverableToContents(ItemStack[] contents, long maxAmount) {
+        if (maxAmount <= 0L) {
+            return 0L;
+        }
+
+        List<Denomination> denominations = denominationService.descending();
+        long[] existingStackCapacity = new long[denominations.size()];
+        int emptySlots = 0;
+        for (ItemStack itemStack : contents) {
+            if (itemStack == null || itemStack.getType() == Material.AIR) {
+                emptySlots++;
+                continue;
+            }
+            for (int index = 0; index < denominations.size(); index++) {
+                Denomination denomination = denominations.get(index);
+                if (denomination.material() != itemStack.getType()) {
+                    continue;
+                }
+                int freeItems = itemStack.getMaxStackSize() - itemStack.getAmount();
+                if (freeItems > 0) {
+                    existingStackCapacity[index] += freeItems;
+                }
+                break;
+            }
+        }
+        return maxDeliverableToContents(
+                denominations,
+                existingStackCapacity,
+                emptySlots,
+                Math.max(0L, maxAmount),
+                0
+        );
     }
 
     private List<ItemStack> addToInventory(Inventory inventory, List<ItemStack> itemStacks) {
@@ -168,7 +192,7 @@ final class LiveMoneyDeliveryService {
         return leftovers;
     }
 
-    private long maxDeliverableToInventory(
+    private long maxDeliverableToContents(
             List<Denomination> denominations,
             long[] existingStackCapacity,
             int remainingSlots,
@@ -184,7 +208,13 @@ final class LiveMoneyDeliveryService {
         int maxStackSize = denomination.material().getMaxStackSize();
         long maxItemsByAmount = remainingAmount / denominationValue;
         if (maxItemsByAmount <= 0L) {
-            return 0L;
+            return maxDeliverableToContents(
+                    denominations,
+                    existingStackCapacity,
+                    remainingSlots,
+                    remainingAmount,
+                    denominationIndex + 1
+            );
         }
 
         long freeExistingItems = existingStackCapacity[denominationIndex];
@@ -210,7 +240,7 @@ final class LiveMoneyDeliveryService {
             previousItemCount = itemCount;
 
             long currentValue = itemCount * denominationValue;
-            long lowerValue = maxDeliverableToInventory(
+            long lowerValue = maxDeliverableToContents(
                     denominations,
                     existingStackCapacity,
                     remainingSlots - slotsUsed,
@@ -280,4 +310,3 @@ final class LiveMoneyDeliveryService {
         return leftovers;
     }
 }
-

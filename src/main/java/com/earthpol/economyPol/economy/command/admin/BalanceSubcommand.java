@@ -31,7 +31,7 @@ public final class BalanceSubcommand extends AbstractEconomySubcommand {
             return true;
         }
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
-        sendBalanceView(sender, target);
+        sendBalanceViewAdmin(sender, target);
         return true;
     }
 

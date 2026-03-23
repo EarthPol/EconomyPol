@@ -1,15 +1,18 @@
 package com.earthpol.economyPol.service;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
+import com.earthpol.economyPol.economy.model.MoneyOperationFailureReason;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
+import com.earthpol.economyPol.economy.model.PendingPlayerPayment;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
+import com.earthpol.economyPol.economy.repository.PendingPlayerPaymentRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.money.LiveMoneyService;
@@ -36,6 +39,7 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -73,6 +77,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -81,8 +86,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -93,7 +97,7 @@ final class EconomyServiceTest {
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
 
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
+        when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(account));
         when(fundsRepository.getBalance(accountId)).thenReturn(new BalanceRecord(100L, 0L));
         when(fundsRepository.reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING")).thenReturn(new BalanceRecord(90L, 10L));
 
@@ -123,6 +127,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -131,8 +136,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.withdrawCustodialAsPhysicalMoney(player, 10L, routingOrder);
@@ -140,6 +144,7 @@ final class EconomyServiceTest {
         assertFalse(result.success());
         assertEquals(10L, result.remainder());
         assertEquals("Physical withdrawal failed while delivering money.", result.message());
+        assertEquals(MoneyOperationFailureReason.DELIVERY_FAILED, result.failureReason());
         assertEquals(Material.STONE, player.getInventory().getItem(0).getType());
         assertEquals(Material.DIAMOND, player.getEnderChest().getItem(1).getType());
         assertEquals(Material.DIRT, player.getInventory().getItemInOffHand().getType());
@@ -156,6 +161,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -164,8 +170,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -176,7 +181,7 @@ final class EconomyServiceTest {
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
 
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
+        when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(account));
         when(fundsRepository.getBalance(accountId)).thenReturn(new BalanceRecord(100L, 0L));
         when(fundsRepository.reserveAvailable(accountId, 10L, "SELF_WITHDRAW_PENDING")).thenReturn(new BalanceRecord(90L, 10L));
         when(fundsRepository.settleReservedWithdrawal(
@@ -197,6 +202,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -205,8 +211,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.withdrawCustodialAsPhysicalMoney(player, 10L, routingOrder);
@@ -235,6 +240,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -243,8 +249,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -255,7 +260,7 @@ final class EconomyServiceTest {
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
 
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
+        when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(account));
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
         when(liveMoneyService.captureLiveContainerSnapshot(player)).thenReturn(snapshotOf(player));
         when(liveMoneyService.spendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.FAIL))
@@ -268,6 +273,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -276,14 +282,14 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.withdrawPlayer(player, 10L, "VAULT2_WITHDRAW:QuickShop");
 
         assertFalse(result.success());
         assertEquals(LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE, result.message());
+        assertEquals(MoneyOperationFailureReason.NOT_ENOUGH_ROOM_FOR_CHANGE, result.failureReason());
         verify(notificationService).notifyNotEnoughRoomForChange(player);
     }
 
@@ -294,6 +300,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -302,8 +309,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -314,7 +320,7 @@ final class EconomyServiceTest {
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
 
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
+        when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(account));
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
         when(liveMoneyService.captureLiveContainerSnapshot(player)).thenReturn(snapshotOf(player));
         when(liveMoneyService.spendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.FAIL))
@@ -327,6 +333,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -335,14 +342,14 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.withdrawPlayer(player, 10L, "PLAYER_MARKET_BUY");
 
         assertFalse(result.success());
         assertEquals(LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE, result.message());
+        assertEquals(MoneyOperationFailureReason.NOT_ENOUGH_ROOM_FOR_CHANGE, result.failureReason());
         verify(notificationService).notifyNotEnoughRoomForChange(player);
     }
 
@@ -353,6 +360,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -361,8 +369,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -371,6 +378,9 @@ final class EconomyServiceTest {
         );
 
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.FAIL);
+        when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(
+                new AccountRecord(player.getUniqueId(), AccountType.PLAYER, player.getUniqueId(), player.getName())
+        ));
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
         when(liveMoneyService.canSpendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.FAIL))
                 .thenReturn(LiveMoneyService.SpendabilityResult.blocked(LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE));
@@ -382,6 +392,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -390,8 +401,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         boolean hasEnough = economyService.hasEnough(player, 10L);
@@ -407,6 +417,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -415,23 +426,24 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
         UUID accountId = player.getUniqueId();
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
 
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.CUSTODIAL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
+        when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(account));
         when(fundsRepository.getBalance(accountId)).thenReturn(new BalanceRecord(0L, 0L));
         doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
                 .when(schedulerService)
                 .callOnPlayerEntityScheduler(eq(player), any(), anyString());
-        when(liveMoneyService.scanPlayerMoney(player)).thenReturn(50L);
+        when(liveMoneyService.scanPlayerMoneyBreakdown(player))
+                .thenReturn(new LiveMoneyService.LiveMoneyBreakdown(50L, 0L));
 
         EconomyService economyService = new EconomyService(
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -440,8 +452,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         boolean hasEnough = economyService.hasEnough(player, 10L);
@@ -458,6 +469,7 @@ final class EconomyServiceTest {
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -466,8 +478,7 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         List<MoneyRouteTarget> routingOrder = List.of(
                 MoneyRouteTarget.INVENTORY,
@@ -479,8 +490,7 @@ final class EconomyServiceTest {
         LiveMoneyService.LiveContainerSnapshot snapshot = snapshotOf(player);
 
         when(settings.changeOverflowPolicy()).thenReturn(PluginSettings.ChangeOverflowPolicy.CUSTODIAL);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
+        when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(account));
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
         when(liveMoneyService.captureLiveContainerSnapshot(player)).thenReturn(snapshot);
         when(liveMoneyService.spendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.CUSTODIAL))
@@ -501,6 +511,7 @@ final class EconomyServiceTest {
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -509,8 +520,7 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.withdrawPlayer(player, 10L, "VAULT2_WITHDRAW:Towny");
@@ -522,12 +532,13 @@ final class EconomyServiceTest {
     }
 
     @Test
-    void depositPlayerUsesIncomingPaymentDeliveryPreferenceForPassiveRouting() {
+    void depositPlayerQueuesOnlinePaymentsForLaterDelivery() {
         PlayerMock player = server.addPlayer();
 
         AccountRepository accountRepository = mock(AccountRepository.class);
         PlayerRepository playerRepository = mock(PlayerRepository.class);
         FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
         DenominationService denominationService = mock(DenominationService.class);
         LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
         EnderWalletService enderWalletService = mock(EnderWalletService.class);
@@ -536,29 +547,31 @@ final class EconomyServiceTest {
         NotificationService notificationService = mock(NotificationService.class);
         SchedulerService schedulerService = mock(SchedulerService.class);
         PluginSettings settings = mock(PluginSettings.class);
-        EnhancedLogger operationsLog = mock(EnhancedLogger.class);
-        EnhancedLogger auditLog = mock(EnhancedLogger.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         UUID accountId = player.getUniqueId();
         AccountRecord account = new AccountRecord(accountId, AccountType.PLAYER, accountId, player.getName());
-        List<MoneyRouteTarget> expectedRoutingOrder = List.of(
-                MoneyRouteTarget.ENDER_CHEST,
-                MoneyRouteTarget.CUSTODIAL_ACCOUNT
-        );
-
-        when(accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName())).thenReturn(account);
+        when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(account));
         when(playerRepository.getIncomingPaymentDeliveryPreference(player.getUniqueId()))
-                .thenReturn(IncomingPaymentDeliveryPreference.SKIP_INVENTORY);
-        when(liveMoneyService.deliver(player, 10L, expectedRoutingOrder))
-                .thenReturn(new LiveMoneyService.DeliveryResult(0L, 10L, 0L));
-        doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
-                .when(schedulerService)
-                .callOnPlayerEntityScheduler(eq(player), any(), anyString());
+                .thenReturn(IncomingPaymentDeliveryPreference.DEFAULT);
+        when(pendingPlayerPaymentRepository.enqueuePayment(player.getUniqueId(), 10L)).thenReturn(
+                new PendingPlayerPayment(
+                        UUID.randomUUID(),
+                        player.getUniqueId(),
+                        10L,
+                        com.earthpol.economyPol.economy.model.PendingPlayerPaymentStatus.PENDING,
+                        System.currentTimeMillis(),
+                        null,
+                        com.earthpol.economyPol.economy.model.PendingPlayerPaymentAttemptResult.NONE
+                )
+        );
+        when(schedulerService.runAsync(any(Runnable.class), anyString())).thenReturn(true);
 
         EconomyService economyService = new EconomyService(
                 accountRepository,
                 playerRepository,
                 fundsRepository,
+                pendingPlayerPaymentRepository,
                 denominationService,
                 liveMoneyService,
                 enderWalletService,
@@ -567,16 +580,370 @@ final class EconomyServiceTest {
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
 
         MoneyOperationResult result = economyService.depositPlayer(player, 10L, "VAULT2_DEPOSIT:QuickShop-Hikari");
 
         assertTrue(result.success());
-        verify(liveMoneyService).deliver(player, 10L, expectedRoutingOrder);
-        verify(fundsRepository, never()).changeAvailable(any(), anyLong(), anyString(), anyString(), any(), isNull());
+        assertEquals("Funds accepted for delivery.", result.message());
+        verify(pendingPlayerPaymentRepository).enqueuePayment(player.getUniqueId(), 10L);
+        verify(schedulerService).runAsync(any(Runnable.class), anyString());
+        verifyNoInteractions(liveMoneyService);
         verifyNoInteractions(notificationService);
+    }
+
+    @Test
+    void playerAccountOperationsFailWhenAccountDoesNotExist() {
+        PlayerMock player = server.addPlayer();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.empty());
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        MoneyOperationResult depositResult = economyService.depositToPlayerAccount(player, 10L, "PAYMENT");
+        MoneyOperationResult withdrawResult = economyService.withdrawFromPlayerAccount(player, 10L, "PAYMENT");
+
+        assertFalse(depositResult.success());
+        assertEquals(MoneyOperationFailureReason.ACCOUNT_NOT_FOUND, depositResult.failureReason());
+        assertFalse(withdrawResult.success());
+        assertEquals(MoneyOperationFailureReason.ACCOUNT_NOT_FOUND, withdrawResult.failureReason());
+        assertThrows(IllegalStateException.class, () -> economyService.getPlayerSpendableBalance(player));
+    }
+
+    @Test
+    void syncPlayerIdentityNormalizesExistingPlayerAccountNameOnJoin() {
+        PlayerMock player = server.addPlayer("Bustun");
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        UUID accountId = player.getUniqueId();
+        when(accountRepository.findPlayerAccount(accountId)).thenReturn(Optional.of(
+                new AccountRecord(accountId, AccountType.PLAYER, accountId, "OldName")
+        ));
+        when(accountRepository.ensurePlayerAccount(accountId, player.getName())).thenReturn(
+                new AccountRecord(accountId, AccountType.PLAYER, accountId, accountId.toString())
+        );
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        economyService.syncPlayerIdentity(player);
+
+        verify(playerRepository).ensurePlayer(accountId, player.getName());
+        verify(accountRepository).ensurePlayerAccount(accountId, player.getName());
+    }
+
+    @Test
+    void ensurePlayerAccountDoesNotTreatDisplayNameAsCanonicalAccountName() {
+        UUID playerUuid = UUID.randomUUID();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        AccountRecord playerAccount = new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerUuid.toString());
+        when(accountRepository.findAccountByName(playerUuid.toString())).thenReturn(Optional.empty());
+        when(accountRepository.ensurePlayerAccount(playerUuid, "Alice")).thenReturn(playerAccount);
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        AccountRecord created = economyService.ensurePlayerAccount(playerUuid, "Alice");
+
+        assertEquals(playerAccount, created);
+        verify(playerRepository).ensurePlayer(playerUuid, "Alice");
+        verify(accountRepository).findAccountByName(playerUuid.toString());
+        verify(accountRepository).ensurePlayerAccount(playerUuid, "Alice");
+        verify(accountRepository, never()).findAccountByName("Alice");
+    }
+
+    @Test
+    void ensurePlayerAccountRejectsStableStorageNameCollisionWithDifferentAccount() {
+        UUID playerUuid = UUID.randomUUID();
+        UUID conflictingAccountId = UUID.randomUUID();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        when(accountRepository.findAccountByName(playerUuid.toString())).thenReturn(Optional.of(
+                new AccountRecord(conflictingAccountId, AccountType.SHARED, conflictingAccountId, playerUuid.toString())
+        ));
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        assertThrows(IllegalStateException.class, () -> economyService.ensurePlayerAccount(playerUuid, "Alice"));
+        verify(accountRepository).findAccountByName(playerUuid.toString());
+        verify(playerRepository, never()).ensurePlayer(any(UUID.class), anyString());
+        verify(accountRepository, never()).ensurePlayerAccount(any(UUID.class), anyString());
+    }
+
+    @Test
+    void syncPlayerIdentityDoesNotCreateMissingPlayerAccountOnJoin() {
+        PlayerMock player = server.addPlayer("Bustun");
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.empty());
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        economyService.syncPlayerIdentity(player);
+
+        verify(playerRepository).ensurePlayer(player.getUniqueId(), player.getName());
+        verify(accountRepository, never()).ensurePlayerAccount(any(UUID.class), anyString());
+    }
+
+    @Test
+    void getAccountNameReturnsPlayerUsernameInsteadOfStableStoredKey() {
+        UUID playerUuid = UUID.randomUUID();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        when(accountRepository.findAccount(playerUuid)).thenReturn(Optional.of(
+                new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerUuid.toString())
+        ));
+        when(playerRepository.findUsername(playerUuid)).thenReturn(Optional.of("Alice"));
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        assertEquals(Optional.of("Alice"), economyService.getAccountName(playerUuid));
+    }
+
+    @Test
+    void renameAccountRejectsPlayerAccounts() {
+        UUID playerUuid = UUID.randomUUID();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        when(accountRepository.findAccount(playerUuid)).thenReturn(Optional.of(
+                new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerUuid.toString())
+        ));
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        assertFalse(economyService.renameAccount(playerUuid, "Alice"));
+        verify(accountRepository, never()).renameAccount(any(UUID.class), anyString());
+    }
+
+    @Test
+    void sharedAccountBalanceQueriesFailWhenAccountDoesNotExist() {
+        UUID accountId = UUID.randomUUID();
+
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        FundsRepository fundsRepository = mock(FundsRepository.class);
+        PendingPlayerPaymentRepository pendingPlayerPaymentRepository = mock(PendingPlayerPaymentRepository.class);
+        DenominationService denominationService = mock(DenominationService.class);
+        LiveMoneyService liveMoneyService = mock(LiveMoneyService.class);
+        EnderWalletService enderWalletService = mock(EnderWalletService.class);
+        PlayerMoneyLockService playerMoneyLockService = mock(PlayerMoneyLockService.class);
+        ReservationService reservationService = mock(ReservationService.class);
+        NotificationService notificationService = mock(NotificationService.class);
+        SchedulerService schedulerService = mock(SchedulerService.class);
+        PluginSettings settings = mock(PluginSettings.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+
+        when(accountRepository.findSharedAccount(accountId)).thenReturn(Optional.empty());
+        when(accountRepository.findAccount(accountId)).thenReturn(Optional.empty());
+
+        EconomyService economyService = new EconomyService(
+                accountRepository,
+                playerRepository,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                denominationService,
+                liveMoneyService,
+                enderWalletService,
+                playerMoneyLockService,
+                reservationService,
+                notificationService,
+                schedulerService,
+                settings,
+                loggers
+        );
+
+        assertThrows(IllegalStateException.class, () -> economyService.getSharedAccountBalance(accountId));
+        assertThrows(IllegalStateException.class, () -> economyService.sharedAccountHasEnough(accountId, 10L));
     }
 
     private static LiveMoneyService.LiveContainerSnapshot snapshotOf(Player player) {

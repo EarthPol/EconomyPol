@@ -1,5 +1,5 @@
 name: EconomyPol
-version: 0.1.0
+version: '${project.version}'
 main: com.earthpol.economyPol.EconomyPol
 api-version: '1.21'
 folia-supported: true
@@ -11,11 +11,20 @@ softdepend:
 commands:
   economypol:
     description: EconomyPol player and admin economy utilities
-    usage: /economypol <balance|balancetop|baltop|deposit|withdraw|paymentdelivery|normalizewallet|admin>
+    usage: /economypol <help|balance|bal|balancetop|baltop|deposit|withdraw|claim|paymentdelivery|normalizewallet|compress|admin>
     aliases: [ecopol]
+  bal:
+    description: Show your balance
+    usage: /bal
   baltop:
     description: Show the cached top player balances
     usage: /baltop
+  claim:
+    description: Claim as much overflow money as fits in your inventory
+    usage: /claim
+  compress:
+    description: Normalize your ender-wallet money layout
+    usage: /compress
 permissions:
   economypol.admin:
     default: op

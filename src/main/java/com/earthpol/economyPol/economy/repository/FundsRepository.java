@@ -1,10 +1,14 @@
 package com.earthpol.economyPol.economy.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
+import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.ReservationRecord;
 import com.earthpol.economyPol.economy.model.ReservationStatus;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -15,12 +19,11 @@ import java.util.UUID;
 
 public final class FundsRepository extends AbstractRepositorySupport {
 
-    public FundsRepository(DatabaseService databaseService, EnhancedLogger operationsLog, EnhancedLogger auditLog) {
-        super(databaseService, operationsLog, auditLog);
+    public FundsRepository(DatabaseService databaseService, EconomyLoggers loggers) {
+        super(databaseService, loggers);
     }
 
     public BalanceRecord getBalance(UUID accountId) {
-        ensureBalanceRow(accountId);
         return queryOne("""
                 SELECT available_balance, reserved_balance
                 FROM economy_balances
@@ -47,8 +50,11 @@ public final class FundsRepository extends AbstractRepositorySupport {
             }
             updateBalance(connection, accountId, nextAvailable, current.reservedBalance());
             insertLedger(connection, accountId, relatedAccountId, playerUuid, delta, nextAvailable, current.reservedBalance(), entryType, reason);
-            auditLog.info("balance-change account=" + accountId + " delta=" + delta + " available=" + nextAvailable +
-                    " reserved=" + current.reservedBalance() + " type=" + entryType + " reason=" + reason);
+            loggers.log("balance-change account=" + accountId +
+                    resolveAccountIdentitySuffix(connection, accountId) +
+                    " delta=" + delta + " available=" + nextAvailable +
+                    " reserved=" + current.reservedBalance() + " type=" + entryType + " reason=" + reason,
+                    LogType.AUDIT);
             return new BalanceRecord(nextAvailable, current.reservedBalance());
         });
     }
@@ -161,7 +167,8 @@ public final class FundsRepository extends AbstractRepositorySupport {
                 nowTimestamp(),
                 timestampFromMillis(expiresAt)
         );
-        auditLog.info("reservation-create id=" + reservationId + " account=" + accountId + " amount=" + amount + " reason=" + reason);
+        loggers.log("reservation-create id=" + reservationId + " account=" + accountId + " amount=" + amount + " reason=" + reason,
+                LogType.AUDIT);
         return new ReservationRecord(reservationId, accountId, amount, ReservationStatus.ACTIVE, reason, expiresAt);
     }
 
@@ -185,7 +192,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
 
     public void updateReservationStatus(UUID reservationId, ReservationStatus status) {
         update("UPDATE economy_reservations SET status = ? WHERE reservation_id = ?", status.name(), uuid(reservationId));
-        auditLog.info("reservation-status id=" + reservationId + " status=" + status);
+        loggers.log("reservation-status id=" + reservationId + " status=" + status, LogType.AUDIT);
     }
 
     private void ensureBalanceRow(UUID accountId) {
@@ -227,6 +234,57 @@ public final class FundsRepository extends AbstractRepositorySupport {
             statement.setTimestamp(2, nowTimestamp());
             statement.executeUpdate();
         }
+    }
+
+    private String resolveAccountIdentitySuffix(Connection connection, UUID accountId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT account_type, owner_uuid, account_name
+                FROM economy_accounts
+                WHERE account_id = ?
+                """)) {
+            statement.setObject(1, uuid(accountId));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return "";
+                }
+                AccountType accountType = parseEnum(resultSet, "account_type", AccountType.class);
+                if (accountType != AccountType.PLAYER) {
+                    String accountName = resultSet.getString("account_name");
+                    if (accountName == null || accountName.isBlank()) {
+                        return "";
+                    }
+                    return " account_name=" + accountName;
+                }
+                UUID playerUuid = parseUuid(resultSet.getObject("owner_uuid"));
+                if (playerUuid == null) {
+                    playerUuid = accountId;
+                }
+                return resolvePlayerUsername(playerUuid)
+                        .map(name -> " username=" + name)
+                        .orElse("");
+            }
+        }
+    }
+
+    private Optional<String> resolvePlayerUsername(UUID playerUuid) {
+        if (playerUuid == null) {
+            return Optional.empty();
+        }
+        Player onlinePlayer = Bukkit.getPlayer(playerUuid);
+        if (onlinePlayer != null) {
+            String playerName = onlinePlayer.getName();
+            if (playerName != null && !playerName.isBlank()) {
+                return Optional.of(playerName);
+            }
+        }
+        return queryOne("""
+                        SELECT username
+                        FROM economy_players
+                        WHERE player_uuid = ?
+                        """,
+                statement -> statement.setObject(1, uuid(playerUuid)),
+                resultSet -> resultSet.getString("username")
+        ).filter(username -> username != null && !username.isBlank());
     }
 
     private void updateBalance(Connection connection, UUID accountId, long available, long reserved) throws SQLException {

@@ -8,12 +8,14 @@ CREATE TABLE IF NOT EXISTS economy_players (
 
 CREATE TABLE IF NOT EXISTS economy_accounts (
     account_id UUID NOT NULL PRIMARY KEY,
-    account_type VARCHAR(32) NOT NULL,
+    account_type ENUM('PLAYER', 'SHARED') NOT NULL,
     owner_uuid UUID NULL,
     account_name VARCHAR(191) NOT NULL,
     created_at TIMESTAMP(3) NOT NULL,
     updated_at TIMESTAMP(3) NOT NULL,
-    UNIQUE KEY uq_economy_accounts_owner (account_type, owner_uuid),
+    -- owner_uuid is metadata for owner checks and listing; shared-account identity is account_id.
+    -- This remains indexed, but not unique, so one owner can hold multiple shared accounts.
+    KEY idx_economy_accounts_owner (account_type, owner_uuid),
     UNIQUE KEY uq_economy_accounts_name (account_name)
 );
 
@@ -36,7 +38,6 @@ CREATE TABLE IF NOT EXISTS economy_towny_governments (
 CREATE TABLE IF NOT EXISTS economy_account_members (
     account_id UUID NOT NULL,
     member_uuid UUID NOT NULL,
-    membership_role VARCHAR(32) NOT NULL,
     created_at TIMESTAMP(3) NOT NULL,
     PRIMARY KEY (account_id, member_uuid),
     CONSTRAINT fk_economy_account_members_member
@@ -49,6 +50,35 @@ CREATE TABLE IF NOT EXISTS economy_balances (
     available_balance BIGINT NOT NULL,
     reserved_balance BIGINT NOT NULL,
     updated_at TIMESTAMP(3) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS economy_pending_player_payment_balances (
+    player_uuid UUID NOT NULL PRIMARY KEY,
+    pending_balance BIGINT NOT NULL,
+    updated_at TIMESTAMP(3) NOT NULL,
+    CONSTRAINT fk_economy_pending_player_payment_balances_player
+        FOREIGN KEY (player_uuid) REFERENCES economy_players(player_uuid)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS economy_pending_player_payments (
+    pending_payment_id UUID NOT NULL PRIMARY KEY,
+    player_uuid UUID NOT NULL,
+    payment_amount BIGINT NOT NULL,
+    status ENUM('PENDING', 'PROCESSING') NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP(3) NOT NULL,
+    last_attempted_delivery_at TIMESTAMP(3) NULL,
+    last_attempted_delivery_result ENUM(
+        'NONE',
+        'PLAYER_LOCKED',
+        'ENTITY_SCHEDULER_UNAVAILABLE',
+        'OFFLINE_ENDER_WALLET_UNAVAILABLE',
+        'DELIVERY_FAILED'
+    ) NOT NULL DEFAULT 'NONE',
+    KEY idx_economy_pending_player_payments_player_status (player_uuid, status, created_at, pending_payment_id),
+    CONSTRAINT fk_economy_pending_player_payments_player
+        FOREIGN KEY (player_uuid) REFERENCES economy_players(player_uuid)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS economy_ender_wallet_snapshots (
@@ -80,6 +110,8 @@ CREATE TABLE IF NOT EXISTS economy_ledger_entries (
     delta BIGINT NOT NULL,
     available_balance BIGINT NULL,
     reserved_balance BIGINT NULL,
+    -- Kept as VARCHAR because ledger entry kinds are expected to grow over time,
+    -- and forcing a Flyway migration for every new operational entry type adds friction to development.
     entry_type VARCHAR(64) NOT NULL,
     reason VARCHAR(255) NOT NULL,
     created_at TIMESTAMP(3) NOT NULL,

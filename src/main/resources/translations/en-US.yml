@@ -3,17 +3,17 @@ general:
 
 notifications:
   withdraw:
-    hover: "&eWithdraw as much custodial money as fits into your inventory."
+    hover: "&eClaim as much overflow money as fits into your inventory."
 
   incoming_overflow:
-    title: "&e&lIncoming Money Routed to Custodial"
-    moved: "&7Moved to custodial: &f{0}"
-    balance: "&7Custodial balance: &f{0}"
+    title: "&e&lIncoming Money Routed to Overflow"
+    moved: "&7Moved to overflow: &f{0}"
+    balance: "&7Overflow balance: &f{0}"
     hint: "&7Some incoming money could not fit in your inventory or ender chest. Use &e{0}&7 to withdraw physical money."
 
   withdrawal_retained:
     title: "&e&lWithdraw Overflow Retained"
-    retained: "&7Retained in custodial: &f{0}"
+    retained: "&7Retained in overflow: &f{0}"
     balance: "&7Custodial balance: &f{0}"
     hint: "&7Some withdrawn money could not fit in your inventory. Use &e{0}&7 to physicalize as much as currently fits."
 
@@ -22,25 +22,25 @@ notifications:
     moved: "&7Moved to custodial: &f{0}"
     balance: "&7Custodial balance: &f{0}"
     malformed: "&7Malformed money stacks were normalized before the overflow was stored."
-    hint: "&7Some ender-wallet money could not be restored cleanly and was moved to custodial. Use &e{0}&7 to withdraw physical money."
+    hint: "&7Some ender-wallet money could not be restored cleanly and was moved to overflow. Use &e{0}&7 to withdraw physical money."
 
   custodial_reminder:
-    title: "&e&lCustodial Balance Available"
-    available: "&7Available in custodial: &f{0}"
-    hint: "&7Use &e{0}&7 when you want to carry custodial money as physical currency."
+    title: "&e&lOverflow Balance Available"
+    available: "&7Available in overflow: &f{0}"
+    hint: "&7Use &e{0}&7 to withdraw money in your overflow account."
 
   offline_credit:
     title: "&e&lMoney Received While Offline"
-    credited: "&7Credited to custodial: &f{0}"
-    balance: "&7Custodial balance: &f{0}"
-    hint: "&7Money received while you were offline was stored safely in custodial. Use &e{0}&7 to physicalize it."
+    credited: "&7Credited to overflow: &f{0}"
+    balance: "&7Overflow balance: &f{0}"
+    hint: "&7Money received while you were offline was stored safely in overflow. Use &e{0}&7 to physicalize it."
 
   change_routed:
-    title: "&e&lChange Routed to Custodial"
-    moved: "&7Change moved to custodial: &f{0}"
-    balance: "&7Custodial balance: &f{0}"
+    title: "&e&lChange Routed to Overflow"
+    moved: "&7Change moved to overflow: &f{0}"
+    balance: "&7Overflow balance: &f{0}"
     hint: "&7Some returned change could not fit in your inventory or ender chest. Use &e{0}&7 to physicalize it later."
 
   not_enough_room_for_change:
     title: "&e&lNot Enough Room For Change"
-    body: "&7This transaction was canceled because you do not have enough space in your inventory and/or ender chest to receive your change back."
+    body: "&7This transaction was cancelled because you do not have enough space in your inventory and/or ender chest to receive your change back."

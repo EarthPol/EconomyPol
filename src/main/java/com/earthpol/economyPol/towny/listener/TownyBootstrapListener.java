@@ -1,6 +1,7 @@
 package com.earthpol.economyPol.towny.listener;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.towny.TownyIntegrationBackend;
 import com.earthpol.economyPol.towny.TownyService;
@@ -17,7 +18,7 @@ public final class TownyBootstrapListener implements Listener {
     private final TownyService townyService;
     private final EconomyService economyService;
     private final TownyGovernmentRepository townyGovernmentRepository;
-    private final EnhancedLogger operationsLog;
+    private final EconomyLoggers loggers;
     private boolean townyLifecycleRegistered;
 
     public TownyBootstrapListener(
@@ -25,13 +26,13 @@ public final class TownyBootstrapListener implements Listener {
             TownyService townyService,
             EconomyService economyService,
             TownyGovernmentRepository townyGovernmentRepository,
-            EnhancedLogger operationsLog
+            EconomyLoggers loggers
     ) {
         this.plugin = plugin;
         this.townyService = townyService;
         this.economyService = economyService;
         this.townyGovernmentRepository = townyGovernmentRepository;
-        this.operationsLog = operationsLog;
+        this.loggers = loggers;
     }
 
     public void registerIfTownyEnabled() {
@@ -42,11 +43,11 @@ public final class TownyBootstrapListener implements Listener {
         if (!pluginManager.isPluginEnabled("Towny")) {
             return;
         }
-        townyService.activate(new TownyIntegrationBackend(economyService, townyGovernmentRepository, operationsLog));
+        townyService.activate(new TownyIntegrationBackend(economyService, townyGovernmentRepository, loggers));
         townyService.synchronizeAllGovernments();
         pluginManager.registerEvents(new TownyLifecycleListener(townyService), plugin);
         townyLifecycleRegistered = true;
-        operationsLog.info("Registered Towny lifecycle listener and synchronized Towny government bindings.");
+        loggers.log("Registered Towny lifecycle listener and synchronized Towny government bindings.", LogType.OPERATIONS);
     }
 
     @EventHandler

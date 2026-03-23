@@ -1,19 +1,24 @@
 package com.earthpol.economyPol.command.player;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.command.player.PaymentDeliverySubcommand;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
 import com.earthpol.economyPol.towny.TownyService;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -33,8 +38,10 @@ final class PaymentDeliverySubcommandTest {
 
         subcommand.execute(player, new String[0]);
 
-        verify(player).sendMessage(eq("Current incoming payment delivery preference: skipinventory"));
-        verify(player).sendMessage(eq("Effective routing: Ender chest -> Custodial"));
+        List<String> messages = capturePlainTextMessages(player, 3);
+        assertTrue(messages.get(0).contains("[EconomyPol] Current incoming payment delivery preference: skip_inventory"));
+        assertTrue(messages.get(1).contains("Default order: Ender chest -> Custodial"));
+        assertTrue(messages.get(2).contains("Usage: /economypol paymentdelivery <default|skip_inventory|skip_inventory_and_enderchest>"));
         verify(economyService, never()).setIncomingPaymentDeliveryPreference(
                 player,
                 IncomingPaymentDeliveryPreference.SKIP_INVENTORY
@@ -48,13 +55,13 @@ final class PaymentDeliverySubcommandTest {
 
         PaymentDeliverySubcommand subcommand = new PaymentDeliverySubcommand(dependencies(economyService));
 
-        subcommand.execute(player, new String[] {"skipinventoryandenderchest"});
+        subcommand.execute(player, new String[] {"skip_inventory_and_enderchest"});
 
         verify(economyService).setIncomingPaymentDeliveryPreference(
                 player,
                 IncomingPaymentDeliveryPreference.SKIP_INVENTORY_AND_ENDERCHEST
         );
-        verify(player).sendMessage(contains("skipinventoryandenderchest"));
+        verify(player).sendMessage(contains("skip_inventory_and_enderchest"));
     }
 
     private CommandDependencies dependencies(EconomyService economyService) {
@@ -64,8 +71,15 @@ final class PaymentDeliverySubcommandTest {
                 mock(DatabaseCheckService.class),
                 mock(TownyService.class),
                 mock(PluginSettings.class),
-                mock(EnhancedLogger.class),
-                mock(EnhancedLogger.class)
+                mock(EconomyLoggers.class)
         );
+    }
+
+    private List<String> capturePlainTextMessages(Player player, int expectedCalls) {
+        ArgumentCaptor<Component> captor = ArgumentCaptor.forClass(Component.class);
+        verify(player, org.mockito.Mockito.times(expectedCalls)).sendMessage(captor.capture());
+        return captor.getAllValues().stream()
+                .map(component -> PlainTextComponentSerializer.plainText().serialize(component))
+                .toList();
     }
 }

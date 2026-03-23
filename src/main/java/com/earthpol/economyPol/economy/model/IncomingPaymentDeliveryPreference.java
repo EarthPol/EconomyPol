@@ -10,12 +10,12 @@ public enum IncomingPaymentDeliveryPreference {
             List.of(MoneyRouteTarget.INVENTORY, MoneyRouteTarget.ENDER_CHEST, MoneyRouteTarget.CUSTODIAL_ACCOUNT)
     ),
     SKIP_INVENTORY(
-            "skipinventory",
+            "skip_inventory",
             "Ender chest -> Custodial",
             List.of(MoneyRouteTarget.ENDER_CHEST, MoneyRouteTarget.CUSTODIAL_ACCOUNT)
     ),
     SKIP_INVENTORY_AND_ENDERCHEST(
-            "skipinventoryandenderchest",
+            "skip_inventory_and_enderchest",
             "Custodial only",
             List.of(MoneyRouteTarget.CUSTODIAL_ACCOUNT)
     );
@@ -49,7 +49,8 @@ public enum IncomingPaymentDeliveryPreference {
     public static IncomingPaymentDeliveryPreference fromCommandToken(String raw) {
         String normalized = raw == null ? "" : raw.toLowerCase(Locale.ROOT).replace("-", "").replace("_", "");
         for (IncomingPaymentDeliveryPreference value : values()) {
-            if (value.commandToken.equals(normalized)) {
+            String normalizedToken = value.commandToken.toLowerCase(Locale.ROOT).replace("-", "").replace("_", "");
+            if (normalizedToken.equals(normalized)) {
                 return value;
             }
         }

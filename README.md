@@ -22,6 +22,7 @@ Implemented today:
 - Discrete denomination-based currency
 - Player accounts and shared accounts
 - Player registration rows with foreign-keyed player-owned economy data
+- Join-time player identity refresh for `economy_players.username` and existing player account names
 - Custodial balances and reservations
 - VaultUnlocked v2 provider
 - Legacy Vault provider
@@ -48,11 +49,13 @@ EconomyPol separates money into three states.
 
 This is real item money held by a player in top-level inventory slots.
 
-Current implementation counts:
+By default, current implementation counts:
 
 - player inventory contents
 - offhand
 - ender chest contents
+
+This can be narrowed through `wallet.include-live-player-inventory` and `wallet.include-live-ender-chest`.
 
 Current implementation does not count:
 
@@ -73,7 +76,7 @@ Custodial is database-backed stored value.
 
 For players, custodial is primarily an overflow and storage mechanism:
 
-- players can explicitly deposit physical money into custodial if self-deposit is enabled
+- admins can explicitly deposit physical money into custodial with `/economypol deposit`
 - online routed payouts can spill into custodial when no physical storage space remains
 - offline credits can land in custodial if the offline ender-wallet is unavailable
 - players must explicitly withdraw custodial funds as physical money to carry and use them
@@ -170,6 +173,70 @@ They support:
 
 This is the correct model for towns, nations, server treasuries, and other non-player entities.
 
+## Handling of Non-Player vs Player Accounts
+
+`economy_balances` is EconomyPol's per-account database balance table.
+
+For every `account_id`, it stores:
+
+- `available_balance`
+- `reserved_balance`
+
+This table is the source of truth for all database-backed balance movement. Reservations, custodial credits, custodial withdrawals, and shared-account deposits or withdrawals all flow through it.
+
+### Non-Player Accounts
+
+For non-player accounts, meaning shared accounts such as:
+
+- towns
+- nations
+- server treasuries
+- admin-created banks
+
+`economy_balances` is the actual balance.
+
+That means:
+
+- the shared account's money lives entirely in the database
+- `available_balance` is the spendable bank balance
+- `reserved_balance` is money temporarily locked for an in-flight operation
+- shared accounts do not have a physical-inventory money state
+
+So when TNE shared accounts are migrated into EconomyPol, their balances are meant to land in `economy_balances`.
+
+### Player Accounts
+
+For player accounts, `economy_balances` means something different.
+
+It is the player's custodial balance, not the player's normal carried money.
+
+Player money is intentionally split across multiple states:
+
+- live physical money in inventory/offhand/ender chest
+- frozen offline ender-wallet snapshot value
+- custodial database money in `economy_balances`
+
+Important current rule:
+
+- player `spendable` balance does **not** include custodial
+
+So a player can have money in `economy_balances` and still be unable to spend through normal Vault/player withdraw flows until they explicitly materialize that money back into physical form.
+
+In practice, player custodial is used for cases like:
+
+- explicit self-deposit of physical money into storage
+- overflow when incoming money or returned change does not fully fit physically
+- offline fallback credits when the managed offline wallet cannot be used
+- temporary reservation during custodial-to-physical withdrawal
+
+### Practical Effect
+
+If you populate `economy_balances` for a shared account, you are setting that bank's real balance.
+
+If you populate `economy_balances` for a player account, you are giving that player custodial stored value, not money directly in their inventory.
+
+That distinction is intentional and is central to how EconomyPol separates non-player ledger balances from player-held physical money.
+
 ## Routing
 
 EconomyPol has one canonical routing order:
@@ -189,9 +256,9 @@ For passive incoming money and returned change, players can suppress the early s
 
 - `default`
   - `INVENTORY -> ENDER_CHEST -> CUSTODIAL_ACCOUNT`
-- `skipinventory`
+- `skip_inventory`
   - `ENDER_CHEST -> CUSTODIAL_ACCOUNT`
-- `skipinventoryandenderchest`
+- `skip_inventory_and_enderchest`
   - `CUSTODIAL_ACCOUNT`
 
 This only affects passive incoming delivery and returned change. It does not affect explicit `/economypol withdraw`, which remains inventory-only by design because the player is actively choosing to physicalize money.
@@ -385,29 +452,42 @@ Current queue table:
 
 ### Player Commands
 
+Preferred shortcuts:
+
+- `/bal`
+- `/baltop`
+- `/claim`
+- `/compress`
+- `/economypol paymentdelivery <default|skip_inventory|skip_inventory_and_enderchest>`
+- `/economypol help`
+- `/economypol`
+
+Supported long forms and aliases:
+
 - `/economypol balance`
+- `/economypol bal`
 - `/economypol balancetop`
 - `/economypol baltop`
-- `/ecopol ...`
-- `/economypol deposit <amount|all>`
+- `/economypol claim`
 - `/economypol withdraw`
-- `/economypol withdraw <amount>` with `economypol.admin`
-- `/economypol paymentdelivery <default|skipinventory|skipinventoryandenderchest>`
 - `/economypol normalizewallet`
-- `/baltop`
+- `/economypol compress`
+- `/ecopol ...`
 
 Notes:
 
-- `/economypol withdraw` means “withdraw custodial as physical money”
-- for normal players, `/economypol withdraw` means “withdraw the maximum exact amount that fits in inventory”
-- specifying a withdraw amount is restricted to `economypol.admin`
-- `/economypol deposit` is restricted to `economypol.admin`
+- `/claim` and `/economypol withdraw` are the player-facing overflow claim flow
+- for normal players, `/claim` and `/economypol withdraw` mean “withdraw the maximum exact amount that fits in inventory”
+- `/bal` and `/economypol balance` show the player-facing balance breakdown: spendable, inventory, ender chest, and overflow account
+- `/baltop` and `/economypol balancetop` show the cached leaderboard built from online live money plus frozen offline ender-wallet snapshots
+- `/compress` and `/economypol normalizewallet` normalize the current ender chest money layout
 - `/economypol paymentdelivery` controls how passive incoming money and returned change are routed for that player
-- `/economypol deposit` means “store physical money into custodial”
-- `/economypol balancetop` shows the cached top player balances from online live money plus offline frozen ender-wallet snapshots
-- `/economypol baltop` and `/baltop` are aliases for the same cached leaderboard
-- `/ecopol` is an alias for `/economypol`
-- `/economypol normalizewallet` normalizes the current ender chest money layout
+- `/economypol help` and `/economypol` show the stylized command help summary
+
+### Admin-Gated Commands
+
+- `/economypol deposit <amount|all>`
+- `/economypol withdraw <amount>`
 
 ### Admin Commands
 
@@ -488,7 +568,7 @@ denominations:
 
 ### `config.yml`
 
-Generated and maintained through EarthPolLib `ReloadableConfigHandler`.
+Generated into the plugin data folder and maintained through EarthPolLib `ReloadableConfigHandler`.
 
 - this is the only EconomyPol config file reloaded by `/economypol admin reload`
 - missing keys are repopulated from code defaults
@@ -496,6 +576,7 @@ Generated and maintained through EarthPolLib `ReloadableConfigHandler`.
 
 Default runtime config:
 
+```yaml
 numeric:
   decimal-handling: TRUNCATE
 
@@ -613,11 +694,14 @@ Main tables:
 
 - `economy_players`
   - registered player identity rows keyed by `player_uuid`
-  - populated automatically when a player joins
+  - refreshed automatically when a player joins
+  - `username` stores the latest known player name
+  - rows seeded earlier from UUID-only integrations are corrected on the next real join
   - stores each player's `incoming_payment_delivery_preference`
 - `economy_accounts`
   - player and shared accounts
   - stores shared account and player account identity only
+  - existing player account names are refreshed from `Player#getName()` on join when they differ
 - `economy_towny_governments`
   - explicit Towny government to bank-account bindings
   - `government_uuid` is the raw Towny town or nation UUID and the row primary key
@@ -741,21 +825,35 @@ and Vault will still remain supported.
 
 Capabilities include:
 
-- detailed player balance view
-- custodial access
+- explicit player vs shared-account operations
+- detailed player balance view and custodial access
 - shared account management
+- incoming payment delivery preference access
 - reservation lifecycle
 - managed ender-wallet access
 - denomination helpers
+- structured `MoneyOperationResult.failureReason()` values for native integrations
+
+`EconomyPolAPI` is still the single Bukkit service entrypoint, but it is now split internally into focused account, player, reservation, ender-wallet, and denomination sub-interfaces.
+API clients are now caller-bound through `EconomyPolAPI.resolve(plugin)`, which lets EconomyPol log which plugin is making each native API call.
+Native API calls do not implicitly create missing player or shared-account rows outside the explicit `registerPlayer(...)`, `ensurePlayerAccount(...)`, and `createSharedAccount(...)` paths. Integrations should create or check accounts first and treat missing-account failures as real integration errors.
+Convenience overloads also exist for `OfflinePlayer` and `Player` on the player-facing native API methods. UUID-based methods remain the canonical identity surface.
 
 Example:
 
 ```java
-EconomyPolAPI api = EconomyPolAPI.resolve()
+EconomyPolAPI api = EconomyPolAPI.resolve(this)
         .orElseThrow(() -> new IllegalStateException("EconomyPolAPI not available"));
 
+long spendable = api.getPlayerSpendableBalance(playerUuid);
 long custodial = api.getCustodialAvailable(playerUuid);
 PlayerBalanceView view = api.getPlayerBalanceView(playerUuid);
+long townBalance = api.getSharedAccountBalance(townAccountUuid);
+
+MoneyOperationResult result = api.withdrawFromPlayerAccount(playerUuid, 10L, "CUSTOM_MARKET_BUY");
+if (!result.success() && result.failureReason() == MoneyOperationFailureReason.NOT_ENOUGH_ROOM_FOR_CHANGE) {
+    // Handle a strict physical-economy change-space failure explicitly.
+}
 ```
 
 ## Towny Compatibility

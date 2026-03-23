@@ -5,14 +5,37 @@ public record MoneyOperationResult(
         long requestedAmount,
         long processedAmount,
         long remainder,
-        String message
+        String message,
+        MoneyOperationFailureReason failureReason
 ) {
 
     public static MoneyOperationResult success(long requestedAmount, long processedAmount, long remainder, String message) {
-        return new MoneyOperationResult(true, requestedAmount, processedAmount, remainder, message);
+        return new MoneyOperationResult(
+                true,
+                requestedAmount,
+                processedAmount,
+                remainder,
+                message,
+                MoneyOperationFailureReason.NONE
+        );
     }
 
     public static MoneyOperationResult failure(long requestedAmount, String message) {
-        return new MoneyOperationResult(false, requestedAmount, 0L, requestedAmount, message);
+        return failure(requestedAmount, message, MoneyOperationFailureReason.UNKNOWN);
+    }
+
+    public static MoneyOperationResult failure(
+            long requestedAmount,
+            String message,
+            MoneyOperationFailureReason failureReason
+    ) {
+        return new MoneyOperationResult(
+                false,
+                requestedAmount,
+                0L,
+                requestedAmount,
+                message,
+                failureReason
+        );
     }
 }

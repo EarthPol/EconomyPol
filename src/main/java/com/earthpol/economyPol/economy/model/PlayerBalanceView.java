@@ -3,12 +3,17 @@ package com.earthpol.economyPol.economy.model;
 public record PlayerBalanceView(
         long custodialAvailable,
         long custodialReserved,
-        long liveMoney,
+        long inventoryMoney,
+        long enderChestMoney,
         long frozenEnderWallet,
-    boolean locked
+        boolean locked
 ) {
 
+    public long liveMoney() {
+        return inventoryMoney + enderChestMoney;
+    }
+
     public long spendable() {
-        return liveMoney + frozenEnderWallet;
+        return liveMoney() + frozenEnderWallet;
     }
 }

@@ -163,6 +163,43 @@ final class LiveMoneyServiceTest {
     }
 
     @Test
+    void deliverHandlesHugeAmountsByMaterializingOnlyWhatFits() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        long amount = 100_000_000_000L;
+
+        LiveMoneyService.DeliveryResult result = service.deliver(
+                player,
+                amount,
+                List.of(MoneyRouteTarget.INVENTORY, MoneyRouteTarget.ENDER_CHEST, MoneyRouteTarget.CUSTODIAL_ACCOUNT)
+        );
+
+        long delivered = result.deliveredToInventory() + result.deliveredToEnder();
+        assertTrue(delivered > 0L);
+        assertEquals(amount, delivered + result.remainder());
+        assertTrue(service.scanPlayerMoney(player) > 0L);
+    }
+
+    @Test
+    void planManagedEnderWalletSyncHandlesHugeTargetAmountsWithoutMaterializingEverything() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        ItemStack[] currentContents = new ItemStack[2];
+        long targetAmount = 100_000_000_000L;
+
+        LiveMoneyService.ManagedEnderWalletSyncPlan plan = service.planManagedEnderWalletSync(currentContents, targetAmount);
+
+        long placed = denominationService.countStacks(Arrays.asList(plan.targetContents()));
+        assertTrue(placed > 0L);
+        assertEquals(targetAmount, placed + plan.overflow());
+    }
+
+    @Test
     void maxDeliverableToInventoryFindsBestSingleSlotWithdrawalValue() {
         LiveMoneyService service = new LiveMoneyService(
                 denominationService,
@@ -194,6 +231,23 @@ final class LiveMoneyServiceTest {
         long maxDeliverable = service.maxDeliverableToInventory(player, 100L);
 
         assertEquals(36L, maxDeliverable);
+    }
+
+    @Test
+    void maxDeliverableToInventoryFallsThroughToSmallerDenominationsWhenLargestDoesNotFitRequestedAmount() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            player.getInventory().setItem(slot, new ItemStack(Material.STONE, 64));
+        }
+        player.getInventory().setItem(0, null);
+
+        long maxDeliverable = service.maxDeliverableToInventory(player, 80L);
+
+        assertEquals(72L, maxDeliverable);
     }
 }
 

@@ -1,13 +1,11 @@
 package com.earthpol.economyPol.economy.service.player;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.earthPolLib.translation.TranslationService;
 import com.earthpol.earthPolLib.translation.Translations;
 import com.earthpol.economyPol.economy.model.PlayerNotificationRecord;
 import com.earthpol.economyPol.economy.model.PlayerNotificationType;
 import com.earthpol.economyPol.economy.repository.NotificationRepository;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
-import com.earthpol.economyPol.economy.service.support.SchedulerService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -19,28 +17,23 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+// TODO: This whole class could be improved/simplified/rearchitectured
 public final class NotificationService {
 
-    private static final String WITHDRAW_COMMAND = "/economypol withdraw";
+    private static final String WITHDRAW_COMMAND = "/claim";
 
     private final DenominationService denominationService;
     private final NotificationRepository repository;
-    private final SchedulerService schedulerService;
     private final TranslationService translationService;
-    private final EnhancedLogger operationsLog;
 
     public NotificationService(
             DenominationService denominationService,
             NotificationRepository repository,
-            SchedulerService schedulerService,
-            TranslationService translationService,
-            EnhancedLogger operationsLog
+            TranslationService translationService
     ) {
         this.denominationService = denominationService;
         this.repository = repository;
-        this.schedulerService = schedulerService;
         this.translationService = translationService;
-        this.operationsLog = operationsLog;
     }
 
     public void notifyIncomingOverflowToCustodial(Player player, long overflowAmount, long custodialBalance) {
@@ -52,7 +45,7 @@ public final class NotificationService {
                 detail(locale, "notifications.incoming_overflow.moved", overflowAmount),
                 detail(locale, "notifications.incoming_overflow.balance", custodialBalance),
                 withdrawHint(locale, "notifications.incoming_overflow.hint")
-        ), () -> queueIncomingOverflowToCustodial(player.getUniqueId(), overflowAmount, custodialBalance), "notify-incoming-overflow");
+        ), () -> queueIncomingOverflowToCustodial(player.getUniqueId(), overflowAmount, custodialBalance));
     }
 
     public void queueIncomingOverflowToCustodial(UUID playerUuid, long overflowAmount, long custodialBalance) {
@@ -84,7 +77,7 @@ public final class NotificationService {
                 retainedAmount,
                 custodialBalance,
                 false
-        ), "notify-withdrawal-retained");
+        ));
     }
 
     public void notifyWalletOverflowToCustodial(
@@ -110,7 +103,7 @@ public final class NotificationService {
                 overflowAmount,
                 custodialBalance,
                 malformedStacksFound
-        ), "notify-wallet-overflow");
+        ));
     }
 
     public void notifyCustodialBalanceReminder(Player player, long custodialBalance) {
@@ -127,7 +120,7 @@ public final class NotificationService {
                 custodialBalance,
                 null,
                 false
-        ), "notify-custodial-reminder");
+        ));
     }
 
     public void notifyChangeRoutedToCustodial(Player player, long changeAmount, long custodialBalance) {
@@ -145,7 +138,7 @@ public final class NotificationService {
                 changeAmount,
                 custodialBalance,
                 false
-        ), "notify-change-routed");
+        ));
     }
 
     public void queueOfflineCreditToCustodial(java.util.UUID playerUuid, long creditedAmount, long custodialBalance) {
@@ -175,7 +168,7 @@ public final class NotificationService {
                 null,
                 null,
                 false
-        ), "notify-not-enough-room-for-change");
+        ));
     }
 
     public int deliverPendingNotifications(Player player) {
@@ -188,34 +181,24 @@ public final class NotificationService {
         }
         Locale locale = locale(player);
         List<Component> rendered = queued.stream().map(notification -> render(notification, locale)).toList();
-        boolean delivered = schedulerService.runOnPlayerEntityScheduler(
-                player,
-                () -> rendered.forEach(player::sendMessage),
-                "deliver-pending-notifications"
-        );
-        if (!delivered) {
-            operationsLog.warn("Failed to deliver queued notifications to " + player.getUniqueId() + ". Leaving them queued.");
-            return 0;
-        }
+        rendered.forEach(player::sendMessage);
         for (PlayerNotificationRecord notification : queued) {
             repository.deletePlayerNotification(notification.notificationId());
         }
-        operationsLog.info("Delivered " + queued.size() + " queued notification(s) to " + player.getUniqueId() + ".");
         return queued.size();
     }
 
-    private void send(Player player, Component message) {
-        send(player, message, null, "send-notification");
+    private void send(Player player, String titleKey, List<Component> details, Runnable onFailure) {
+        send(player, buildMessage(locale(player), titleKey, details), onFailure);
     }
 
-    private void send(Player player, String titleKey, List<Component> details, Runnable onFailure, String operation) {
-        send(player, buildMessage(locale(player), titleKey, details), onFailure, operation);
-    }
-
-    private void send(Player player, Component message, Runnable onFailure, String operation) {
-        boolean sent = schedulerService.runOnPlayerEntityScheduler(player, () -> player.sendMessage(message), operation);
-        if (!sent && onFailure != null) {
-            onFailure.run();
+    private void send(Player player, Component message, Runnable onFailure) {
+        try {
+            player.sendMessage(message);
+        } catch (Throwable throwable) {
+            if (onFailure != null) {
+                onFailure.run();
+            }
         }
     }
 
@@ -225,7 +208,7 @@ public final class NotificationService {
 
     private Component withdrawHint(Locale locale, String key) {
         return translated(locale, key, WITHDRAW_COMMAND)
-                .clickEvent(ClickEvent.suggestCommand("/economypol withdraw"))
+                .clickEvent(ClickEvent.suggestCommand(WITHDRAW_COMMAND))
                 .hoverEvent(HoverEvent.showText(translated(locale, "notifications.withdraw.hover")));
     }
 
@@ -335,5 +318,4 @@ public final class NotificationService {
         return locale == null ? translationService.getDefaultLocale() : locale;
     }
 }
-
 

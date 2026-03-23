@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.economy.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 
@@ -16,11 +16,14 @@ import java.util.UUID;
 
 public final class AccountRepository extends AbstractRepositorySupport {
 
-    public AccountRepository(DatabaseService databaseService, EnhancedLogger operationsLog, EnhancedLogger auditLog) {
-        super(databaseService, operationsLog, auditLog);
+    public AccountRepository(DatabaseService databaseService, EconomyLoggers loggers) {
+        super(databaseService, loggers);
     }
 
-    public AccountRecord ensurePlayerAccount(UUID playerUuid, String playerName) {
+    public AccountRecord ensurePlayerAccount(UUID playerUuid, String ignoredPlayerName) {
+        // Player accounts are keyed internally by a stable UUID-backed name.
+        // Mutable display usernames live in economy_players.username instead.
+        String storedName = playerUuid.toString();
         Timestamp now = nowTimestamp();
         update("""
                 INSERT INTO economy_accounts (
@@ -31,14 +34,15 @@ public final class AccountRepository extends AbstractRepositorySupport {
                     updated_at = VALUES(updated_at)
                 """,
                 uuid(playerUuid),
-                AccountType.PLAYER.name(),
+                AccountType.PLAYER,
                 uuid(playerUuid),
-                playerName == null ? playerUuid.toString() : playerName,
+                storedName,
                 now,
                 now
         );
         ensureBalanceRow(playerUuid);
-        return new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerName == null ? playerUuid.toString() : playerName);
+        return findPlayerAccount(playerUuid)
+                .orElse(new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, storedName));
     }
 
     public AccountRecord ensureSharedAccount(String name, UUID ownerUuid) {
@@ -59,7 +63,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                     updated_at = VALUES(updated_at)
                 """,
                 uuid(accountId),
-                AccountType.SHARED.name(),
+                AccountType.SHARED,
                 uuid(resolvedOwnerUuid),
                 name,
                 now,
@@ -84,11 +88,11 @@ public final class AccountRepository extends AbstractRepositorySupport {
         return queryOne("""
                 SELECT account_id, account_type, owner_uuid, account_name
                 FROM economy_accounts
-                WHERE owner_uuid = ? AND account_type = ?
+                WHERE account_id = ? AND account_type = ?
                 """,
                 statement -> {
                     statement.setObject(1, uuid(playerUuid));
-                    statement.setString(2, AccountType.PLAYER.name());
+                    bindEnum(statement, 2, AccountType.PLAYER);
                 },
                 this::readAccount
         );
@@ -102,7 +106,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 """,
                 statement -> {
                     statement.setString(1, name);
-                    statement.setString(2, AccountType.SHARED.name());
+                    bindEnum(statement, 2, AccountType.SHARED);
                 },
                 this::readAccount
         );
@@ -116,7 +120,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 """,
                 statement -> {
                     statement.setObject(1, uuid(accountId));
-                    statement.setString(2, AccountType.SHARED.name());
+                    bindEnum(statement, 2, AccountType.SHARED);
                 },
                 this::readAccount
         );
@@ -136,7 +140,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
     public List<String> listSharedAccountNames() {
         return queryList(
                 "SELECT account_name FROM economy_accounts WHERE account_type = ? ORDER BY account_name ASC",
-                statement -> statement.setString(1, AccountType.SHARED.name()),
+                statement -> bindEnum(statement, 1, AccountType.SHARED),
                 resultSet -> resultSet.getString(1)
         );
     }
@@ -149,7 +153,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 WHERE account_type = ?
                 ORDER BY account_name ASC
                 """,
-                statement -> statement.setString(1, AccountType.SHARED.name()),
+                statement -> bindEnum(statement, 1, AccountType.SHARED),
                 this::readAccount
         );
     }
@@ -168,6 +172,19 @@ public final class AccountRepository extends AbstractRepositorySupport {
         return Map.copyOf(names);
     }
 
+    public List<AccountRecord> listAccounts() {
+        return queryList(
+                """
+                SELECT account_id, account_type, owner_uuid, account_name
+                FROM economy_accounts
+                ORDER BY account_name ASC
+                """,
+                statement -> {
+                },
+                this::readAccount
+        );
+    }
+
     public boolean renameAccount(UUID accountId, String newName) {
         return updateCount(
                 "UPDATE economy_accounts SET account_name = ?, updated_at = ? WHERE account_id = ?",
@@ -183,7 +200,7 @@ public final class AccountRepository extends AbstractRepositorySupport {
                 uuid(ownerUuid),
                 nowTimestamp(),
                 uuid(accountId),
-                AccountType.SHARED.name()
+                AccountType.SHARED
         ) > 0;
     }
 
@@ -197,21 +214,20 @@ public final class AccountRepository extends AbstractRepositorySupport {
                     connection,
                     "DELETE FROM economy_accounts WHERE account_id = ? AND account_type = ?",
                     uuid(accountId),
-                    AccountType.SHARED.name()
+                    AccountType.SHARED
             );
             return deletedAccounts > 0;
         });
     }
 
-    public void upsertAccountMember(UUID accountId, UUID memberUuid, String role) {
+    public void upsertAccountMember(UUID accountId, UUID memberUuid) {
         update("""
-                INSERT INTO economy_account_members (account_id, member_uuid, membership_role, created_at)
-                VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE membership_role = VALUES(membership_role)
+                INSERT INTO economy_account_members (account_id, member_uuid, created_at)
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE created_at = created_at
                 """,
                 uuid(accountId),
                 uuid(memberUuid),
-                role,
                 nowTimestamp()
         );
     }
@@ -224,9 +240,9 @@ public final class AccountRepository extends AbstractRepositorySupport {
         ) > 0;
     }
 
-    public Optional<String> findAccountMemberRole(UUID accountId, UUID memberUuid) {
+    public boolean isAccountMember(UUID accountId, UUID memberUuid) {
         return queryOne("""
-                SELECT membership_role
+                SELECT 1
                 FROM economy_account_members
                 WHERE account_id = ? AND member_uuid = ?
                 """,
@@ -234,14 +250,14 @@ public final class AccountRepository extends AbstractRepositorySupport {
                     statement.setObject(1, uuid(accountId));
                     statement.setObject(2, uuid(memberUuid));
                 },
-                resultSet -> resultSet.getString("membership_role")
-        );
+                resultSet -> true
+        ).orElse(false);
     }
 
     private AccountRecord readAccount(ResultSet resultSet) throws SQLException {
         return new AccountRecord(
                 parseUuid(resultSet.getObject("account_id")),
-                AccountType.valueOf(resultSet.getString("account_type")),
+                parseEnum(resultSet, "account_type", AccountType.class),
                 parseUuid(resultSet.getObject("owner_uuid")),
                 resultSet.getString("account_name")
         );

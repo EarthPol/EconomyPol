@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.economy.command.shared;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
@@ -13,7 +13,6 @@ public record CommandDependencies(
         DatabaseCheckService databaseCheckService,
         TownyService townyService,
         PluginSettings settings,
-        EnhancedLogger operationsLogger,
-        EnhancedLogger healthcheckLogger
+        EconomyLoggers loggers
 ) {}
 

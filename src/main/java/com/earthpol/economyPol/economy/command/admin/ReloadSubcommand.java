@@ -4,6 +4,7 @@ import com.earthpol.economyPol.economy.command.shared.AbstractEconomySubcommand;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.config.RuntimeConfigReloadResult;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import org.bukkit.command.CommandSender;
 
 import java.util.List;
@@ -38,12 +39,10 @@ public final class ReloadSubcommand extends AbstractEconomySubcommand {
         }
 
         PluginSettings.LoggingSettings loggingSettings = dependencies.settings().logging();
-        dependencies.operationsLogger().setDebugEnabled(loggingSettings.debug());
-        if (dependencies.operationsLogger().getPlugin() instanceof com.earthpol.economyPol.EconomyPol plugin) {
-            plugin.loggers().applyRetentionPolicy(loggingSettings.retentionPolicy());
-        }
+        dependencies.loggers().applyRetentionPolicy(loggingSettings.retentionPolicy());
+        dependencies.loggers().applyConsoleLogging(loggingSettings.consoleEnabled());
 
-        dependencies.operationsLogger().info("Reloaded EconomyPol runtime configuration from config.yml.");
+        dependencies.loggers().log("Reloaded EconomyPol runtime configuration from config.yml.", LogType.OPERATIONS);
         sender.sendMessage(result.message());
         for (String warning : result.warnings()) {
             sender.sendMessage("Warning: " + warning);

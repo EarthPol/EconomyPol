@@ -1,8 +1,9 @@
 package com.earthpol.economyPol.vault;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.EconomyPol;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
@@ -23,20 +24,20 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
     private final EconomyService economyService;
     private final NumericalConsistencyService numericalConsistencyService;
     private final PluginSettings.CurrencySettings currencySettings;
-    private final EnhancedLogger logger;
+    private final EconomyLoggers loggers;
 
     public EconomyVaultAdapter(
             EconomyPol plugin,
             EconomyService economyService,
             NumericalConsistencyService numericalConsistencyService,
             PluginSettings.CurrencySettings currencySettings,
-            EnhancedLogger logger
+            EconomyLoggers loggers
     ) {
         this.plugin = plugin;
         this.economyService = economyService;
         this.numericalConsistencyService = numericalConsistencyService;
         this.currencySettings = currencySettings;
-        this.logger = logger;
+        this.loggers = loggers;
     }
 
     @Override
@@ -299,12 +300,31 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
 
     @Override
     public boolean createPlayerAccount(String playerName) {
-        return resolvePlayer(playerName).map(economyService::ensurePlayerAccount).isPresent();
+        Optional<OfflinePlayer> player = resolvePlayer(playerName);
+        if (player.isEmpty() || !isEligibleForLegacyPlayerAccountCreation(player.get())) {
+            return false;
+        }
+        try {
+            return economyService.ensurePlayerAccount(player.get()) != null;
+        } catch (RuntimeException exception) {
+            loggers.logWarn("Failed to create legacy Vault player account for '" + playerName + "': " +
+                    exception.getMessage(), LogType.OPERATIONS);
+            return false;
+        }
     }
 
     @Override
     public boolean createPlayerAccount(OfflinePlayer player) {
-        return player != null && economyService.ensurePlayerAccount(player) != null;
+        if (!isEligibleForLegacyPlayerAccountCreation(player)) {
+            return false;
+        }
+        try {
+            return economyService.ensurePlayerAccount(player) != null;
+        } catch (RuntimeException exception) {
+            loggers.logWarn("Failed to create legacy Vault player account for '" + player.getUniqueId() + "': " +
+                    exception.getMessage(), LogType.OPERATIONS);
+            return false;
+        }
     }
 
     @Override
@@ -347,9 +367,18 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
                 return Optional.of(Bukkit.getOfflinePlayer(playerUuid));
             } catch (IllegalArgumentException ignored) {
             }
-            return Optional.of(Bukkit.getOfflinePlayer(playerName));
+            Optional<UUID> storedPlayerUuid = economyService.findPlayerUuidByUsername(playerName);
+            if (storedPlayerUuid.isPresent()) {
+                return Optional.of(Bukkit.getOfflinePlayer(storedPlayerUuid.get()));
+            }
+            org.bukkit.entity.Player onlinePlayer = Bukkit.getPlayerExact(playerName);
+            if (onlinePlayer != null) {
+                return Optional.of(onlinePlayer);
+            }
+            OfflinePlayer cachedPlayer = Bukkit.getOfflinePlayerIfCached(playerName);
+            return Optional.ofNullable(cachedPlayer);
         } catch (Exception exception) {
-            logger.warn("Failed to resolve player '" + playerName + "': " + exception.getMessage());
+            loggers.logWarn("Failed to resolve player '" + playerName + "': " + exception.getMessage(), LogType.OPERATIONS);
             return Optional.empty();
         }
     }
@@ -363,11 +392,6 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
             return findExistingPlayerAccount(playerUuid);
         } catch (IllegalArgumentException ignored) {
         }
-
-        Optional<AccountRecord> byName = economyService.findAccountByName(playerName).filter(this::isPlayerAccount);
-        if (byName.isPresent()) {
-            return byName;
-        }
         return resolvePlayer(playerName).flatMap(this::findExistingPlayerAccount);
     }
 
@@ -376,6 +400,10 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
             return Optional.empty();
         }
         return findExistingPlayerAccount(player.getUniqueId());
+    }
+
+    private boolean isEligibleForLegacyPlayerAccountCreation(OfflinePlayer player) {
+        return player != null && (player.isOnline() || player.hasPlayedBefore());
     }
 
     private Optional<AccountRecord> findExistingPlayerAccount(UUID playerUuid) {

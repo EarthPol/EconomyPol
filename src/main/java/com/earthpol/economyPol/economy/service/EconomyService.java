@@ -1,16 +1,18 @@
 package com.earthpol.economyPol.economy.service;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.economyPol.economy.config.PluginSettings;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.model.AccountRecord;
 import com.earthpol.economyPol.economy.model.AccountType;
 import com.earthpol.economyPol.economy.model.BalanceRecord;
 import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.model.MoneyOperationResult;
+import com.earthpol.economyPol.economy.model.MoneyOperationFailureReason;
 import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.model.PlayerBalanceView;
 import com.earthpol.economyPol.economy.repository.AccountRepository;
 import com.earthpol.economyPol.economy.repository.FundsRepository;
+import com.earthpol.economyPol.economy.repository.PendingPlayerPaymentRepository;
 import com.earthpol.economyPol.economy.repository.PlayerRepository;
 import com.earthpol.economyPol.economy.service.account.AccountRegistryService;
 import com.earthpol.economyPol.economy.service.account.SharedAccountService;
@@ -19,6 +21,7 @@ import com.earthpol.economyPol.economy.service.player.EnderWalletService;
 import com.earthpol.economyPol.economy.service.player.NotificationService;
 import com.earthpol.economyPol.economy.service.player.PlayerEconomyService;
 import com.earthpol.economyPol.economy.service.player.PlayerMoneyLockService;
+import com.earthpol.economyPol.economy.service.player.PlayerPaymentQueueService;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.support.ReservationService;
 import com.earthpol.economyPol.economy.service.support.SchedulerService;
@@ -41,16 +44,18 @@ public final class EconomyService {
     private final LiveMoneyService liveMoneyService;
     private final ReservationService reservationService;
     private final SchedulerService schedulerService;
-    private final EnhancedLogger operationsLog;
+    private final EconomyLoggers loggers;
 
     private final AccountRegistryService accountRegistryService;
     private final PlayerEconomyService playerEconomyService;
     private final SharedAccountService sharedAccountService;
+    private final PlayerPaymentQueueService playerPaymentQueueService;
 
     public EconomyService(
             AccountRepository accountRepository,
             PlayerRepository playerRepository,
             FundsRepository fundsRepository,
+            PendingPlayerPaymentRepository pendingPlayerPaymentRepository,
             DenominationService denominationService,
             LiveMoneyService liveMoneyService,
             EnderWalletService enderWalletService,
@@ -59,37 +64,46 @@ public final class EconomyService {
             NotificationService notificationService,
             SchedulerService schedulerService,
             PluginSettings settings,
-            EnhancedLogger operationsLog,
-            EnhancedLogger auditLog
+            EconomyLoggers loggers
     ) {
         this.denominationService = denominationService;
         this.liveMoneyService = liveMoneyService;
         this.reservationService = reservationService;
         this.schedulerService = schedulerService;
-        this.operationsLog = operationsLog;
+        this.loggers = loggers;
 
         this.accountRegistryService = new AccountRegistryService(
                 accountRepository,
                 playerRepository,
                 settings
         );
+        this.playerPaymentQueueService = new PlayerPaymentQueueService(
+                accountRegistryService,
+                fundsRepository,
+                pendingPlayerPaymentRepository,
+                liveMoneyService,
+                playerMoneyLockService,
+                notificationService,
+                schedulerService,
+                loggers
+        );
         this.playerEconomyService = new PlayerEconomyService(
                 accountRegistryService,
                 fundsRepository,
                 liveMoneyService,
                 enderWalletService,
+                playerPaymentQueueService,
                 playerMoneyLockService,
                 notificationService,
                 schedulerService,
                 settings,
-                operationsLog,
-                auditLog
+                loggers
         );
         this.sharedAccountService = new SharedAccountService(
                 accountRegistryService,
                 accountRepository,
                 fundsRepository,
-                auditLog
+                loggers
         );
     }
 
@@ -99,6 +113,18 @@ public final class EconomyService {
 
     public SchedulerService schedulerService() {
         return schedulerService;
+    }
+
+    public void startPendingPaymentQueue() {
+        playerPaymentQueueService.startRetryLoop();
+    }
+
+    public void requestPendingPaymentDrain(OfflinePlayer player, String trigger) {
+        playerPaymentQueueService.requestDrain(player, trigger);
+    }
+
+    public void requestPendingPaymentDrain(UUID playerUuid, String trigger) {
+        playerPaymentQueueService.requestDrain(playerUuid, trigger);
     }
 
     public ReservationService reservationService() {
@@ -113,6 +139,14 @@ public final class EconomyService {
         return accountRegistryService.ensurePlayerAccount(playerUuid, playerName);
     }
 
+    public Optional<AccountRecord> findPlayerAccount(UUID playerUuid) {
+        return accountRegistryService.findPlayerAccount(playerUuid);
+    }
+
+    public Optional<UUID> findPlayerUuidByUsername(String username) {
+        return accountRegistryService.findPlayerUuidByUsername(username);
+    }
+
     public void registerPlayer(OfflinePlayer player) {
         accountRegistryService.registerPlayer(player);
     }
@@ -121,8 +155,12 @@ public final class EconomyService {
         accountRegistryService.registerPlayer(playerUuid, playerName);
     }
 
+    public void syncPlayerIdentity(OfflinePlayer player) {
+        accountRegistryService.syncPlayerIdentity(player);
+    }
+
     public IncomingPaymentDeliveryPreference getIncomingPaymentDeliveryPreference(OfflinePlayer player) {
-        accountRegistryService.registerPlayer(player);
+        accountRegistryService.requirePlayerAccount(player);
         return accountRegistryService.getIncomingPaymentDeliveryPreference(player.getUniqueId());
     }
 
@@ -130,9 +168,23 @@ public final class EconomyService {
             OfflinePlayer player,
             IncomingPaymentDeliveryPreference preference
     ) {
+        accountRegistryService.requirePlayerAccount(player);
         return accountRegistryService.setIncomingPaymentDeliveryPreference(
                 player.getUniqueId(),
                 player.getName(),
+                preference
+        );
+    }
+
+    public IncomingPaymentDeliveryPreference setIncomingPaymentDeliveryPreference(
+            UUID playerUuid,
+            String playerName,
+            IncomingPaymentDeliveryPreference preference
+    ) {
+        accountRegistryService.requirePlayerAccount(playerUuid);
+        return accountRegistryService.setIncomingPaymentDeliveryPreference(
+                playerUuid,
+                playerName,
                 preference
         );
     }
@@ -150,10 +202,17 @@ public final class EconomyService {
     }
 
     public PlayerBalanceView balanceView(OfflinePlayer player) {
+        accountRegistryService.requirePlayerAccount(player);
         return playerEconomyService.balanceView(player);
     }
 
     public long getBalance(OfflinePlayer player) {
+        accountRegistryService.requirePlayerAccount(player);
+        return playerEconomyService.getBalance(player);
+    }
+
+    public long getPlayerSpendableBalance(OfflinePlayer player) {
+        accountRegistryService.requirePlayerAccount(player);
         return playerEconomyService.getBalance(player);
     }
 
@@ -162,22 +221,76 @@ public final class EconomyService {
     }
 
     public long getCustodialAvailable(OfflinePlayer player) {
+        accountRegistryService.requirePlayerAccount(player);
         return playerEconomyService.getCustodialAvailable(player);
     }
 
     public boolean hasEnough(OfflinePlayer player, long amount) {
+        accountRegistryService.requirePlayerAccount(player);
+        return playerEconomyService.hasEnough(player, amount);
+    }
+
+    public boolean playerHasEnough(OfflinePlayer player, long amount) {
+        accountRegistryService.requirePlayerAccount(player);
         return playerEconomyService.hasEnough(player, amount);
     }
 
     public MoneyOperationResult withdrawPlayer(OfflinePlayer player, long amount, String reason) {
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
+        return playerEconomyService.withdrawPlayer(player, amount, reason);
+    }
+
+    public MoneyOperationResult withdrawFromPlayerAccount(OfflinePlayer player, long amount, String reason) {
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
         return playerEconomyService.withdrawPlayer(player, amount, reason);
     }
 
     public MoneyOperationResult depositPlayer(OfflinePlayer player, long amount, String reason) {
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
+        return playerEconomyService.depositPlayer(player, amount, reason);
+    }
+
+    public MoneyOperationResult depositToPlayerAccount(OfflinePlayer player, long amount, String reason) {
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
         return playerEconomyService.depositPlayer(player, amount, reason);
     }
 
     public MoneyOperationResult depositSelf(Player player, long amount) {
+        return playerEconomyService.depositSelf(player, amount);
+    }
+
+    public MoneyOperationResult depositPhysicalMoneyToCustodial(Player player, long amount) {
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
         return playerEconomyService.depositSelf(player, amount);
     }
 
@@ -186,14 +299,34 @@ public final class EconomyService {
             long amount,
             List<MoneyRouteTarget> routingOrder
     ) {
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
         return playerEconomyService.withdrawCustodialAsPhysicalMoney(player, amount, routingOrder);
     }
 
     public MoneyOperationResult withdrawMaxCustodialToInventory(Player player) {
+        if (accountRegistryService.findPlayerAccount(player).isEmpty()) {
+            return MoneyOperationResult.failure(
+                    0L,
+                    "Player account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
+        }
         return playerEconomyService.withdrawMaxCustodialToInventory(player);
     }
 
+    public long getMaxWithdrawableCustodialToInventory(Player player) {
+        accountRegistryService.requirePlayerAccount(player);
+        return playerEconomyService.getMaxWithdrawableToInventory(player);
+    }
+
     public BalanceRecord creditCustodial(UUID playerUuid, String playerName, long amount, String reason) {
+        accountRegistryService.requirePlayerAccount(playerUuid);
         return playerEconomyService.creditCustodial(playerUuid, playerName, amount, reason);
     }
 
@@ -241,6 +374,10 @@ public final class EconomyService {
         return playerEconomyService.isPlayerLocked(playerUuid);
     }
 
+    public long getPendingIncomingPaymentBalance(UUID playerUuid) {
+        return playerEconomyService.getPendingIncomingPaymentBalance(playerUuid);
+    }
+
     public boolean renameAccount(UUID accountId, String name) {
         return accountRegistryService.renameAccount(accountId, name);
     }
@@ -250,31 +387,37 @@ public final class EconomyService {
     }
 
     public long getBalance(UUID accountId) {
-        Optional<AccountRecord> account = accountRegistryService.findAccount(accountId);
-        if (account.isEmpty()) {
-            return 0L;
-        }
-        if (account.get().accountType() == AccountType.PLAYER) {
+        AccountRecord account = accountRegistryService.requireAccount(accountId);
+        if (account.accountType() == AccountType.PLAYER) {
             return getBalance(Bukkit.getOfflinePlayer(accountId));
         }
         return sharedAccountService.getBalance(accountId);
     }
 
+    public long getSharedAccountBalance(UUID accountId) {
+        return sharedAccountService.getBalance(accountId);
+    }
+
     public boolean hasEnough(UUID accountId, long amount) {
-        Optional<AccountRecord> account = accountRegistryService.findAccount(accountId);
-        if (account.isEmpty()) {
-            return false;
-        }
-        if (account.get().accountType() == AccountType.PLAYER) {
+        AccountRecord account = accountRegistryService.requireAccount(accountId);
+        if (account.accountType() == AccountType.PLAYER) {
             return hasEnough(Bukkit.getOfflinePlayer(accountId), amount);
         }
+        return sharedAccountService.hasEnough(accountId, amount);
+    }
+
+    public boolean sharedAccountHasEnough(UUID accountId, long amount) {
         return sharedAccountService.hasEnough(accountId, amount);
     }
 
     public MoneyOperationResult withdrawAccount(UUID accountId, long amount, String reason) {
         Optional<AccountRecord> account = accountRegistryService.findAccount(accountId);
         if (account.isEmpty()) {
-            return MoneyOperationResult.failure(amount, "Account does not exist.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
         }
         if (account.get().accountType() == AccountType.PLAYER) {
             return withdrawPlayer(Bukkit.getOfflinePlayer(accountId), amount, reason);
@@ -282,14 +425,26 @@ public final class EconomyService {
         return sharedAccountService.withdrawAccount(accountId, amount, reason);
     }
 
+    public MoneyOperationResult withdrawFromSharedAccount(UUID accountId, long amount, String reason) {
+        return sharedAccountService.withdrawAccount(accountId, amount, reason);
+    }
+
     public MoneyOperationResult depositAccount(UUID accountId, long amount, String reason) {
         Optional<AccountRecord> account = accountRegistryService.findAccount(accountId);
         if (account.isEmpty()) {
-            return MoneyOperationResult.failure(amount, "Account does not exist.");
+            return MoneyOperationResult.failure(
+                    amount,
+                    "Account does not exist.",
+                    MoneyOperationFailureReason.ACCOUNT_NOT_FOUND
+            );
         }
         if (account.get().accountType() == AccountType.PLAYER) {
             return depositPlayer(Bukkit.getOfflinePlayer(accountId), amount, reason);
         }
+        return sharedAccountService.depositAccount(accountId, amount, reason);
+    }
+
+    public MoneyOperationResult depositToSharedAccount(UUID accountId, long amount, String reason) {
         return sharedAccountService.depositAccount(accountId, amount, reason);
     }
 
@@ -317,7 +472,7 @@ public final class EconomyService {
         return denominationService;
     }
 
-    public EnhancedLogger operationsLog() {
-        return operationsLog;
+    public EconomyLoggers loggers() {
+        return loggers;
     }
 }

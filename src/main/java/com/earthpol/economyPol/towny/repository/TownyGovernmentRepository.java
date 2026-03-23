@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.towny.repository;
 
 import com.earthpol.earthPolLib.database.DatabaseService;
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.repository.AbstractRepositorySupport;
 import com.earthpol.economyPol.towny.model.TownyGovernmentBinding;
 import com.earthpol.economyPol.towny.model.TownyGovernmentType;
@@ -15,8 +15,8 @@ import java.util.UUID;
 
 public final class TownyGovernmentRepository extends AbstractRepositorySupport {
 
-    public TownyGovernmentRepository(DatabaseService databaseService, EnhancedLogger operationsLog, EnhancedLogger auditLog) {
-        super(databaseService, operationsLog, auditLog);
+    public TownyGovernmentRepository(DatabaseService databaseService, EconomyLoggers loggers) {
+        super(databaseService, loggers);
     }
 
     public TownyGovernmentBinding upsertBinding(

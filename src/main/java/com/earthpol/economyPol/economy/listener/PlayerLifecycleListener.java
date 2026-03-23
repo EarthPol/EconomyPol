@@ -27,8 +27,9 @@ public final class PlayerLifecycleListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
-        economyService.registerPlayer(event.getPlayer());
+        economyService.syncPlayerIdentity(event.getPlayer());
         long overflow = enderWalletService.syncSnapshotOnJoin(event.getPlayer());
+        economyService.requestPendingPaymentDrain(event.getPlayer(), "player-join");
         int deliveredNotifications = notificationService.deliverPendingNotifications(event.getPlayer());
         if (overflow <= 0L && deliveredNotifications == 0) {
             notificationService.notifyCustodialBalanceReminder(

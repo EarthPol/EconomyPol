@@ -2,6 +2,8 @@ package com.earthpol.economyPol.economy.config;
 
 import com.earthpol.earthPolLib.config.ReloadableConfigHandler;
 import com.earthpol.earthPolLib.logging.LogRetentionPolicy;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers;
+import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.Denomination;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -23,6 +25,7 @@ public final class PluginSettings {
     private static final String RUNTIME_FILE = "config.yml";
 
     private final Plugin plugin;
+    private final EconomyLoggers loggers;
     private final DatabaseSettings database;
     private final CurrencySettings currency;
     private final ReloadableConfigHandler<RuntimeConfigKey> runtimeConfig;
@@ -31,19 +34,22 @@ public final class PluginSettings {
 
     private PluginSettings(
             Plugin plugin,
+            EconomyLoggers loggers,
             DatabaseSettings database,
             CurrencySettings currency,
             ReloadableConfigHandler<RuntimeConfigKey> runtimeConfig,
             RuntimeSettings runtime
     ) {
         this.plugin = plugin;
+        this.loggers = loggers;
         this.database = database;
         this.currency = currency;
         this.runtimeConfig = runtimeConfig;
         this.runtime = runtime;
     }
 
-    public static PluginSettings load(Plugin plugin) throws IOException {
+    public static PluginSettings load(Plugin plugin, EconomyLoggers loggers) throws IOException {
+        loggers.log("Loading EconomyPol configuration files.", LogType.OPERATIONS);
         copyBundledConfigIfMissing(plugin, DATABASE_FILE);
         copyBundledConfigIfMissing(plugin, CURRENCY_FILE);
 
@@ -55,7 +61,9 @@ public final class PluginSettings {
         DatabaseSettings database = loadDatabaseSettings(databaseConfig);
         CurrencySettings currency = loadCurrencySettings(currencyConfig);
         RuntimeSettings runtime = loadRuntimeSettings(runtimeConfig);
-        return new PluginSettings(plugin, database, currency, runtimeConfig, runtime);
+        loggers.applyConsoleLogging(runtime.logging().consoleEnabled());
+        loggers.log("Loaded EconomyPol configuration files.", LogType.OPERATIONS);
+        return new PluginSettings(plugin, loggers, database, currency, runtimeConfig, runtime);
     }
 
     public RuntimeConfigReloadResult reloadRuntimeConfig() {
@@ -63,16 +71,27 @@ public final class PluginSettings {
             boolean cleanReload = runtimeConfig.reload();
             RuntimeSettings reloaded = loadRuntimeSettings(runtimeConfig);
             runtime = reloaded;
+            loggers.applyConsoleLogging(reloaded.logging().consoleEnabled());
 
             List<String> warnings = new ArrayList<>();
             if (!cleanReload) {
                 warnings.add("One or more config.yml values were invalid and fell back to defaults. Check the server log.");
+                loggers.logWarn(
+                        "Reloaded config.yml with one or more invalid values. Defaults were applied for the invalid entries.",
+                        LogType.OPERATIONS
+                );
             }
+            loggers.log("Reloaded config.yml runtime settings.", LogType.OPERATIONS);
             return RuntimeConfigReloadResult.success("Reloaded config.yml.", warnings);
         } catch (IOException exception) {
+            loggers.logSevere("Failed to reload config.yml.", LogType.OPERATIONS, exception);
             return RuntimeConfigReloadResult.failure("Failed to reload config.yml: " + exception.getMessage());
         } catch (RuntimeException exception) {
-            plugin.getLogger().severe("Failed to apply config.yml reload. Keeping the previous runtime settings. Cause: " + exception.getMessage());
+            loggers.logSevere(
+                    "Failed to apply config.yml reload. Keeping the previous runtime settings.",
+                    LogType.OPERATIONS,
+                    exception
+            );
             return RuntimeConfigReloadResult.failure("Failed to apply config.yml. Keeping the previous runtime settings: " + exception.getMessage());
         }
     }
@@ -173,6 +192,7 @@ public final class PluginSettings {
 
         LoggingSettings logging = new LoggingSettings(
                 RuntimeConfigKey.LOGGING_DEBUG.getBool(),
+                RuntimeConfigKey.LOGGING_CONSOLE_ENABLED.getBool(),
                 parseEnum(
                         LogRetentionPolicy.class,
                         RuntimeConfigKey.LOGGING_RETENTION_POLICY.getString(),
@@ -269,6 +289,7 @@ public final class PluginSettings {
 
     public record LoggingSettings(
             boolean debug,
+            boolean consoleEnabled,
             LogRetentionPolicy retentionPolicy
     ) {}
 
