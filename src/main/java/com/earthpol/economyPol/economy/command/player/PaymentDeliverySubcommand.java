@@ -49,8 +49,13 @@ public final class PaymentDeliverySubcommand extends AbstractEconomySubcommand {
                             .append(Component.text(current.commandToken(), NamedTextColor.YELLOW))
             );
             player.sendMessage(
-                    Component.text("Default order: ", NamedTextColor.GRAY)
+                    Component.text("Current routing: ", NamedTextColor.GRAY)
                             .append(Component.text(current.description(), NamedTextColor.WHITE))
+            );
+            player.sendMessage(
+                    Component.text("Note: automatic delivery uses yellow shulkers first unless ", NamedTextColor.GRAY)
+                            .append(Component.text("/economypol skip_shulker true", NamedTextColor.YELLOW))
+                            .append(Component.text(" is enabled.", NamedTextColor.GRAY))
             );
             player.sendMessage(
                     Component.text("Usage: ", NamedTextColor.GRAY)

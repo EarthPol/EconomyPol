@@ -42,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -110,7 +111,7 @@ final class EconomyServiceTest {
             target.getInventory().setItem(0, new ItemStack(Material.GOLD_NUGGET, 1));
             target.getInventory().setItemInOffHand(new ItemStack(Material.GOLD_INGOT, 1));
             throw new IllegalStateException("boom");
-        }).when(liveMoneyService).deliver(player, 10L, routingOrder);
+        }).when(liveMoneyService).deliver(player, 10L, routingOrder, true);
         doAnswer(invocation -> {
             Player target = invocation.getArgument(0);
             LiveMoneyService.LiveContainerSnapshot restoreSnapshot = invocation.getArgument(1);
@@ -193,7 +194,8 @@ final class EconomyServiceTest {
                 player.getUniqueId()
         )).thenReturn(new BalanceRecord(94L, 0L));
         when(liveMoneyService.captureLiveContainerSnapshot(player)).thenReturn(snapshotOf(player));
-        when(liveMoneyService.deliver(player, 10L, routingOrder)).thenReturn(new LiveMoneyService.DeliveryResult(6L, 0L, 4L));
+        when(liveMoneyService.deliver(player, 10L, routingOrder, true))
+                .thenReturn(new LiveMoneyService.DeliveryResult(6L, 0L, 4L));
         doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
                 .when(schedulerService)
                 .callOnPlayerEntityScheduler(eq(player), any(), anyString());
@@ -263,7 +265,13 @@ final class EconomyServiceTest {
         when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(account));
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
         when(liveMoneyService.captureLiveContainerSnapshot(player)).thenReturn(snapshotOf(player));
-        when(liveMoneyService.spendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.FAIL))
+        when(liveMoneyService.spendFromLiveSources(
+                player,
+                10L,
+                routingOrder,
+                PluginSettings.ChangeOverflowPolicy.FAIL,
+                true
+        ))
                 .thenReturn(LiveMoneyService.SpendResult.failure(10L, LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE));
         doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
                 .when(schedulerService)
@@ -323,7 +331,13 @@ final class EconomyServiceTest {
         when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(account));
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
         when(liveMoneyService.captureLiveContainerSnapshot(player)).thenReturn(snapshotOf(player));
-        when(liveMoneyService.spendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.FAIL))
+        when(liveMoneyService.spendFromLiveSources(
+                player,
+                10L,
+                routingOrder,
+                PluginSettings.ChangeOverflowPolicy.FAIL,
+                true
+        ))
                 .thenReturn(LiveMoneyService.SpendResult.failure(10L, LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE));
         doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
                 .when(schedulerService)
@@ -382,7 +396,13 @@ final class EconomyServiceTest {
                 new AccountRecord(player.getUniqueId(), AccountType.PLAYER, player.getUniqueId(), player.getName())
         ));
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
-        when(liveMoneyService.canSpendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.FAIL))
+        when(liveMoneyService.canSpendFromLiveSources(
+                player,
+                10L,
+                routingOrder,
+                PluginSettings.ChangeOverflowPolicy.FAIL,
+                true
+        ))
                 .thenReturn(LiveMoneyService.SpendabilityResult.blocked(LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE));
         doAnswer(invocation -> Optional.ofNullable(((Supplier<?>) invocation.getArgument(1)).get()))
                 .when(schedulerService)
@@ -459,7 +479,7 @@ final class EconomyServiceTest {
 
         assertTrue(hasEnough);
         verifyNoInteractions(notificationService);
-        verify(liveMoneyService, never()).canSpendFromLiveSources(any(), anyLong(), any(), any());
+        verify(liveMoneyService, never()).canSpendFromLiveSources(any(), anyLong(), any(), any(), anyBoolean());
     }
 
     @Test
@@ -493,7 +513,13 @@ final class EconomyServiceTest {
         when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.of(account));
         when(playerMoneyLockService.isLocked(player.getUniqueId())).thenReturn(false);
         when(liveMoneyService.captureLiveContainerSnapshot(player)).thenReturn(snapshot);
-        when(liveMoneyService.spendFromLiveSources(player, 10L, routingOrder, PluginSettings.ChangeOverflowPolicy.CUSTODIAL))
+        when(liveMoneyService.spendFromLiveSources(
+                player,
+                10L,
+                routingOrder,
+                PluginSettings.ChangeOverflowPolicy.CUSTODIAL,
+                true
+        ))
                 .thenReturn(LiveMoneyService.SpendResult.success(10L, 81L, 71L, 71L));
         when(fundsRepository.changeAvailable(
                 accountId,

@@ -84,6 +84,11 @@ public final class AccountRegistryService {
         return preference == null ? IncomingPaymentDeliveryPreference.DEFAULT : preference;
     }
 
+    public boolean getSkipShulkerDelivery(UUID playerUuid) {
+        requirePlayerAccount(playerUuid);
+        return playerRepository.getSkipShulkerDelivery(playerUuid);
+    }
+
     public Optional<String> resolvePlayerUsername(UUID playerUuid) {
         if (playerUuid == null) {
             return Optional.empty();
@@ -110,6 +115,12 @@ public final class AccountRegistryService {
         requirePlayerAccount(playerUuid);
         playerRepository.setIncomingPaymentDeliveryPreference(playerUuid, preference);
         return preference;
+    }
+
+    public boolean setSkipShulkerDelivery(UUID playerUuid, String playerName, boolean skipShulkerDelivery) {
+        requirePlayerAccount(playerUuid);
+        playerRepository.setSkipShulkerDelivery(playerUuid, skipShulkerDelivery);
+        return skipShulkerDelivery;
     }
 
     public AccountRecord ensureSharedAccount(String name, OfflinePlayer owner) {

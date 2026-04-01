@@ -16,7 +16,12 @@ public final class HelpCommand {
             new HelpEntry("/claim", "Claim as much overflow money as fits in your inventory.", null),
             new HelpEntry(
                     "/economypol paymentdelivery <default | skip_inventory | skip_inventory_and_enderchest>",
-                    "Choose how incoming money and returned change are routed. Default order: Inventory -> Enderchest -> Overflow account",
+                    "Choose how incoming money and returned change are routed. With skip_shulker=false, automatic delivery tries yellow shulkers before top-level inventory/endchest.",
+                    null
+            ),
+            new HelpEntry(
+                    "/economypol skip_shulker <true | false>",
+                    "Set whether automatic incoming money skips yellow shulker delivery. false = use yellow shulkers first, true = skip them.",
                     null
             ),
             new HelpEntry("/compress", "Automatically compress ender chest currency to the largest denomination(s).", null),

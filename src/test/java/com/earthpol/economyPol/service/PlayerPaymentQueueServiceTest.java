@@ -249,7 +249,7 @@ final class PlayerPaymentQueueServiceTest {
                 com.earthpol.economyPol.economy.model.MoneyRouteTarget.INVENTORY,
                 com.earthpol.economyPol.economy.model.MoneyRouteTarget.ENDER_CHEST,
                 com.earthpol.economyPol.economy.model.MoneyRouteTarget.CUSTODIAL_ACCOUNT
-        ))).thenReturn(new LiveMoneyService.DeliveryResult(6L, 0L, 4L));
+        ), true)).thenReturn(new LiveMoneyService.DeliveryResult(6L, 0L, 4L));
         when(pendingPlayerPaymentRepository.completePaymentToCustodial(
                 payment.pendingPaymentId(),
                 account.accountId(),

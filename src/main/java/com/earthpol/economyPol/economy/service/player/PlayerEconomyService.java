@@ -121,7 +121,8 @@ public final class PlayerEconomyService {
                     onlinePlayer,
                     amount,
                     incomingPaymentRoutingOrder(player.getUniqueId()),
-                    settings.changeOverflowPolicy()
+                    settings.changeOverflowPolicy(),
+                    allowAutomaticShulkerDelivery(player.getUniqueId())
             );
             if (!spendability.success()
                     && LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE.equals(spendability.message())) {
@@ -297,7 +298,8 @@ public final class PlayerEconomyService {
                 player,
                 requested,
                 incomingPaymentRoutingOrder(player.getUniqueId()),
-                settings.changeOverflowPolicy()
+                settings.changeOverflowPolicy(),
+                allowAutomaticShulkerDelivery(player.getUniqueId())
         );
         if (!spendResult.success()) {
             if (requested <= 0L) {
@@ -421,7 +423,7 @@ public final class PlayerEconomyService {
 
         LiveMoneyService.DeliveryResult deliveryResult;
         try {
-            deliveryResult = liveMoneyService.deliver(player, amount, routingOrder);
+            deliveryResult = liveMoneyService.deliver(player, amount, routingOrder, true);
         } catch (Exception exception) {
             rollbackCustodialWithdrawal(player, liveSnapshot, account.accountId(), amount, exception);
             return MoneyOperationResult.failure(
@@ -513,7 +515,8 @@ public final class PlayerEconomyService {
                 player,
                 amount,
                 incomingPaymentRoutingOrder(player.getUniqueId()),
-                settings.changeOverflowPolicy()
+                settings.changeOverflowPolicy(),
+                allowAutomaticShulkerDelivery(player.getUniqueId())
         );
         if (!spendResult.success()) {
             if (LiveMoneyService.NOT_ENOUGH_ROOM_FOR_CHANGE_MESSAGE.equals(spendResult.message())) {
@@ -566,6 +569,10 @@ public final class PlayerEconomyService {
         IncomingPaymentDeliveryPreference preference =
                 accountRegistryService.getIncomingPaymentDeliveryPreference(playerUuid);
         return preference.effectiveRoutingOrder();
+    }
+
+    private boolean allowAutomaticShulkerDelivery(UUID playerUuid) {
+        return !accountRegistryService.getSkipShulkerDelivery(playerUuid);
     }
 
     private List<MoneyRouteTarget> sanitizeExplicitWithdrawRoutingOrder(long amount, List<MoneyRouteTarget> routingOrder) {

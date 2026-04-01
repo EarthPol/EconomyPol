@@ -6,7 +6,9 @@ import com.earthpol.economyPol.economy.model.MoneyRouteTarget;
 import com.earthpol.economyPol.economy.service.support.DenominationService;
 import com.earthpol.economyPol.economy.service.money.LiveMoneyService;
 import org.bukkit.Material;
+import org.bukkit.block.ShulkerBox;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BlockStateMeta;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -137,7 +139,7 @@ final class LiveMoneyServiceTest {
         LiveMoneyService.ManagedEnderWalletSyncPlan plan = service.planManagedEnderWalletSync(currentContents, 10L);
 
         assertEquals(10L, plan.targetBaseUnits());
-        assertEquals(81L, plan.existingTopLevelMoneyValue());
+        assertEquals(81L, plan.existingManagedMoneyValue());
         assertEquals(0L, plan.overflow());
         assertFalse(plan.malformedStacksFound());
         assertEquals(Material.DIAMOND, plan.targetContents()[5].getType());
@@ -156,10 +158,181 @@ final class LiveMoneyServiceTest {
 
         LiveMoneyService.ManagedEnderWalletSyncPlan plan = service.planManagedEnderWalletSync(currentContents, 10L);
 
-        assertEquals(0L, plan.existingTopLevelMoneyValue());
+        assertEquals(0L, plan.existingManagedMoneyValue());
         assertEquals(10L, plan.overflow());
         assertEquals(Material.STONE, plan.targetContents()[0].getType());
         assertEquals(Material.DIAMOND, plan.targetContents()[1].getType());
+    }
+
+    @Test
+    void scanPlayerMoneyCountsInventoryGoldShulkerContents() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItem(0, goldShulkerWithContents(
+                new ItemStack(Material.GOLD_INGOT, 2),
+                new ItemStack(Material.GOLD_NUGGET, 3)
+        ));
+
+        assertEquals(21L, service.scanPlayerMoney(player));
+    }
+
+    @Test
+    void scanPlayerMoneyCountsOffHandMoneyExactlyOnce() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItemInOffHand(new ItemStack(Material.GOLD_INGOT, 1));
+
+        assertEquals(9L, service.scanPlayerMoney(player));
+    }
+
+    @Test
+    void scanPlayerMoneyCountsOffHandGoldShulkerContents() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItemInOffHand(goldShulkerWithContents(new ItemStack(Material.GOLD_NUGGET, 7)));
+
+        assertEquals(7L, service.scanPlayerMoney(player));
+    }
+
+    @Test
+    void spendFromLiveSourcesUsesGoldShulkerBeforeTopLevelInventory() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItem(0, goldShulkerWithContents(new ItemStack(Material.GOLD_NUGGET, 10)));
+        player.getInventory().setItem(1, new ItemStack(Material.GOLD_INGOT, 1));
+
+        LiveMoneyService.SpendResult result = service.spendFromLiveSources(
+                player,
+                5L,
+                List.of(MoneyRouteTarget.INVENTORY, MoneyRouteTarget.ENDER_CHEST, MoneyRouteTarget.CUSTODIAL_ACCOUNT),
+                PluginSettings.ChangeOverflowPolicy.FAIL
+        );
+
+        assertTrue(result.success());
+        assertEquals(14L, service.scanPlayerMoney(player));
+        assertEquals(5L, countGoldShulkerMoney(player.getInventory().getItem(0)));
+        assertEquals(Material.GOLD_INGOT, player.getInventory().getItem(1).getType());
+        assertEquals(9L, denominationService.valueOf(player.getInventory().getItem(1)));
+    }
+
+    @Test
+    void spendFromLiveSourcesUsesOffHandGoldShulkerBeforeTopLevelInventory() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItemInOffHand(goldShulkerWithContents(new ItemStack(Material.GOLD_NUGGET, 10)));
+        player.getInventory().setItem(0, new ItemStack(Material.GOLD_INGOT, 1));
+
+        LiveMoneyService.SpendResult result = service.spendFromLiveSources(
+                player,
+                5L,
+                List.of(MoneyRouteTarget.INVENTORY, MoneyRouteTarget.ENDER_CHEST, MoneyRouteTarget.CUSTODIAL_ACCOUNT),
+                PluginSettings.ChangeOverflowPolicy.FAIL
+        );
+
+        assertTrue(result.success());
+        assertEquals(14L, service.scanPlayerMoney(player));
+        assertEquals(5L, countGoldShulkerMoney(player.getInventory().getItemInOffHand()));
+        assertEquals(Material.GOLD_INGOT, player.getInventory().getItem(0).getType());
+        assertEquals(9L, denominationService.valueOf(player.getInventory().getItem(0)));
+    }
+
+    @Test
+    void deliverPlacesMoneyIntoGoldShulkersWhenEnabled() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItem(0, goldShulkerWithContents());
+
+        LiveMoneyService.DeliveryResult result = service.deliver(
+                player,
+                10L,
+                List.of(MoneyRouteTarget.INVENTORY),
+                true
+        );
+
+        assertEquals(10L, result.deliveredToInventory());
+        assertEquals(0L, result.remainder());
+        assertEquals(10L, countGoldShulkerMoney(player.getInventory().getItem(0)));
+        assertEquals(0L, countTopLevelMoney(player.getInventory().getContents()));
+    }
+
+    @Test
+    void deliverSkipsGoldShulkersWhenDisabled() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItem(0, goldShulkerWithContents());
+
+        LiveMoneyService.DeliveryResult result = service.deliver(
+                player,
+                10L,
+                List.of(MoneyRouteTarget.INVENTORY),
+                false
+        );
+
+        assertEquals(10L, result.deliveredToInventory());
+        assertEquals(0L, result.remainder());
+        assertEquals(0L, countGoldShulkerMoney(player.getInventory().getItem(0)));
+        assertEquals(10L, countTopLevelMoney(player.getInventory().getContents()));
+    }
+
+    @Test
+    void deliverPlacesMoneyIntoOffHandGoldShulkerWhenEnabled() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItemInOffHand(goldShulkerWithContents());
+
+        LiveMoneyService.DeliveryResult result = service.deliver(
+                player,
+                10L,
+                List.of(MoneyRouteTarget.INVENTORY),
+                true
+        );
+
+        assertEquals(10L, result.deliveredToInventory());
+        assertEquals(0L, result.remainder());
+        assertEquals(10L, countGoldShulkerMoney(player.getInventory().getItemInOffHand()));
+        assertEquals(0L, countTopLevelMoney(player.getInventory().getStorageContents()));
+    }
+
+    @Test
+    void planManagedEnderWalletSyncCountsGoldShulkerMoney() {
+        LiveMoneyService service = new LiveMoneyService(
+                denominationService,
+                new PluginSettings.WalletSettings(true, true, true)
+        );
+        ItemStack[] currentContents = new ItemStack[27];
+        currentContents[0] = goldShulkerWithContents(new ItemStack(Material.GOLD_BLOCK, 1));
+
+        LiveMoneyService.ManagedEnderWalletSyncPlan plan = service.planManagedEnderWalletSync(currentContents, 10L);
+
+        assertEquals(81L, plan.existingManagedMoneyValue());
+        PlayerMock player = server.addPlayer();
+        player.getEnderChest().setContents(plan.targetContents());
+        assertEquals(10L, service.countTopLevelEnderChest(player));
+        assertEquals(10L, countGoldShulkerMoney(player.getEnderChest().getItem(0)));
     }
 
     @Test
@@ -248,6 +421,33 @@ final class LiveMoneyServiceTest {
         long maxDeliverable = service.maxDeliverableToInventory(player, 80L);
 
         assertEquals(72L, maxDeliverable);
+    }
+
+    private ItemStack goldShulkerWithContents(ItemStack... contents) {
+        ItemStack shulker = new ItemStack(Material.YELLOW_SHULKER_BOX, 1);
+        BlockStateMeta meta = (BlockStateMeta) shulker.getItemMeta();
+        ShulkerBox shulkerBox = (ShulkerBox) meta.getBlockState();
+        ItemStack[] clonedContents = new ItemStack[shulkerBox.getInventory().getSize()];
+        for (int index = 0; index < contents.length; index++) {
+            clonedContents[index] = contents[index] == null ? null : contents[index].clone();
+        }
+        shulkerBox.getInventory().setContents(clonedContents);
+        meta.setBlockState(shulkerBox);
+        shulker.setItemMeta(meta);
+        return shulker;
+    }
+
+    private long countGoldShulkerMoney(ItemStack shulkerItem) {
+        if (shulkerItem == null || shulkerItem.getType() != Material.YELLOW_SHULKER_BOX) {
+            return 0L;
+        }
+        BlockStateMeta meta = (BlockStateMeta) shulkerItem.getItemMeta();
+        ShulkerBox shulkerBox = (ShulkerBox) meta.getBlockState();
+        return denominationService.countStacks(Arrays.asList(shulkerBox.getInventory().getContents()));
+    }
+
+    private long countTopLevelMoney(ItemStack[] contents) {
+        return denominationService.countStacks(Arrays.asList(contents));
     }
 }
 

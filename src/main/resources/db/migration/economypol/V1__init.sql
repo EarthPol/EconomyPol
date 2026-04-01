@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS economy_players (
     player_uuid UUID NOT NULL PRIMARY KEY,
     username VARCHAR(191) NOT NULL,
     incoming_payment_delivery_preference ENUM('DEFAULT', 'SKIP_INVENTORY', 'SKIP_INVENTORY_AND_ENDERCHEST') NOT NULL DEFAULT 'DEFAULT',
+    skip_shulker_delivery BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP(3) NOT NULL,
     updated_at TIMESTAMP(3) NOT NULL
 );

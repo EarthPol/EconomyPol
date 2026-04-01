@@ -155,7 +155,7 @@ public final class EnderWalletService {
                 }
                 loggers.log("ender-wallet-sync player=" + player.getUniqueId() +
                         " snapshot_amount=" + snapshot.baseUnits() +
-                        " existing_top_level_money=" + plan.existingTopLevelMoneyValue() +
+                        " existing_managed_money=" + plan.existingManagedMoneyValue() +
                         " overflow=" + overflow, LogType.AUDIT);
                 return overflow;
             } catch (Exception exception) {
