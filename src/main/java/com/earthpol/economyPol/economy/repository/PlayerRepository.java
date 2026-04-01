@@ -21,8 +21,15 @@ public final class PlayerRepository extends AbstractRepositorySupport {
         Timestamp now = nowTimestamp();
         if (namePlan.overwriteExisting()) {
             update("""
-                    INSERT INTO economy_players (player_uuid, username, incoming_payment_delivery_preference, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO economy_players (
+                        player_uuid,
+                        username,
+                        incoming_payment_delivery_preference,
+                        skip_shulker_delivery,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE
                         username = VALUES(username),
                         updated_at = VALUES(updated_at)
@@ -30,20 +37,29 @@ public final class PlayerRepository extends AbstractRepositorySupport {
                     uuid(playerUuid),
                     namePlan.storedName(),
                     IncomingPaymentDeliveryPreference.DEFAULT.name(),
+                    false,
                     now,
                     now
             );
             return;
         }
         update("""
-                INSERT INTO economy_players (player_uuid, username, incoming_payment_delivery_preference, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO economy_players (
+                    player_uuid,
+                    username,
+                    incoming_payment_delivery_preference,
+                    skip_shulker_delivery,
+                    created_at,
+                    updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     updated_at = VALUES(updated_at)
                 """,
                 uuid(playerUuid),
                 namePlan.storedName(),
                 IncomingPaymentDeliveryPreference.DEFAULT.name(),
+                false,
                 now,
                 now
         );
@@ -61,6 +77,18 @@ public final class PlayerRepository extends AbstractRepositorySupport {
                 )
         );
         return preference.orElse(IncomingPaymentDeliveryPreference.DEFAULT);
+    }
+
+    public boolean getSkipShulkerDelivery(UUID playerUuid) {
+        Optional<Boolean> skipShulkerDelivery = queryOne("""
+                        SELECT skip_shulker_delivery
+                        FROM economy_players
+                        WHERE player_uuid = ?
+                        """,
+                statement -> bind(statement, uuid(playerUuid)),
+                resultSet -> resultSet.getBoolean("skip_shulker_delivery")
+        );
+        return skipShulkerDelivery.orElse(false);
     }
 
     public Optional<String> findUsername(UUID playerUuid) {
@@ -117,6 +145,19 @@ public final class PlayerRepository extends AbstractRepositorySupport {
                 WHERE player_uuid = ?
                 """,
                 preference.name(),
+                nowTimestamp(),
+                uuid(playerUuid)
+        );
+    }
+
+    public void setSkipShulkerDelivery(UUID playerUuid, boolean skipShulkerDelivery) {
+        update("""
+                UPDATE economy_players
+                SET skip_shulker_delivery = ?,
+                    updated_at = ?
+                WHERE player_uuid = ?
+                """,
+                skipShulkerDelivery,
                 nowTimestamp(),
                 uuid(playerUuid)
         );

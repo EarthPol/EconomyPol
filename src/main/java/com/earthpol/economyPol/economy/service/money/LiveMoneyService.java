@@ -33,13 +33,15 @@ public final class LiveMoneyService {
             DenominationService denominationService,
             Supplier<PluginSettings.WalletSettings> walletSettingsSupplier
     ) {
-        this.snapshotService = new LiveMoneySnapshotService(denominationService, walletSettingsSupplier);
-        this.deliveryService = new LiveMoneyDeliveryService(denominationService, snapshotService);
+        ShulkerDeliveryService shulkerDeliveryService = new ShulkerDeliveryService(denominationService);
+        this.snapshotService = new LiveMoneySnapshotService(denominationService, walletSettingsSupplier, shulkerDeliveryService);
+        this.deliveryService = new LiveMoneyDeliveryService(denominationService, snapshotService, shulkerDeliveryService);
         this.spendingService = new LiveMoneySpendingService(
                 denominationService,
                 walletSettingsSupplier,
                 snapshotService,
-                deliveryService
+                deliveryService,
+                shulkerDeliveryService
         );
     }
 
@@ -72,7 +74,23 @@ public final class LiveMoneyService {
             List<MoneyRouteTarget> routingOrder,
             PluginSettings.ChangeOverflowPolicy changeOverflowPolicy
     ) {
-        return spendingService.canSpendFromLiveSources(player, amount, routingOrder, changeOverflowPolicy);
+        return canSpendFromLiveSources(player, amount, routingOrder, changeOverflowPolicy, true);
+    }
+
+    public SpendabilityResult canSpendFromLiveSources(
+            Player player,
+            long amount,
+            List<MoneyRouteTarget> routingOrder,
+            PluginSettings.ChangeOverflowPolicy changeOverflowPolicy,
+            boolean allowShulkerDelivery
+    ) {
+        return spendingService.canSpendFromLiveSources(
+                player,
+                amount,
+                routingOrder,
+                changeOverflowPolicy,
+                allowShulkerDelivery
+        );
     }
 
     public SpendabilityResult canSpendFromSnapshot(
@@ -81,7 +99,17 @@ public final class LiveMoneyService {
             List<MoneyRouteTarget> routingOrder,
             PluginSettings.ChangeOverflowPolicy changeOverflowPolicy
     ) {
-        return spendingService.canSpendFromSnapshot(snapshot, amount, routingOrder, changeOverflowPolicy);
+        return canSpendFromSnapshot(snapshot, amount, routingOrder, changeOverflowPolicy, true);
+    }
+
+    public SpendabilityResult canSpendFromSnapshot(
+            LiveContainerSnapshot snapshot,
+            long amount,
+            List<MoneyRouteTarget> routingOrder,
+            PluginSettings.ChangeOverflowPolicy changeOverflowPolicy,
+            boolean allowShulkerDelivery
+    ) {
+        return spendingService.canSpendFromSnapshot(snapshot, amount, routingOrder, changeOverflowPolicy, allowShulkerDelivery);
     }
 
     public SpendResult spendFromLiveSources(
@@ -90,11 +118,30 @@ public final class LiveMoneyService {
             List<MoneyRouteTarget> routingOrder,
             PluginSettings.ChangeOverflowPolicy changeOverflowPolicy
     ) {
-        return spendingService.spendFromLiveSources(player, amount, routingOrder, changeOverflowPolicy);
+        return spendFromLiveSources(player, amount, routingOrder, changeOverflowPolicy, true);
+    }
+
+    public SpendResult spendFromLiveSources(
+            Player player,
+            long amount,
+            List<MoneyRouteTarget> routingOrder,
+            PluginSettings.ChangeOverflowPolicy changeOverflowPolicy,
+            boolean allowShulkerDelivery
+    ) {
+        return spendingService.spendFromLiveSources(player, amount, routingOrder, changeOverflowPolicy, allowShulkerDelivery);
     }
 
     public DeliveryResult deliver(Player player, long amount, List<MoneyRouteTarget> routingOrder) {
-        return deliveryService.deliver(player, amount, routingOrder);
+        return deliver(player, amount, routingOrder, true);
+    }
+
+    public DeliveryResult deliver(
+            Player player,
+            long amount,
+            List<MoneyRouteTarget> routingOrder,
+            boolean allowShulkerDelivery
+    ) {
+        return deliveryService.deliver(player, amount, routingOrder, allowShulkerDelivery);
     }
 
     public long maxDeliverableToInventory(Player player, long maxAmount) {
@@ -130,7 +177,7 @@ public final class LiveMoneyService {
 
     public record ManagedEnderWalletSyncPlan(
             long targetBaseUnits,
-            long existingTopLevelMoneyValue,
+            long existingManagedMoneyValue,
             long overflow,
             boolean malformedStacksFound,
             ItemStack[] targetContents

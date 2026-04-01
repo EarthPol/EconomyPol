@@ -273,6 +273,7 @@ public final class PlayerPaymentQueueService {
         }
         IncomingPaymentDeliveryPreference preference =
                 accountRegistryService.getIncomingPaymentDeliveryPreference(payment.playerUuid());
+        boolean allowShulkerDelivery = !accountRegistryService.getSkipShulkerDelivery(payment.playerUuid());
         if (preference == IncomingPaymentDeliveryPreference.SKIP_INVENTORY_AND_ENDERCHEST) {
             completeToCustodial(payment, player, payment.paymentAmount(), CUSTODIAL_REASON_PREFERENCE);
             requestDrain(payment.playerUuid(), "post-custodial-preference");
@@ -284,7 +285,8 @@ public final class PlayerPaymentQueueService {
             LiveMoneyService.DeliveryResult deliveryResult = liveMoneyService.deliver(
                     player,
                     payment.paymentAmount(),
-                    preference.effectiveRoutingOrder()
+                    preference.effectiveRoutingOrder(),
+                    allowShulkerDelivery
             );
             PendingPlayerPaymentRepository.CompletionResult completion =
                     pendingPlayerPaymentRepository.completePaymentToCustodial(

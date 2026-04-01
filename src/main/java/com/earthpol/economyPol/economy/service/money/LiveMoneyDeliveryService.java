@@ -7,6 +7,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,13 +18,28 @@ final class LiveMoneyDeliveryService {
 
     private final DenominationService denominationService;
     private final LiveMoneySnapshotService snapshotService;
+    private final ShulkerDeliveryService shulkerDeliveryService;
 
-    LiveMoneyDeliveryService(DenominationService denominationService, LiveMoneySnapshotService snapshotService) {
+    LiveMoneyDeliveryService(
+            DenominationService denominationService,
+            LiveMoneySnapshotService snapshotService,
+            ShulkerDeliveryService shulkerDeliveryService
+    ) {
         this.denominationService = denominationService;
         this.snapshotService = snapshotService;
+        this.shulkerDeliveryService = shulkerDeliveryService;
     }
 
     LiveMoneyService.DeliveryResult deliver(Player player, long amount, List<MoneyRouteTarget> routingOrder) {
+        return deliver(player, amount, routingOrder, true);
+    }
+
+    LiveMoneyService.DeliveryResult deliver(
+            Player player,
+            long amount,
+            List<MoneyRouteTarget> routingOrder,
+            boolean allowShulkerDelivery
+    ) {
         long deliveredToInventory = 0L;
         long deliveredToEnder = 0L;
 
@@ -32,8 +48,8 @@ final class LiveMoneyDeliveryService {
                 break;
             }
             PlacementResult placement = switch (target) {
-                case INVENTORY -> deliverToInventory(player.getInventory(), player.getInventory().getContents(), amount);
-                case ENDER_CHEST -> deliverToInventory(player.getEnderChest(), player.getEnderChest().getContents(), amount);
+                case INVENTORY -> deliverToInventory(player, amount, allowShulkerDelivery);
+                case ENDER_CHEST -> deliverToInventory(player.getEnderChest(), amount, allowShulkerDelivery);
                 case CUSTODIAL_ACCOUNT -> new PlacementResult(0L, amount);
             };
             long deliveredNow = placement.delivered();
@@ -49,10 +65,25 @@ final class LiveMoneyDeliveryService {
     }
 
     long maxDeliverableToInventory(LiveMoneyService.LiveContainerSnapshot snapshot, long maxAmount) {
-        return maxDeliverableToContents(snapshot.inventoryContents(), maxAmount);
+        long deliveredToShulkers = shulkerDeliveryService.maxDeliverableToTopLevelGoldShulkers(snapshot.inventoryContents(), maxAmount);
+        deliveredToShulkers += shulkerDeliveryService.maxDeliverableToTopLevelGoldShulkers(
+                new ItemStack[] {snapshot.offHand()},
+                Math.max(0L, maxAmount - deliveredToShulkers)
+        );
+        long remaining = Math.max(0L, maxAmount - deliveredToShulkers);
+        return deliveredToShulkers + maxDeliverableToContents(snapshot.inventoryContents(), remaining);
     }
 
     LiveMoneyService.DeliveryResult deliver(LiveMoneySimulatedState simulatedState, long amount, List<MoneyRouteTarget> routingOrder) {
+        return deliver(simulatedState, amount, routingOrder, true);
+    }
+
+    LiveMoneyService.DeliveryResult deliver(
+            LiveMoneySimulatedState simulatedState,
+            long amount,
+            List<MoneyRouteTarget> routingOrder,
+            boolean allowShulkerDelivery
+    ) {
         long remaining = amount;
         long deliveredToInventory = 0L;
         long deliveredToEnder = 0L;
@@ -61,10 +92,9 @@ final class LiveMoneyDeliveryService {
             if (remaining <= 0L || target == MoneyRouteTarget.CUSTODIAL_ACCOUNT) {
                 break;
             }
-            ItemStack[] destination = target == MoneyRouteTarget.INVENTORY
-                    ? simulatedState.inventoryContents()
-                    : simulatedState.enderChestContents();
-            PlacementResult placement = deliverToContents(destination, remaining);
+            PlacementResult placement = target == MoneyRouteTarget.INVENTORY
+                    ? deliverToInventory(simulatedState, remaining, allowShulkerDelivery)
+                    : deliverToContents(simulatedState.enderChestContents(), remaining, allowShulkerDelivery);
             long deliveredNow = placement.delivered();
             if (target == MoneyRouteTarget.INVENTORY) {
                 deliveredToInventory += deliveredNow;
@@ -79,7 +109,7 @@ final class LiveMoneyDeliveryService {
 
     LiveMoneyService.ManagedEnderWalletSyncPlan planManagedEnderWalletSync(ItemStack[] currentContents, long targetBaseUnits) {
         ItemStack[] targetContents = snapshotService.cloneContents(currentContents);
-        long existingTopLevelMoneyValue = 0L;
+        long existingManagedMoneyValue = 0L;
         boolean malformed = false;
 
         for (int slot = 0; slot < targetContents.length; slot++) {
@@ -90,17 +120,26 @@ final class LiveMoneyDeliveryService {
             if (itemStack.getAmount() > itemStack.getMaxStackSize()) {
                 malformed = true;
             }
-            existingTopLevelMoneyValue += denominationService.valueOf(itemStack);
+            existingManagedMoneyValue += denominationService.valueOf(itemStack);
             targetContents[slot] = null;
         }
 
-        long deliverable = maxDeliverableToContents(targetContents, targetBaseUnits);
-        List<ItemStack> leftovers = placeIntoEmptySlots(targetContents, denominationService.materialize(deliverable));
-        long delivered = deliverable - denominationService.countStacks(leftovers);
+        ShulkerDeliveryService.StripResult stripResult =
+                shulkerDeliveryService.stripMoneyFromTopLevelGoldShulkers(targetContents);
+        existingManagedMoneyValue += stripResult.removedValue();
+        malformed |= stripResult.malformedStacksFound();
+
+        ShulkerDeliveryService.DeliveryResult shulkerPlacement =
+                shulkerDeliveryService.deliverToTopLevelGoldShulkers(targetContents, targetBaseUnits);
+        long remaining = shulkerPlacement.remainder();
+        long topLevelDeliverable = maxDeliverableToContents(targetContents, remaining);
+        List<ItemStack> leftovers = placeIntoEmptySlots(targetContents, denominationService.materialize(topLevelDeliverable));
+        long deliveredTopLevel = topLevelDeliverable - denominationService.countStacks(leftovers);
+        long delivered = shulkerPlacement.delivered() + deliveredTopLevel;
         long overflow = Math.max(0L, targetBaseUnits - delivered);
         return new LiveMoneyService.ManagedEnderWalletSyncPlan(
                 targetBaseUnits,
-                existingTopLevelMoneyValue,
+                existingManagedMoneyValue,
                 overflow,
                 malformed,
                 targetContents
@@ -111,8 +150,9 @@ final class LiveMoneyDeliveryService {
         Inventory enderChest = player.getEnderChest();
         long total = 0L;
         boolean malformed = false;
-        for (int slot = 0; slot < enderChest.getSize(); slot++) {
-            ItemStack itemStack = enderChest.getItem(slot);
+        ItemStack[] normalizedContents = snapshotService.cloneContents(enderChest.getContents());
+        for (int slot = 0; slot < normalizedContents.length; slot++) {
+            ItemStack itemStack = normalizedContents[slot];
             if (!denominationService.isMoney(itemStack)) {
                 continue;
             }
@@ -120,34 +160,134 @@ final class LiveMoneyDeliveryService {
                 malformed = true;
             }
             total += denominationService.valueOf(itemStack);
-            enderChest.setItem(slot, null);
+            normalizedContents[slot] = null;
         }
 
-        long deliverable = maxDeliverableToContents(enderChest.getContents(), total);
-        List<ItemStack> leftovers = addToInventory(enderChest, denominationService.materialize(deliverable));
-        long delivered = deliverable - denominationService.countStacks(leftovers);
+        ShulkerDeliveryService.StripResult stripResult =
+                shulkerDeliveryService.stripMoneyFromTopLevelGoldShulkers(normalizedContents);
+        total += stripResult.removedValue();
+        malformed |= stripResult.malformedStacksFound();
+
+        ShulkerDeliveryService.DeliveryResult shulkerPlacement =
+                shulkerDeliveryService.deliverToTopLevelGoldShulkers(normalizedContents, total);
+        long remaining = shulkerPlacement.remainder();
+        long topLevelDeliverable = maxDeliverableToContents(normalizedContents, remaining);
+        List<ItemStack> leftovers = addToContents(normalizedContents, denominationService.materialize(topLevelDeliverable));
+        long deliveredTopLevel = topLevelDeliverable - denominationService.countStacks(leftovers);
+        long delivered = shulkerPlacement.delivered() + deliveredTopLevel;
         long overflow = Math.max(0L, total - delivered);
+        enderChest.setContents(snapshotService.cloneContents(normalizedContents));
         return new LiveMoneyService.NormalizationResult(total, overflow, malformed);
     }
 
-    private PlacementResult deliverToInventory(Inventory inventory, ItemStack[] currentContents, long remainingAmount) {
-        long deliverable = maxDeliverableToContents(currentContents, remainingAmount);
+    private PlacementResult deliverToInventory(Inventory inventory, long remainingAmount, boolean allowShulkerDelivery) {
+        long deliveredToShulkers = 0L;
+        long remaining = remainingAmount;
+        if (allowShulkerDelivery) {
+            ShulkerDeliveryService.DeliveryResult shulkerPlacement =
+                    shulkerDeliveryService.deliverToTopLevelGoldShulkers(inventory, remaining);
+            deliveredToShulkers = shulkerPlacement.delivered();
+            remaining = shulkerPlacement.remainder();
+        }
+        long deliverable = maxDeliverableToContents(inventory.getContents(), remaining);
         if (deliverable <= 0L) {
-            return new PlacementResult(0L, remainingAmount);
+            return new PlacementResult(deliveredToShulkers, remaining);
         }
         List<ItemStack> leftovers = addToInventory(inventory, denominationService.materialize(deliverable));
         long delivered = deliverable - denominationService.countStacks(leftovers);
-        return new PlacementResult(delivered, Math.max(0L, remainingAmount - delivered));
+        return new PlacementResult(
+                deliveredToShulkers + delivered,
+                Math.max(0L, remaining - delivered)
+        );
     }
 
-    private PlacementResult deliverToContents(ItemStack[] contents, long remainingAmount) {
-        long deliverable = maxDeliverableToContents(contents, remainingAmount);
+    private PlacementResult deliverToInventory(Player player, long remainingAmount, boolean allowShulkerDelivery) {
+        PlayerInventory inventory = player.getInventory();
+        long deliveredToShulkers = 0L;
+        long remaining = remainingAmount;
+        ItemStack[] storageContents = inventory.getStorageContents();
+
+        if (allowShulkerDelivery) {
+            ShulkerDeliveryService.DeliveryResult inventoryShulkerPlacement =
+                    shulkerDeliveryService.deliverToTopLevelGoldShulkers(storageContents, remaining);
+            deliveredToShulkers += inventoryShulkerPlacement.delivered();
+            remaining = inventoryShulkerPlacement.remainder();
+
+            ItemStack[] offHandContents = new ItemStack[] {inventory.getItemInOffHand()};
+            ShulkerDeliveryService.DeliveryResult offHandPlacement =
+                    shulkerDeliveryService.deliverToTopLevelGoldShulkers(offHandContents, remaining);
+            inventory.setItemInOffHand(offHandContents[0]);
+            deliveredToShulkers += offHandPlacement.delivered();
+            remaining = offHandPlacement.remainder();
+        }
+
+        long deliverable = maxDeliverableToContents(storageContents, remaining);
         if (deliverable <= 0L) {
-            return new PlacementResult(0L, remainingAmount);
+            inventory.setStorageContents(storageContents);
+            return new PlacementResult(deliveredToShulkers, remaining);
+        }
+        List<ItemStack> leftovers = addToContents(storageContents, denominationService.materialize(deliverable));
+        inventory.setStorageContents(storageContents);
+        long delivered = deliverable - denominationService.countStacks(leftovers);
+        return new PlacementResult(
+                deliveredToShulkers + delivered,
+                Math.max(0L, remaining - delivered)
+        );
+    }
+
+    private PlacementResult deliverToInventory(
+            LiveMoneySimulatedState simulatedState,
+            long remainingAmount,
+            boolean allowShulkerDelivery
+    ) {
+        long deliveredToShulkers = 0L;
+        long remaining = remainingAmount;
+
+        if (allowShulkerDelivery) {
+            ShulkerDeliveryService.DeliveryResult inventoryShulkerPlacement =
+                    shulkerDeliveryService.deliverToTopLevelGoldShulkers(simulatedState.inventoryContents(), remaining);
+            deliveredToShulkers += inventoryShulkerPlacement.delivered();
+            remaining = inventoryShulkerPlacement.remainder();
+
+            ItemStack[] offHandContents = new ItemStack[] {simulatedState.offHand()};
+            ShulkerDeliveryService.DeliveryResult offHandPlacement =
+                    shulkerDeliveryService.deliverToTopLevelGoldShulkers(offHandContents, remaining);
+            simulatedState.setOffHand(offHandContents[0]);
+            deliveredToShulkers += offHandPlacement.delivered();
+            remaining = offHandPlacement.remainder();
+        }
+
+        long deliverable = maxDeliverableToContents(simulatedState.inventoryContents(), remaining);
+        if (deliverable <= 0L) {
+            return new PlacementResult(deliveredToShulkers, remaining);
+        }
+        List<ItemStack> leftovers = addToContents(simulatedState.inventoryContents(), denominationService.materialize(deliverable));
+        long delivered = deliverable - denominationService.countStacks(leftovers);
+        return new PlacementResult(
+                deliveredToShulkers + delivered,
+                Math.max(0L, remaining - delivered)
+        );
+    }
+
+    private PlacementResult deliverToContents(ItemStack[] contents, long remainingAmount, boolean allowShulkerDelivery) {
+        long deliveredToShulkers = 0L;
+        long remaining = remainingAmount;
+        if (allowShulkerDelivery) {
+            ShulkerDeliveryService.DeliveryResult shulkerPlacement =
+                    shulkerDeliveryService.deliverToTopLevelGoldShulkers(contents, remaining);
+            deliveredToShulkers = shulkerPlacement.delivered();
+            remaining = shulkerPlacement.remainder();
+        }
+        long deliverable = maxDeliverableToContents(contents, remaining);
+        if (deliverable <= 0L) {
+            return new PlacementResult(deliveredToShulkers, remaining);
         }
         List<ItemStack> leftovers = addToContents(contents, denominationService.materialize(deliverable));
         long delivered = deliverable - denominationService.countStacks(leftovers);
-        return new PlacementResult(delivered, Math.max(0L, remainingAmount - delivered));
+        return new PlacementResult(
+                deliveredToShulkers + delivered,
+                Math.max(0L, remaining - delivered)
+        );
     }
 
     private long maxDeliverableToContents(ItemStack[] contents, long maxAmount) {

@@ -6,6 +6,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
 import java.util.function.Supplier;
 
@@ -13,13 +14,16 @@ final class LiveMoneySnapshotService {
 
     private final DenominationService denominationService;
     private final Supplier<PluginSettings.WalletSettings> walletSettingsSupplier;
+    private final ShulkerDeliveryService shulkerDeliveryService;
 
     LiveMoneySnapshotService(
             DenominationService denominationService,
-            Supplier<PluginSettings.WalletSettings> walletSettingsSupplier
+            Supplier<PluginSettings.WalletSettings> walletSettingsSupplier,
+            ShulkerDeliveryService shulkerDeliveryService
     ) {
         this.denominationService = denominationService;
         this.walletSettingsSupplier = walletSettingsSupplier;
+        this.shulkerDeliveryService = shulkerDeliveryService;
     }
 
     long scanPlayerMoney(Player player) {
@@ -39,7 +43,12 @@ final class LiveMoneySnapshotService {
         if (!walletSettings.includeLivePlayerInventory()) {
             return 0L;
         }
-        return countInventory(player.getInventory()) + denominationService.valueOf(player.getInventory().getItemInOffHand());
+        PlayerInventory inventory = player.getInventory();
+        ItemStack offHand = inventory.getItemInOffHand();
+        return countContents(inventory.getStorageContents())
+                + shulkerDeliveryService.countMoneyInTopLevelGoldShulkers(inventory.getStorageContents())
+                + denominationService.valueOf(offHand)
+                + shulkerDeliveryService.countMoneyInGoldShulker(offHand);
     }
 
     long countPlayerEnderChestMoney(Player player) {
@@ -47,22 +56,24 @@ final class LiveMoneySnapshotService {
         if (!walletSettings.includeLiveEnderChest()) {
             return 0L;
         }
-        return countInventory(player.getEnderChest());
+        return countInventory(player.getEnderChest())
+                + shulkerDeliveryService.countMoneyInTopLevelGoldShulkers(player.getEnderChest().getContents());
     }
 
     long countTopLevelEnderChest(Player player) {
-        return countInventory(player.getEnderChest());
+        return countInventory(player.getEnderChest())
+                + shulkerDeliveryService.countMoneyInTopLevelGoldShulkers(player.getEnderChest().getContents());
     }
 
     LiveMoneyService.LiveContainerSnapshot captureLiveContainerSnapshot(Player player) {
-        ItemStack[] inventoryContents = cloneContents(player.getInventory().getContents());
+        ItemStack[] inventoryContents = cloneContents(player.getInventory().getStorageContents());
         ItemStack[] enderContents = cloneContents(player.getEnderChest().getContents());
         ItemStack offHand = cloneStack(player.getInventory().getItemInOffHand());
         return new LiveMoneyService.LiveContainerSnapshot(inventoryContents, enderContents, offHand);
     }
 
     void restoreLiveContainerSnapshot(Player player, LiveMoneyService.LiveContainerSnapshot snapshot) {
-        player.getInventory().setContents(cloneContents(snapshot.inventoryContents()));
+        player.getInventory().setStorageContents(cloneContents(snapshot.inventoryContents()));
         player.getEnderChest().setContents(cloneContents(snapshot.enderChestContents()));
         player.getInventory().setItemInOffHand(cloneStack(snapshot.offHand()));
     }
@@ -80,10 +91,13 @@ final class LiveMoneySnapshotService {
         long total = 0L;
         if (walletSettings.includeLivePlayerInventory()) {
             total += countContents(simulatedState.inventoryContents());
+            total += shulkerDeliveryService.countMoneyInTopLevelGoldShulkers(simulatedState.inventoryContents());
             total += denominationService.valueOf(simulatedState.offHand());
+            total += shulkerDeliveryService.countMoneyInGoldShulker(simulatedState.offHand());
         }
         if (walletSettings.includeLiveEnderChest()) {
             total += countContents(simulatedState.enderChestContents());
+            total += shulkerDeliveryService.countMoneyInTopLevelGoldShulkers(simulatedState.enderChestContents());
         }
         return total;
     }

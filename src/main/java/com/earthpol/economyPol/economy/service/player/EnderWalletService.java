@@ -155,7 +155,7 @@ public final class EnderWalletService {
                 }
                 loggers.log("ender-wallet-sync player=" + player.getUniqueId() +
                         " snapshot_amount=" + snapshot.baseUnits() +
-                        " existing_top_level_money=" + plan.existingTopLevelMoneyValue() +
+                        " existing_managed_money=" + plan.existingManagedMoneyValue() +
                         " overflow=" + overflow, LogType.AUDIT);
                 return overflow;
             } catch (Exception exception) {
@@ -172,20 +172,42 @@ public final class EnderWalletService {
     }
 
     private void normalizeOnlineEnderWalletOnPlayerEntityScheduler(Player player) {
-        LiveMoneyService.NormalizationResult normalization = plugin.economyService().liveMoneyService().normalizeEnderChest(player);
+        ItemStack[] originalContents = cloneContents(player.getEnderChest().getContents());
+        LiveMoneyService.NormalizationResult normalization;
+        try {
+            normalization = plugin.economyService().liveMoneyService().normalizeEnderChest(player);
+        } catch (Exception exception) {
+            rollbackOnlineNormalization(player, originalContents, exception);
+            return;
+        }
         if (normalization.overflow() > 0L) {
-            BalanceRecord updatedBalance = plugin.economyService().creditCustodial(
-                    player.getUniqueId(),
-                    player.getName(),
-                    normalization.overflow(),
-                    "ENDER_WALLET_NORMALIZE_OVERFLOW"
-            );
-            notificationService.notifyWalletOverflowToCustodial(
-                    player,
-                    normalization.overflow(),
-                    updatedBalance.availableBalance(),
-                    normalization.malformedStacksFound()
-            );
+            BalanceRecord updatedBalance;
+            try {
+                updatedBalance = plugin.economyService().creditCustodial(
+                        player.getUniqueId(),
+                        player.getName(),
+                        normalization.overflow(),
+                        "ENDER_WALLET_NORMALIZE_OVERFLOW"
+                );
+            } catch (Exception exception) {
+                rollbackOnlineNormalization(player, originalContents, exception);
+                return;
+            }
+            try {
+                notificationService.notifyWalletOverflowToCustodial(
+                        player,
+                        normalization.overflow(),
+                        updatedBalance.availableBalance(),
+                        normalization.malformedStacksFound()
+                );
+            } catch (Exception exception) {
+                loggers.logSevere("Failed to notify ender-wallet normalization overflow for " + player.getName() + ".",
+                        LogType.OPERATIONS, exception);
+            }
+        }
+        if (normalization.malformedStacksFound()) {
+            loggers.logWarn("Malformed money stacks were found for " + player.getName() + " during ender-wallet normalization.",
+                    LogType.OPERATIONS);
         }
         loggers.log("ender-wallet-normalize player=" + player.getUniqueId() + " normalized=" +
                 normalization.normalizedValue() + " overflow=" + normalization.overflow(), LogType.AUDIT);
@@ -267,6 +289,19 @@ public final class EnderWalletService {
         }
         loggers.logWarn("ender-wallet-sync-rollback player=" + player.getUniqueId() +
                 " amount=" + frozenSnapshot.baseUnits() +
+                " reason=" + exception.getClass().getSimpleName(), LogType.AUDIT);
+    }
+
+    private void rollbackOnlineNormalization(Player player, ItemStack[] originalContents, Exception exception) {
+        loggers.logSevere("Failed to normalize managed ender wallet for " + player.getName() + ".",
+                LogType.OPERATIONS, exception);
+        try {
+            player.getEnderChest().setContents(cloneContents(originalContents));
+        } catch (Exception restoreException) {
+            loggers.logSevere("Failed to restore ender chest after normalization rollback for " + player.getName() + ".",
+                    LogType.OPERATIONS, restoreException);
+        }
+        loggers.logWarn("ender-wallet-normalize-rollback player=" + player.getUniqueId() +
                 " reason=" + exception.getClass().getSimpleName(), LogType.AUDIT);
     }
 

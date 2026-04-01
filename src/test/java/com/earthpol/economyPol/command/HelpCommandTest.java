@@ -40,6 +40,7 @@ final class HelpCommandTest {
         assertTrue(messages.getFirst().contains("/bal"));
         assertTrue(messages.getFirst().contains("/baltop"));
         assertTrue(messages.getFirst().contains("/claim"));
+        assertTrue(messages.getFirst().contains("/economypol skip_shulker <true | false>"));
         assertTrue(messages.getFirst().contains("/compress"));
         assertTrue(messages.getFirst().contains("/economypol help"));
         assertTrue(messages.getFirst().contains("skip_inventory"));

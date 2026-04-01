@@ -1,10 +1,9 @@
 package com.earthpol.economyPol.command.player;
 
-import com.earthpol.economyPol.economy.command.player.PaymentDeliverySubcommand;
+import com.earthpol.economyPol.economy.command.player.SkipShulkerSubcommand;
 import com.earthpol.economyPol.economy.command.shared.CommandDependencies;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.logging.EconomyLoggers;
-import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 import com.earthpol.economyPol.economy.service.EconomyService;
 import com.earthpol.economyPol.economy.service.databasecheck.DatabaseCheckService;
 import com.earthpol.economyPol.economy.service.player.EnderWalletService;
@@ -18,35 +17,30 @@ import org.mockito.ArgumentCaptor;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-final class PaymentDeliverySubcommandTest {
+final class SkipShulkerSubcommandTest {
 
     @Test
     void noArgsShowsCurrentPreference() {
         EconomyService economyService = mock(EconomyService.class);
         Player player = mock(Player.class);
 
-        when(economyService.getIncomingPaymentDeliveryPreference(player))
-                .thenReturn(IncomingPaymentDeliveryPreference.SKIP_INVENTORY);
+        when(economyService.getSkipShulkerDelivery(player)).thenReturn(true);
 
-        PaymentDeliverySubcommand subcommand = new PaymentDeliverySubcommand(dependencies(economyService));
+        SkipShulkerSubcommand subcommand = new SkipShulkerSubcommand(dependencies(economyService));
 
         subcommand.execute(player, new String[0]);
 
-        List<String> messages = capturePlainTextMessages(player, 4);
-        assertTrue(messages.get(0).contains("[EconomyPol] Current incoming payment delivery preference: skip_inventory"));
-        assertTrue(messages.get(1).contains("Current routing: Ender chest -> Custodial"));
-        assertTrue(messages.get(2).contains("/economypol skip_shulker true"));
-        assertTrue(messages.get(3).contains("Usage: /economypol paymentdelivery <default|skip_inventory|skip_inventory_and_enderchest>"));
-        verify(economyService, never()).setIncomingPaymentDeliveryPreference(
-                player,
-                IncomingPaymentDeliveryPreference.SKIP_INVENTORY
-        );
+        List<String> messages = capturePlainTextMessages(player, 3);
+        assertTrue(messages.get(0).contains("[EconomyPol] Current skip_shulker setting: true"));
+        assertTrue(messages.get(1).contains("When false, automatic incoming money can fill top-level yellow shulkers first."));
+        assertTrue(messages.get(2).contains("Usage: /economypol skip_shulker <true|false>"));
+        verify(economyService, never()).setSkipShulkerDelivery(player, true);
     }
 
     @Test
@@ -54,15 +48,27 @@ final class PaymentDeliverySubcommandTest {
         EconomyService economyService = mock(EconomyService.class);
         Player player = mock(Player.class);
 
-        PaymentDeliverySubcommand subcommand = new PaymentDeliverySubcommand(dependencies(economyService));
+        SkipShulkerSubcommand subcommand = new SkipShulkerSubcommand(dependencies(economyService));
 
-        subcommand.execute(player, new String[] {"skip_inventory_and_enderchest"});
+        subcommand.execute(player, new String[] {"false"});
 
-        verify(economyService).setIncomingPaymentDeliveryPreference(
-                player,
-                IncomingPaymentDeliveryPreference.SKIP_INVENTORY_AND_ENDERCHEST
-        );
-        verify(player).sendMessage(contains("skip_inventory_and_enderchest"));
+        verify(economyService).setSkipShulkerDelivery(player, false);
+        verify(player).sendMessage(eq("skip_shulker set to false."));
+        verify(player).sendMessage(eq("Automatic incoming money and returned change can flow into yellow shulkers first."));
+    }
+
+    @Test
+    void invalidPreferenceShowsUsage() {
+        EconomyService economyService = mock(EconomyService.class);
+        Player player = mock(Player.class);
+
+        SkipShulkerSubcommand subcommand = new SkipShulkerSubcommand(dependencies(economyService));
+
+        subcommand.execute(player, new String[] {"maybe"});
+
+        verify(player).sendMessage("/economypol skip_shulker <true|false>");
+        verify(economyService, never()).setSkipShulkerDelivery(player, true);
+        verify(economyService, never()).setSkipShulkerDelivery(player, false);
     }
 
     private CommandDependencies dependencies(EconomyService economyService) {

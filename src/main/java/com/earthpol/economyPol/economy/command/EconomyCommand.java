@@ -207,6 +207,7 @@ public final class EconomyCommand implements TabExecutor {
         register(commands, new WithdrawSubcommand(dependencies));
         register(commands, new ClaimSubcommand(dependencies));
         register(commands, new PaymentDeliverySubcommand(dependencies));
+        register(commands, new SkipShulkerSubcommand(dependencies));
         NormalizeWalletSubcommand normalizeWalletSubcommand = new NormalizeWalletSubcommand(dependencies);
         register(commands, normalizeWalletSubcommand);
         commands.put(NORMALIZE_WALLET_ALIAS, normalizeWalletSubcommand);

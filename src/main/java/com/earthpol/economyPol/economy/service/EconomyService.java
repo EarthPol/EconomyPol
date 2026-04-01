@@ -189,6 +189,20 @@ public final class EconomyService {
         );
     }
 
+    public boolean getSkipShulkerDelivery(OfflinePlayer player) {
+        accountRegistryService.requirePlayerAccount(player);
+        return accountRegistryService.getSkipShulkerDelivery(player.getUniqueId());
+    }
+
+    public boolean setSkipShulkerDelivery(OfflinePlayer player, boolean skipShulkerDelivery) {
+        accountRegistryService.requirePlayerAccount(player);
+        return accountRegistryService.setSkipShulkerDelivery(
+                player.getUniqueId(),
+                player.getName(),
+                skipShulkerDelivery
+        );
+    }
+
     public AccountRecord ensureSharedAccount(String name, OfflinePlayer owner) {
         return accountRegistryService.ensureSharedAccount(name, owner);
     }
