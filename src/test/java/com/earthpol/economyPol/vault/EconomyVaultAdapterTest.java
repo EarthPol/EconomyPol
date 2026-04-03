@@ -22,6 +22,8 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -97,13 +99,15 @@ final class EconomyVaultAdapterTest {
     void hasAccountByNameDoesNotCreateGhostPlayerAccounts() {
         EconomyService economyService = mock(EconomyService.class);
         EconomyVaultAdapter adapter = newAdapter(economyService);
-        when(economyService.findPlayerUuidByUsername("GhostPlayer")).thenReturn(Optional.empty());
+        when(economyService.findPlayerUuidsByUsername("GhostPlayer")).thenReturn(List.of());
 
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getPlayerExact("GhostPlayer")).thenReturn(null);
+            bukkit.when(() -> Bukkit.getOfflinePlayerIfCached("GhostPlayer")).thenReturn(null);
             assertFalse(adapter.hasAccount("GhostPlayer"));
         }
 
-        verify(economyService).findPlayerUuidByUsername("GhostPlayer");
+        verify(economyService).findPlayerUuidsByUsername("GhostPlayer");
         verifyNoMoreInteractions(economyService);
     }
 
@@ -116,15 +120,16 @@ final class EconomyVaultAdapterTest {
         AccountRecord account = new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerUuid.toString());
 
         when(player.getUniqueId()).thenReturn(playerUuid);
-        when(economyService.findPlayerUuidByUsername("Alice")).thenReturn(Optional.of(playerUuid));
+        when(economyService.findPlayerUuidsByUsername("Alice")).thenReturn(List.of(playerUuid));
         when(economyService.findAccount(playerUuid)).thenReturn(Optional.of(account));
 
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getPlayerExact("Alice")).thenReturn(null);
             bukkit.when(() -> Bukkit.getOfflinePlayer(playerUuid)).thenReturn(player);
             assertTrue(adapter.hasAccount("Alice"));
         }
 
-        verify(economyService).findPlayerUuidByUsername("Alice");
+        verify(economyService).findPlayerUuidsByUsername("Alice");
         verify(economyService).findAccount(playerUuid);
         verify(economyService, never()).findAccountByName("Alice");
     }
@@ -137,7 +142,7 @@ final class EconomyVaultAdapterTest {
         UUID playerUuid = UUID.randomUUID();
         AccountRecord account = new AccountRecord(playerUuid, AccountType.PLAYER, playerUuid, playerUuid.toString());
 
-        when(economyService.findPlayerUuidByUsername("Alice")).thenReturn(Optional.empty());
+        when(economyService.findPlayerUuidsByUsername("Alice")).thenReturn(List.of());
         when(cachedPlayer.getUniqueId()).thenReturn(playerUuid);
         when(economyService.findAccount(playerUuid)).thenReturn(Optional.of(account));
 
@@ -148,8 +153,55 @@ final class EconomyVaultAdapterTest {
             assertTrue(adapter.hasAccount("Alice"));
         }
 
-        verify(economyService).findPlayerUuidByUsername("Alice");
+        verify(economyService).findPlayerUuidsByUsername("Alice");
         verify(economyService).findAccount(playerUuid);
+    }
+
+    @Test
+    void hasAccountByNamePrefersOnlinePlayerOverAmbiguousStoredUsernames() {
+        EconomyService economyService = mock(EconomyService.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+        EconomyVaultAdapter adapter = newAdapter(economyService, loggers);
+        org.bukkit.entity.Player onlinePlayer = mock(org.bukkit.entity.Player.class);
+        UUID onlineUuid = UUID.randomUUID();
+        UUID staleUuid = UUID.randomUUID();
+        AccountRecord account = new AccountRecord(onlineUuid, AccountType.PLAYER, onlineUuid, onlineUuid.toString());
+
+        when(onlinePlayer.getUniqueId()).thenReturn(onlineUuid);
+        when(economyService.findPlayerUuidsByUsername("Alice")).thenReturn(List.of(staleUuid, onlineUuid));
+        when(economyService.findAccount(onlineUuid)).thenReturn(Optional.of(account));
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getPlayerExact("Alice")).thenReturn(onlinePlayer);
+
+            assertTrue(adapter.hasAccount("Alice"));
+        }
+
+        verify(loggers).logWarn(contains("Ambiguous stored username 'Alice'"), eq(EconomyLoggers.LogType.OPERATIONS));
+        verify(economyService).findPlayerUuidsByUsername("Alice");
+        verify(economyService).findAccount(onlineUuid);
+    }
+
+    @Test
+    void hasAccountByNameRejectsAmbiguousStoredUsernamesWhenNoOnlinePlayerMatches() {
+        EconomyService economyService = mock(EconomyService.class);
+        EconomyLoggers loggers = mock(EconomyLoggers.class);
+        EconomyVaultAdapter adapter = newAdapter(economyService, loggers);
+        UUID firstUuid = UUID.randomUUID();
+        UUID secondUuid = UUID.randomUUID();
+
+        when(economyService.findPlayerUuidsByUsername("Alice")).thenReturn(List.of(firstUuid, secondUuid));
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getPlayerExact("Alice")).thenReturn(null);
+
+            assertFalse(adapter.hasAccount("Alice"));
+        }
+
+        verify(loggers).logWarn(contains("Ambiguous stored username 'Alice'"), eq(EconomyLoggers.LogType.OPERATIONS));
+        verify(economyService).findPlayerUuidsByUsername("Alice");
+        verify(economyService, never()).findAccount(firstUuid);
+        verify(economyService, never()).findAccount(secondUuid);
     }
 
     @Test
@@ -184,7 +236,7 @@ final class EconomyVaultAdapterTest {
     void createPlayerAccountByNameRejectsGhostOfflinePlayer() {
         EconomyService economyService = mock(EconomyService.class);
         EconomyVaultAdapter adapter = newAdapter(economyService);
-        when(economyService.findPlayerUuidByUsername("GhostPlayer")).thenReturn(Optional.empty());
+        when(economyService.findPlayerUuidsByUsername("GhostPlayer")).thenReturn(List.of());
 
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
             bukkit.when(() -> Bukkit.getPlayerExact("GhostPlayer")).thenReturn(null);
@@ -206,10 +258,11 @@ final class EconomyVaultAdapterTest {
         when(player.isOnline()).thenReturn(false);
         when(player.hasPlayedBefore()).thenReturn(true);
         when(player.getUniqueId()).thenReturn(playerUuid);
-        when(economyService.findPlayerUuidByUsername("Alice")).thenReturn(Optional.of(playerUuid));
+        when(economyService.findPlayerUuidsByUsername("Alice")).thenReturn(List.of(playerUuid));
         when(economyService.ensurePlayerAccount(player)).thenThrow(new IllegalStateException("name collision"));
 
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getPlayerExact("Alice")).thenReturn(null);
             bukkit.when(() -> Bukkit.getOfflinePlayer(playerUuid)).thenReturn(player);
 
             assertFalse(adapter.createPlayerAccount("Alice"));
@@ -234,6 +287,10 @@ final class EconomyVaultAdapterTest {
     }
 
     private static EconomyVaultAdapter newAdapter(EconomyService economyService) {
+        return newAdapter(economyService, mock(EconomyLoggers.class));
+    }
+
+    private static EconomyVaultAdapter newAdapter(EconomyService economyService, EconomyLoggers loggers) {
         return new EconomyVaultAdapter(
                 mock(EconomyPol.class),
                 economyService,
@@ -242,7 +299,7 @@ final class EconomyVaultAdapterTest {
                         new DenominationService(new PluginSettings.CurrencySettings("Gold Coin", "Gold Coins", List.of()), null)
                 ),
                 new PluginSettings.CurrencySettings("Gold Coin", "Gold Coins", List.of()),
-                mock(EconomyLoggers.class)
+                loggers
         );
     }
 }

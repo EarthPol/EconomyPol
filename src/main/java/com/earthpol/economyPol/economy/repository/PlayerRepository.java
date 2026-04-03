@@ -6,6 +6,7 @@ import com.earthpol.economyPol.economy.model.IncomingPaymentDeliveryPreference;
 
 import java.sql.Timestamp;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -106,10 +107,19 @@ public final class PlayerRepository extends AbstractRepositorySupport {
         if (username == null || username.isBlank()) {
             return Optional.empty();
         }
-        return queryOne("""
+        List<UUID> playerUuids = findPlayerUuidsByUsername(username);
+        return playerUuids.size() == 1 ? Optional.of(playerUuids.getFirst()) : Optional.empty();
+    }
+
+    public List<UUID> findPlayerUuidsByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return List.of();
+        }
+        return queryList("""
                         SELECT player_uuid
                         FROM economy_players
                         WHERE username = ?
+                        ORDER BY player_uuid ASC
                         """,
                 statement -> bind(statement, username),
                 resultSet -> parseUuid(resultSet.getObject("player_uuid"))

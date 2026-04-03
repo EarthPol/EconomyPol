@@ -107,7 +107,12 @@ public final class AccountRegistryService {
     }
 
     public Optional<UUID> findPlayerUuidByUsername(String username) {
-        return playerRepository.findPlayerUuidByUsername(username);
+        List<UUID> playerUuids = findPlayerUuidsByUsername(username);
+        return playerUuids.size() == 1 ? Optional.of(playerUuids.getFirst()) : Optional.empty();
+    }
+
+    public List<UUID> findPlayerUuidsByUsername(String username) {
+        return playerRepository.findPlayerUuidsByUsername(username);
     }
 
     public IncomingPaymentDeliveryPreference setIncomingPaymentDeliveryPreference(
