@@ -72,9 +72,12 @@ public final class AccountRegistryService {
         }
         registerPlayer(player);
         Optional<AccountRecord> existingAccount = findPlayerAccount(player.getUniqueId());
-        if (existingAccount.isPresent() && !Objects.equals(existingAccount.get().accountName(), stablePlayerAccountName(player.getUniqueId()))) {
-            validatePlayerAccountStorageNameAvailable(player.getUniqueId());
-            accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName());
+        if (existingAccount.isEmpty()) {
+            ensureStoredPlayerAccount(player);
+            return;
+        }
+        if (!Objects.equals(existingAccount.get().accountName(), stablePlayerAccountName(player.getUniqueId()))) {
+            ensureStoredPlayerAccount(player);
         }
     }
 
@@ -261,6 +264,11 @@ public final class AccountRegistryService {
 
     private String stablePlayerAccountName(UUID playerUuid) {
         return playerUuid.toString();
+    }
+
+    private void ensureStoredPlayerAccount(OfflinePlayer player) {
+        validatePlayerAccountStorageNameAvailable(player.getUniqueId());
+        accountRepository.ensurePlayerAccount(player.getUniqueId(), player.getName());
     }
 
     private void validatePlayerAccountStorageNameAvailable(UUID playerUuid) {
