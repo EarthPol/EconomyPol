@@ -687,6 +687,7 @@ final class EconomyServiceTest {
         when(accountRepository.findPlayerAccount(accountId)).thenReturn(Optional.of(
                 new AccountRecord(accountId, AccountType.PLAYER, accountId, "OldName")
         ));
+        when(accountRepository.findAccountByName(accountId.toString())).thenReturn(Optional.empty());
         when(accountRepository.ensurePlayerAccount(accountId, player.getName())).thenReturn(
                 new AccountRecord(accountId, AccountType.PLAYER, accountId, accountId.toString())
         );
@@ -806,7 +807,7 @@ final class EconomyServiceTest {
     }
 
     @Test
-    void syncPlayerIdentityDoesNotCreateMissingPlayerAccountOnJoin() {
+    void syncPlayerIdentityCreatesMissingPlayerAccountOnJoin() {
         PlayerMock player = server.addPlayer("Bustun");
 
         AccountRepository accountRepository = mock(AccountRepository.class);
@@ -824,6 +825,7 @@ final class EconomyServiceTest {
         EconomyLoggers loggers = mock(EconomyLoggers.class);
 
         when(accountRepository.findPlayerAccount(player.getUniqueId())).thenReturn(Optional.empty());
+        when(accountRepository.findAccountByName(player.getUniqueId().toString())).thenReturn(Optional.empty());
 
         EconomyService economyService = new EconomyService(
                 accountRepository,
@@ -844,7 +846,7 @@ final class EconomyServiceTest {
         economyService.syncPlayerIdentity(player);
 
         verify(playerRepository).ensurePlayer(player.getUniqueId(), player.getName());
-        verify(accountRepository, never()).ensurePlayerAccount(any(UUID.class), anyString());
+        verify(accountRepository).ensurePlayerAccount(player.getUniqueId(), player.getName());
     }
 
     @Test

@@ -174,7 +174,7 @@ public final class PlayerEconomyService {
                     MoneyOperationFailureReason.INSUFFICIENT_FUNDS
             );
         }
-        loggers.log("offline-withdraw player=" + player.getUniqueId() + " amount=" + amount +
+        loggers.log("offline-withdraw " + loggers.playerContext(player) + " amount=" + amount +
                 " ender=" + walletDebit.processedAmount() + " reason=" + reason, LogType.AUDIT);
         return MoneyOperationResult.success(amount, amount, 0L, "Funds withdrawn.");
     }
@@ -334,7 +334,7 @@ public final class PlayerEconomyService {
                     null
             );
         } catch (RuntimeException exception) {
-            loggers.logSevere("Failed to deposit live player money into custodial for " + player.getUniqueId() + ".",
+            loggers.logSevere("Failed to deposit live player money into custodial for " + loggers.playerContext(player) + ".",
                     LogType.OPERATIONS, exception);
             liveMoneyService.restoreLiveContainerSnapshot(player, liveSnapshot);
             return MoneyOperationResult.failure(
@@ -350,7 +350,7 @@ public final class PlayerEconomyService {
                     updatedBalance.availableBalance()
             );
         }
-        loggers.log("self-deposit player=" + player.getUniqueId() + " amount=" + requested +
+        loggers.log("self-deposit " + loggers.playerContext(player) + " amount=" + requested +
                 " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount() +
                 " change_routed_to_custodial=" + spendResult.changeRoutedToCustodial() +
                 " total_credited=" + totalCredited, LogType.AUDIT);
@@ -461,11 +461,11 @@ public final class PlayerEconomyService {
                         updatedBalance.availableBalance()
                 );
             } catch (RuntimeException exception) {
-                loggers.logSevere("Failed to send custodial remainder notification to " + player.getUniqueId() + ".",
+                loggers.logSevere("Failed to send custodial remainder notification to " + loggers.playerContext(player) + ".",
                         LogType.OPERATIONS, exception);
             }
         }
-        loggers.log("self-withdraw player=" + player.getUniqueId() + " requested=" + amount +
+        loggers.log("self-withdraw " + loggers.playerContext(player) + " requested=" + amount +
                 " delivered=" + delivered + " retained=" + deliveryResult.remainder(), LogType.AUDIT);
         return MoneyOperationResult.success(amount, delivered, deliveryResult.remainder(), "Withdraw processed.");
     }
@@ -477,19 +477,19 @@ public final class PlayerEconomyService {
             long reservedAmount,
             Exception exception
     ) {
-        loggers.logSevere("Failed to convert custodial funds into physical money for " + player.getUniqueId() + ".",
+        loggers.logSevere("Failed to convert custodial funds into physical money for " + loggers.playerContext(player) + ".",
                 LogType.OPERATIONS, exception);
         try {
             liveMoneyService.restoreLiveContainerSnapshot(player, liveSnapshot);
         } catch (RuntimeException restoreException) {
             loggers.logSevere("Failed to restore live money containers after custodial withdraw rollback for " +
-                    player.getUniqueId() + ".", LogType.OPERATIONS, restoreException);
+                    loggers.playerContext(player) + ".", LogType.OPERATIONS, restoreException);
         }
         try {
             fundsRepository.releaseReserved(accountId, reservedAmount, "SELF_WITHDRAW_ROLLBACK");
         } catch (RuntimeException releaseException) {
             loggers.logSevere("Failed to release reserved custodial funds after rollback for " +
-                    player.getUniqueId() + ".", LogType.OPERATIONS, releaseException);
+                    loggers.playerContext(player) + ".", LogType.OPERATIONS, releaseException);
         }
     }
 
@@ -504,7 +504,7 @@ public final class PlayerEconomyService {
                 amount,
                 updatedBalance.availableBalance()
         );
-        loggers.log("offline-deposit-custodial player=" + player.getUniqueId() + " amount=" + amount + " reason=" + reason,
+        loggers.log("offline-deposit-custodial " + loggers.playerContext(player) + " amount=" + amount + " reason=" + reason,
                 LogType.AUDIT);
         return MoneyOperationResult.success(amount, amount, 0L, "Funds credited to custodial.");
     }
@@ -543,7 +543,7 @@ public final class PlayerEconomyService {
                         updatedBalance.availableBalance()
                 );
             } catch (RuntimeException exception) {
-                loggers.logSevere("Failed to route returned change into custodial for " + player.getUniqueId() + ".",
+                loggers.logSevere("Failed to route returned change into custodial for " + loggers.playerContext(player) + ".",
                         LogType.OPERATIONS, exception);
                 liveMoneyService.restoreLiveContainerSnapshot(player, liveSnapshot);
                 return MoneyOperationResult.failure(
@@ -554,10 +554,7 @@ public final class PlayerEconomyService {
             }
         }
 
-        loggers.log("player-withdraw player=" + player.getUniqueId() +
-                accountRegistryService.resolvePlayerUsername(player.getUniqueId())
-                        .map(name -> " username=" + name)
-                        .orElse("") +
+        loggers.log("player-withdraw " + loggers.playerContext(player) +
                 " amount=" + amount +
                 " debited=" + spendResult.debitedAmount() + " change=" + spendResult.changeAmount() +
                 " change_routed_to_custodial=" + spendResult.changeRoutedToCustodial() +

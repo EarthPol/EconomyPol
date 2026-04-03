@@ -260,7 +260,7 @@ public final class FundsRepository extends AbstractRepositorySupport {
                     playerUuid = accountId;
                 }
                 return resolvePlayerUsername(playerUuid)
-                        .map(name -> " username=" + name)
+                        .map(name -> " player_username=" + name)
                         .orElse("");
             }
         }

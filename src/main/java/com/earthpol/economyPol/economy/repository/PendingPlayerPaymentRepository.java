@@ -60,7 +60,7 @@ public final class PendingPlayerPaymentRepository extends AbstractRepositorySupp
             return payment;
         });
         loggers.log("pending-payment-enqueue id=" + payment.pendingPaymentId() +
-                " player=" + playerUuid + " amount=" + amount, LogType.AUDIT);
+                " " + loggers.playerContext(playerUuid) + " amount=" + amount, LogType.AUDIT);
         return payment;
     }
 
@@ -120,7 +120,7 @@ public final class PendingPlayerPaymentRepository extends AbstractRepositorySupp
             decrementPendingBalance(connection, payment.playerUuid(), payment.paymentAmount());
             deletePayment(connection, pendingPaymentId);
             loggers.log("pending-payment-complete-offline-wallet id=" + pendingPaymentId +
-                    " player=" + payment.playerUuid() + " amount=" + payment.paymentAmount(), LogType.AUDIT);
+                    " " + loggers.playerContext(payment.playerUuid()) + " amount=" + payment.paymentAmount(), LogType.AUDIT);
             return true;
         });
     }
@@ -208,7 +208,7 @@ public final class PendingPlayerPaymentRepository extends AbstractRepositorySupp
             }
 
             loggers.log("pending-payment-complete id=" + pendingPaymentId +
-                    " player=" + payment.playerUuid() +
+                    " " + loggers.playerContext(payment.playerUuid()) +
                     " amount=" + payment.paymentAmount() +
                     " custodial=" + amountToCustodial, LogType.AUDIT);
             return new CompletionResult(payment.paymentAmount(), updatedCustodialBalance);

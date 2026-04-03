@@ -342,7 +342,7 @@ public final class EconomyPol extends JavaPlugin {
                 "They were marked DISABLED_UNCLEAN to prevent ambiguous offline wallet use. " +
                 "Run '/economypol admin check unclean-snapshots' for details.", EconomyLoggers.LogType.OPERATIONS);
         for (EnderWalletSnapshot snapshot : recoveredSnapshots) {
-            loggers.logSevere("unclean-snapshot player=" + snapshot.playerUuid() +
+            loggers.logSevere("unclean-snapshot " + loggers.playerContext(snapshot.playerUuid()) +
                     " base_units=" + snapshot.baseUnits() +
                     " last_clean_sync_at=" + snapshot.lastCleanSyncAt(), EconomyLoggers.LogType.OPERATIONS);
         }

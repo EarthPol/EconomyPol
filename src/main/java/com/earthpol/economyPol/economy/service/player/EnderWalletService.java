@@ -76,7 +76,7 @@ public final class EnderWalletService {
                 OfflineEnderWalletState.FROZEN,
                 System.currentTimeMillis()
         ));
-        loggers.log("ender-wallet-freeze player=" + player.getUniqueId() + " amount=" + baseUnits, LogType.AUDIT);
+        loggers.log("ender-wallet-freeze " + loggers.playerContext(player) + " amount=" + baseUnits, LogType.AUDIT);
     }
 
     public long syncSnapshotOnJoin(Player player) {
@@ -84,7 +84,7 @@ public final class EnderWalletService {
             return 0L;
         }
         if (!playerMoneyLockService.lock(player.getUniqueId())) {
-            loggers.logWarn("ender-wallet-sync-skipped player=" + player.getUniqueId() + " reason=already_locked",
+            loggers.logWarn("ender-wallet-sync-skipped " + loggers.playerContext(player) + " reason=already_locked",
                     LogType.AUDIT);
             return 0L;
         }
@@ -109,7 +109,7 @@ public final class EnderWalletService {
 
             EnderWalletSnapshot snapshot = snapshotOptional.get();
             if (snapshot.state() == OfflineEnderWalletState.DISABLED_UNCLEAN) {
-                loggers.logWarn("ender-wallet-disabled player=" + player.getUniqueId() + " reason=unclean_boot",
+                loggers.logWarn("ender-wallet-disabled " + loggers.playerContext(player) + " reason=unclean_boot",
                         LogType.AUDIT);
                 return 0L;
             }
@@ -153,7 +153,7 @@ public final class EnderWalletService {
                     loggers.logWarn("Malformed money stacks were found for " + player.getName() + ". Overflow moved to custodial.",
                             LogType.OPERATIONS);
                 }
-                loggers.log("ender-wallet-sync player=" + player.getUniqueId() +
+                loggers.log("ender-wallet-sync " + loggers.playerContext(player) +
                         " snapshot_amount=" + snapshot.baseUnits() +
                         " existing_managed_money=" + plan.existingManagedMoneyValue() +
                         " overflow=" + overflow, LogType.AUDIT);
@@ -209,7 +209,7 @@ public final class EnderWalletService {
             loggers.logWarn("Malformed money stacks were found for " + player.getName() + " during ender-wallet normalization.",
                     LogType.OPERATIONS);
         }
-        loggers.log("ender-wallet-normalize player=" + player.getUniqueId() + " normalized=" +
+        loggers.log("ender-wallet-normalize " + loggers.playerContext(player) + " normalized=" +
                 normalization.normalizedValue() + " overflow=" + normalization.overflow(), LogType.AUDIT);
     }
 
@@ -237,7 +237,7 @@ public final class EnderWalletService {
                 snapshot.state(),
                 snapshot.lastCleanSyncAt()
         ));
-        loggers.log("ender-wallet-debit player=" + playerUuid + " amount=" + debited, LogType.AUDIT);
+        loggers.log("ender-wallet-debit " + loggers.playerContext(playerUuid) + " amount=" + debited, LogType.AUDIT);
         return MoneyOperationResult.success(amount, debited, amount - debited, "Offline ender wallet debited.");
     }
 
@@ -264,7 +264,7 @@ public final class EnderWalletService {
                 snapshot.state(),
                 snapshot.lastCleanSyncAt()
         ));
-        loggers.log("ender-wallet-credit player=" + playerUuid + " amount=" + amount, LogType.AUDIT);
+        loggers.log("ender-wallet-credit " + loggers.playerContext(playerUuid) + " amount=" + amount, LogType.AUDIT);
         return MoneyOperationResult.success(amount, amount, 0L, "Offline ender wallet credited.");
     }
 
@@ -287,7 +287,7 @@ public final class EnderWalletService {
             loggers.logSevere("Failed to restore ender-wallet snapshot state for " + player.getName() + ".",
                     LogType.OPERATIONS, revertException);
         }
-        loggers.logWarn("ender-wallet-sync-rollback player=" + player.getUniqueId() +
+        loggers.logWarn("ender-wallet-sync-rollback " + loggers.playerContext(player) +
                 " amount=" + frozenSnapshot.baseUnits() +
                 " reason=" + exception.getClass().getSimpleName(), LogType.AUDIT);
     }
@@ -301,7 +301,7 @@ public final class EnderWalletService {
             loggers.logSevere("Failed to restore ender chest after normalization rollback for " + player.getName() + ".",
                     LogType.OPERATIONS, restoreException);
         }
-        loggers.logWarn("ender-wallet-normalize-rollback player=" + player.getUniqueId() +
+        loggers.logWarn("ender-wallet-normalize-rollback " + loggers.playerContext(player) +
                 " reason=" + exception.getClass().getSimpleName(), LogType.AUDIT);
     }
 

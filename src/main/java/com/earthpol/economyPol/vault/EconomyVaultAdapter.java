@@ -367,13 +367,18 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
                 return Optional.of(Bukkit.getOfflinePlayer(playerUuid));
             } catch (IllegalArgumentException ignored) {
             }
-            Optional<UUID> storedPlayerUuid = economyService.findPlayerUuidByUsername(playerName);
-            if (storedPlayerUuid.isPresent()) {
-                return Optional.of(Bukkit.getOfflinePlayer(storedPlayerUuid.get()));
-            }
             org.bukkit.entity.Player onlinePlayer = Bukkit.getPlayerExact(playerName);
+            List<UUID> storedPlayerUuids = economyService.findPlayerUuidsByUsername(playerName);
             if (onlinePlayer != null) {
+                warnIfAmbiguousStoredUsername(playerName, storedPlayerUuids, Optional.of(onlinePlayer.getUniqueId()));
                 return Optional.of(onlinePlayer);
+            }
+            if (storedPlayerUuids.size() > 1) {
+                warnIfAmbiguousStoredUsername(playerName, storedPlayerUuids, Optional.empty());
+                return Optional.empty();
+            }
+            if (storedPlayerUuids.size() == 1) {
+                return Optional.of(Bukkit.getOfflinePlayer(storedPlayerUuids.getFirst()));
             }
             OfflinePlayer cachedPlayer = Bukkit.getOfflinePlayerIfCached(playerName);
             return Optional.ofNullable(cachedPlayer);
@@ -381,6 +386,19 @@ public final class EconomyVaultAdapter extends AbstractEconomy {
             loggers.logWarn("Failed to resolve player '" + playerName + "': " + exception.getMessage(), LogType.OPERATIONS);
             return Optional.empty();
         }
+    }
+
+    private void warnIfAmbiguousStoredUsername(String username, List<UUID> storedPlayerUuids, Optional<UUID> preferredUuid) {
+        if (storedPlayerUuids.size() <= 1) {
+            return;
+        }
+        String resolution = preferredUuid
+                .map(uuid -> " Preferring online player UUID " + uuid + ".")
+                .orElse(" Refusing to resolve by stored username.");
+        loggers.logWarn(
+                "Ambiguous stored username '" + username + "' matched UUIDs " + storedPlayerUuids + "." + resolution,
+                LogType.OPERATIONS
+        );
     }
 
     private Optional<AccountRecord> findExistingPlayerAccount(String playerName) {

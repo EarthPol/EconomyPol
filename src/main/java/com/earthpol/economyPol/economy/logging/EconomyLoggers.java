@@ -3,8 +3,12 @@ package com.earthpol.economyPol.economy.logging;
 import com.earthpol.earthPolLib.logging.EnhancedLogger;
 import com.earthpol.earthPolLib.logging.LogRetentionPolicy;
 import com.earthpol.earthPolLib.logging.LogRetentionTask;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public final class EconomyLoggers {
@@ -114,6 +118,43 @@ public final class EconomyLoggers {
             case HEALTHCHECK -> healthcheck.severe(message);
             default -> {}
         }
+    }
+
+    public String playerContext(Player player) {
+        if (player == null) {
+            return "player=null";
+        }
+        return playerContext(player.getUniqueId(), player.getName());
+    }
+
+    public String playerContext(OfflinePlayer player) {
+        if (player == null) {
+            return "player=null";
+        }
+        return playerContext(player.getUniqueId(), player.getName());
+    }
+
+    public String playerContext(UUID playerUuid) {
+        if (playerUuid == null) {
+            return "player=null";
+        }
+        Player onlinePlayer = Bukkit.getPlayer(playerUuid);
+        if (onlinePlayer != null) {
+            return playerContext(playerUuid, onlinePlayer.getName());
+        }
+        OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerUuid);
+        return playerContext(playerUuid, offlinePlayer == null ? null : offlinePlayer.getName());
+    }
+
+    public String playerContext(UUID playerUuid, String playerUsername) {
+        if (playerUuid == null) {
+            return "player=null";
+        }
+        StringBuilder builder = new StringBuilder("player=").append(playerUuid);
+        if (playerUsername != null && !playerUsername.isBlank()) {
+            builder.append(" player_username=").append(playerUsername);
+        }
+        return builder.toString();
     }
 
     private static void applyRetentionPolicy(EnhancedLogger logger, LogRetentionPolicy retentionPolicy) {
