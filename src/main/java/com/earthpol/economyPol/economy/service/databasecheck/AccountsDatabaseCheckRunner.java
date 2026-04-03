@@ -5,6 +5,10 @@ import com.earthpol.economyPol.economy.model.DatabaseCheckFinding;
 import com.earthpol.economyPol.economy.model.DatabaseCheckReport;
 import com.earthpol.economyPol.towny.TownyService;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -29,6 +33,30 @@ final class AccountsDatabaseCheckRunner extends AbstractDatabaseCheckRunner {
         statistics.put("player_accounts", queryLong("SELECT COUNT(*) FROM economy_accounts WHERE account_type = 'PLAYER'"));
         statistics.put("shared_accounts", queryLong("SELECT COUNT(*) FROM economy_accounts WHERE account_type = 'SHARED'"));
         statistics.put("registered_players", queryLong("SELECT COUNT(*) FROM economy_players"));
+        statistics.put("duplicate_username_groups", queryLong("""
+                SELECT COUNT(*)
+                FROM (
+                    SELECT username
+                    FROM economy_players
+                    WHERE TRIM(username) <> ''
+                    GROUP BY username
+                    HAVING COUNT(*) > 1
+                ) duplicate_usernames
+                """));
+        statistics.put("duplicate_username_rows", queryLong("""
+                SELECT COUNT(*)
+                FROM economy_players
+                WHERE username IN (
+                    SELECT username
+                    FROM (
+                        SELECT username
+                        FROM economy_players
+                        WHERE TRIM(username) <> ''
+                        GROUP BY username
+                        HAVING COUNT(*) > 1
+                    ) duplicate_usernames
+                )
+                """));
 
         List<DatabaseCheckFinding> findings = new ArrayList<>();
         findings.addAll(queryFindings(
@@ -91,15 +119,69 @@ final class AccountsDatabaseCheckRunner extends AbstractDatabaseCheckRunner {
                         "Account is missing a balance row"
                 )
         ));
+        findings.addAll(findDuplicateUsernameFindings());
 
         return finish(
                 ranAt,
                 startedNanos,
                 findings.isEmpty(),
-                findings.isEmpty() ? "No malformed account rows found." : "Found " + findings.size() + " malformed account-related rows.",
+                findings.isEmpty() ? "No malformed account rows found." : "Found " + findings.size() + " account-related findings.",
                 statistics,
                 List.of(),
                 findings
+        );
+    }
+
+    private List<DatabaseCheckFinding> findDuplicateUsernameFindings() {
+        List<DatabaseCheckFinding> findings = new ArrayList<>();
+        String sql = """
+                SELECT username, player_uuid, updated_at
+                FROM economy_players
+                WHERE username IN (
+                    SELECT username
+                    FROM (
+                        SELECT username
+                        FROM economy_players
+                        WHERE TRIM(username) <> ''
+                        GROUP BY username
+                        HAVING COUNT(*) > 1
+                    ) duplicate_usernames
+                )
+                ORDER BY username ASC, updated_at DESC, player_uuid ASC
+                """;
+
+        try (Connection connection = databaseService.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
+            String currentUsername = null;
+            List<String> playerRows = new ArrayList<>();
+
+            while (resultSet.next()) {
+                String username = resultSet.getString("username");
+                if (currentUsername != null && !currentUsername.equals(username)) {
+                    findings.add(duplicateUsernameFinding(currentUsername, playerRows));
+                    playerRows = new ArrayList<>();
+                }
+                currentUsername = username;
+                playerRows.add("player_uuid=" + resultSet.getString("player_uuid")
+                        + " updated_at=" + nullableTimestamp(resultSet, "updated_at"));
+            }
+
+            if (currentUsername != null) {
+                findings.add(duplicateUsernameFinding(currentUsername, playerRows));
+            }
+        } catch (SQLException exception) {
+            throw new RuntimeException("Failed to execute duplicate username accounts check.", exception);
+        }
+
+        return findings;
+    }
+
+    private DatabaseCheckFinding duplicateUsernameFinding(String username, List<String> playerRows) {
+        return new DatabaseCheckFinding(
+                "economy_players",
+                "username=" + username,
+                "Duplicate stored username matches multiple UUIDs: " + String.join("; ", playerRows)
         );
     }
 }
