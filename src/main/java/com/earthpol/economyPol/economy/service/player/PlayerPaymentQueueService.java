@@ -108,10 +108,7 @@ public final class PlayerPaymentQueueService {
                     player.getUniqueId(),
                     null
             );
-            loggers.log("player-deposit-custodial-preference player=" + player.getUniqueId() +
-                    accountRegistryService.resolvePlayerUsername(player.getUniqueId())
-                            .map(name -> " username=" + name)
-                            .orElse("") +
+            loggers.log("player-deposit-custodial-preference " + loggers.playerContext(player) +
                     " amount=" + amount + " balance=" +
                     (updatedBalance == null ? 0L : updatedBalance.availableBalance()) + " reason=" + reason,
                     LogType.AUDIT);
@@ -119,7 +116,7 @@ public final class PlayerPaymentQueueService {
         }
 
         PendingPlayerPayment payment = pendingPlayerPaymentRepository.enqueuePayment(player.getUniqueId(), amount);
-        loggers.log("player-deposit-queued player=" + player.getUniqueId() +
+        loggers.log("player-deposit-queued " + loggers.playerContext(player) +
                 " payment=" + payment.pendingPaymentId() +
                 " amount=" + amount + " reason=" + reason, LogType.AUDIT);
         requestDrain(player.getUniqueId(), "online-payment-enqueue");
@@ -177,7 +174,8 @@ public final class PlayerPaymentQueueService {
                 }
             }
         } catch (RuntimeException exception) {
-            loggers.logSevere("Pending player payment drain failed for " + playerUuid + " trigger=" + trigger + ".",
+            loggers.logSevere("Pending player payment drain failed for " + loggers.playerContext(playerUuid) +
+                    " trigger=" + trigger + ".",
                     LogType.OPERATIONS, exception);
         } finally {
             inFlightPlayers.remove(playerUuid);
@@ -197,7 +195,7 @@ public final class PlayerPaymentQueueService {
                 return ProcessingDecision.STOP;
             }
             loggers.log("pending-payment-delivered-offline-wallet id=" + payment.pendingPaymentId() +
-                    " player=" + payment.playerUuid() + " amount=" + payment.paymentAmount(), LogType.AUDIT);
+                    " " + loggers.playerContext(payment.playerUuid()) + " amount=" + payment.paymentAmount(), LogType.AUDIT);
             return ProcessingDecision.CONTINUE;
         }
 
@@ -259,7 +257,7 @@ public final class PlayerPaymentQueueService {
             );
         }
         loggers.log("pending-payment-delivered-custodial id=" + payment.pendingPaymentId() +
-                " player=" + payment.playerUuid() +
+                " " + loggers.playerContext(player) +
                 " amount=" + payment.paymentAmount() +
                 " credited=" + amountToCustodial +
                 " reason=" + reason, LogType.AUDIT);
@@ -304,7 +302,7 @@ public final class PlayerPaymentQueueService {
                 );
             }
             loggers.log("pending-payment-delivered-live id=" + payment.pendingPaymentId() +
-                    " player=" + payment.playerUuid() +
+                    " " + loggers.playerContext(player) +
                     " amount=" + payment.paymentAmount() +
                     " inventory=" + deliveryResult.deliveredToInventory() +
                     " ender=" + deliveryResult.deliveredToEnder() +
@@ -312,12 +310,12 @@ public final class PlayerPaymentQueueService {
             requestDrain(payment.playerUuid(), "post-live-delivery");
         } catch (Exception exception) {
             loggers.logSevere("Failed to process pending online payment " + payment.pendingPaymentId() +
-                    " for " + player.getUniqueId() + ".", LogType.OPERATIONS, exception);
+                    " for " + loggers.playerContext(player) + ".", LogType.OPERATIONS, exception);
             try {
                 liveMoneyService.restoreLiveContainerSnapshot(player, preDeliverySnapshot);
             } catch (RuntimeException restoreException) {
                 loggers.logSevere("Failed to restore live containers after pending payment delivery failure for " +
-                        player.getUniqueId() + ".", LogType.OPERATIONS, restoreException);
+                        loggers.playerContext(player) + ".", LogType.OPERATIONS, restoreException);
             }
             try {
                 completeToCustodial(payment, player, payment.paymentAmount(), CUSTODIAL_REASON_DELIVERY_FAILED);
@@ -337,7 +335,7 @@ public final class PlayerPaymentQueueService {
 
     private void logRequeue(UUID pendingPaymentId, UUID playerUuid, PendingPlayerPaymentAttemptResult attemptResult) {
         loggers.log("pending-payment-requeued id=" + pendingPaymentId +
-                " player=" + playerUuid + " reason=" + attemptResult, LogType.AUDIT);
+                " " + loggers.playerContext(playerUuid) + " reason=" + attemptResult, LogType.AUDIT);
     }
 
     private enum ProcessingDecision {

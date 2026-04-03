@@ -54,21 +54,21 @@ public class SchedulerService {
                 },
                 () -> {
                     loggers.logWarn("Folia player entity-scheduler task retired before execution. operation=" + operation +
-                            " player=" + player.getUniqueId(), LogType.OPERATIONS);
+                            " " + loggers.playerContext(player), LogType.OPERATIONS);
                     future.complete(Optional.empty());
                 },
                 1L
         );
         if (!scheduled) {
             loggers.logWarn("Failed to schedule Folia player entity-scheduler task. operation=" + operation +
-                    " player=" + player.getUniqueId(), LogType.OPERATIONS);
+                    " " + loggers.playerContext(player), LogType.OPERATIONS);
             return Optional.empty();
         }
         try {
             return future.get(PLAYER_ENTITY_SCHEDULER_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (Exception exception) {
             loggers.logWarn("Timed out or failed waiting for Folia player entity-scheduler task. operation=" + operation +
-                    " player=" + player.getUniqueId() + " error=" + exception.getClass().getSimpleName() +
+                    " " + loggers.playerContext(player) + " error=" + exception.getClass().getSimpleName() +
                     ": " + exception.getMessage(), LogType.OPERATIONS);
             return Optional.empty();
         }
@@ -102,7 +102,7 @@ public class SchedulerService {
                 return true;
             } catch (Throwable throwable) {
                 loggers.logSevere("Player entity-scheduler task failed in owned region. operation=" + operation +
-                        " player=" + player.getUniqueId(), LogType.OPERATIONS, throwable);
+                        " " + loggers.playerContext(player), LogType.OPERATIONS, throwable);
                 return false;
             }
         }
@@ -115,18 +115,18 @@ public class SchedulerService {
                             action.run();
                         } catch (Throwable throwable) {
                             loggers.logSevere("Player entity-scheduler task failed. operation=" + operation +
-                                    " player=" + player.getUniqueId(), LogType.OPERATIONS, throwable);
+                                    " " + loggers.playerContext(player), LogType.OPERATIONS, throwable);
                         }
                     },
                     () -> {
                         loggers.logWarn("Folia player entity-scheduler task retired before execution. operation=" + operation +
-                                " player=" + player.getUniqueId(), LogType.OPERATIONS);
+                                " " + loggers.playerContext(player), LogType.OPERATIONS);
                         if (retiredAction != null) {
                             try {
                                 retiredAction.run();
                             } catch (Throwable throwable) {
                                 loggers.logSevere("Retired player entity-scheduler callback failed. operation=" + operation +
-                                        " player=" + player.getUniqueId(), LogType.OPERATIONS, throwable);
+                                        " " + loggers.playerContext(player), LogType.OPERATIONS, throwable);
                             }
                         }
                     },
@@ -134,12 +134,12 @@ public class SchedulerService {
             );
             if (!scheduled) {
                 loggers.logWarn("Failed to schedule Folia player entity-scheduler task. operation=" + operation +
-                        " player=" + player.getUniqueId(), LogType.OPERATIONS);
+                        " " + loggers.playerContext(player), LogType.OPERATIONS);
             }
             return scheduled;
         } catch (Throwable throwable) {
             loggers.logSevere("Failed to schedule player entity-scheduler task. operation=" + operation +
-                    " player=" + player.getUniqueId(), LogType.OPERATIONS, throwable);
+                    " " + loggers.playerContext(player), LogType.OPERATIONS, throwable);
             return false;
         }
     }

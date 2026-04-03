@@ -36,7 +36,7 @@ public final class NotificationRepository extends AbstractRepositorySupport {
                 flagValue,
                 nowTimestamp()
         );
-        loggers.log("player-notification-create player=" + playerUuid + " type=" + notificationType, LogType.AUDIT);
+        loggers.log("player-notification-create " + loggers.playerContext(playerUuid) + " type=" + notificationType, LogType.AUDIT);
     }
 
     public List<PlayerNotificationRecord> listPlayerNotifications(UUID playerUuid) {
