@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.economy.config;
 
-import com.earthpol.earthPolLib.config.ReloadableConfigHandler;
-import com.earthpol.earthPolLib.logging.LogRetentionPolicy;
+import com.earthpol.earthpollib.config.ReloadableConfigHandler;
+import com.earthpol.earthpollib.logging.LogRetentionPolicy;
 import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.logging.EconomyLoggers.LogType;
 import com.earthpol.economyPol.economy.model.Denomination;

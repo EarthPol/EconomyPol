@@ -1,8 +1,8 @@
 package com.earthpol.economyPol.economy.logging;
 
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.earthPolLib.logging.LogRetentionPolicy;
-import com.earthpol.earthPolLib.logging.LogRetentionTask;
+import com.earthpol.earthpollib.logging.EnhancedLogger;
+import com.earthpol.earthpollib.logging.LogRetentionPolicy;
+import com.earthpol.earthpollib.logging.LogRetentionTask;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;

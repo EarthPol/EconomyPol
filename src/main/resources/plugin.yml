@@ -5,8 +5,8 @@ api-version: '1.21'
 folia-supported: true
 loadbefore:
   - Towny
-  - Quickshop-Hikari
-softdepend:
+  - QuickShop-Hikari
+depend:
   - Vault
 commands:
   economypol:

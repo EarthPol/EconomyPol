@@ -92,6 +92,14 @@
             <url>https://repo.glaremasters.me/repository/towny/</url>
         </repository>
 
+        <repository>
+            <id>bitworks-releases</id>
+            <url>https://nexus.tinydc.net/repository/maven-releases/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+
     </repositories>
 
     <dependencies>
@@ -104,9 +112,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.github.earthpol</groupId>
+            <groupId>com.earthpol</groupId>
             <artifactId>earthpollib</artifactId>
-            <version>1.12.1</version>
+            <version>1.0.1</version>
             <scope>compile</scope>
         </dependency>
 
