@@ -814,8 +814,8 @@ EconomyPol also registers:
 This exists for older plugins that still depend on the original Vault API.
 
 Legacy Vault now uses the same numeric policy as VaultUnlocked through `NumericalConsistencyService`, so decimal behavior is consistent across both provider surfaces.
-At runtime the VaultUnlocked plugin is still discovered by Bukkit as `Vault`, so EconomyPol declares `softdepend: [Vault]`.
-EconomyPol also declares `loadbefore: [Towny, Quickshop-Hikari]` so the provider is registered before those plugins initialize.
+At runtime the VaultUnlocked plugin is still discovered by Bukkit as `Vault`, so EconomyPol declares `depend: [Vault]`. VaultUnlocked is required because EconomyPol registers both the v2 and legacy economy APIs; classic Vault alone is insufficient.
+EconomyPol also declares `loadbefore: [Towny, QuickShop-Hikari]` so the provider is registered before those plugins initialize.
 
 ### EconomyPolAPI
 
@@ -957,11 +957,21 @@ So the current state is:
 - Towny town/nation lifecycle integration is implemented
 - Towny server-account binding is still future work
 
+## EarthPol Integration
+
+EconomyPol shades `com.earthpol:earthpollib:1.0.1` from the Bitworks Nexus releases repository. EarthPolLib is a library and does not need to be installed as a separate server plugin.
+
+Database startup uses EarthPolLib's `SchemaMigrator` before any economy repositories or providers are initialized. The bundled SQL migration is unchanged; the migrator can import matching successful entries from the legacy per-plugin Flyway history. Keep existing database contents and migration history when upgrading.
+
+EconomyPol loads after VaultUnlocked and before Towny and QuickShop-Hikari. Towny remains optional, with its government bindings initialized when Towny enables.
+
+Kernel currently has its own economy commands and balance store. This import does not migrate Kernel balances or redirect its commands. Complete that integration before using both economies together on the same server.
+
 ## Build and Runtime Requirements
 
 - Java 21
-- Paper `1.21.x`
-- VaultUnlocked available at runtime for the standard EarthPol deployment
+- Paper `1.21.11` (the compile target)
+- VaultUnlocked required at runtime (Bukkit plugin name `Vault`)
 - MariaDB through the configured JDBC layer
 - Towny `0.102.x` optional but supported
 

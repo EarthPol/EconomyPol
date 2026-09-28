@@ -1,6 +1,6 @@
 package com.earthpol.economyPol.service;
 
-import com.earthpol.earthPolLib.translation.TranslationService;
+import com.earthpol.earthpollib.translation.TranslationService;
 import com.earthpol.economyPol.economy.config.PluginSettings;
 import com.earthpol.economyPol.economy.model.Denomination;
 import com.earthpol.economyPol.economy.model.PlayerNotificationRecord;

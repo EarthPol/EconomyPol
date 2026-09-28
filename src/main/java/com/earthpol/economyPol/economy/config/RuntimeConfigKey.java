@@ -1,9 +1,9 @@
 package com.earthpol.economyPol.economy.config;
 
-import com.earthpol.earthPolLib.config.ReloadableConfigNode;
-import com.earthpol.earthPolLib.config.ReloadableConfiguration;
-import com.earthpol.earthPolLib.config.SectionHeaderNode;
-import com.earthpol.earthPolLib.logging.LogRetentionPolicy;
+import com.earthpol.earthpollib.config.ReloadableConfigNode;
+import com.earthpol.earthpollib.config.ReloadableConfiguration;
+import com.earthpol.earthpollib.config.SectionHeaderNode;
+import com.earthpol.earthpollib.logging.LogRetentionPolicy;
 
 enum RuntimeConfigKey implements ReloadableConfiguration {
 

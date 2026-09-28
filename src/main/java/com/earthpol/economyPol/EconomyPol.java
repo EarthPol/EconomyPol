@@ -1,9 +1,9 @@
 package com.earthpol.economyPol;
 
-import com.earthpol.earthPolLib.database.DatabaseService;
-import com.earthpol.earthPolLib.database.flyway.FlywaySupport;
-import com.earthpol.earthPolLib.logging.EnhancedLogger;
-import com.earthpol.earthPolLib.translation.TranslationService;
+import com.earthpol.earthpollib.database.DatabaseService;
+import com.earthpol.earthpollib.database.migration.SchemaMigrator;
+import com.earthpol.earthpollib.logging.EnhancedLogger;
+import com.earthpol.earthpollib.translation.TranslationService;
 import com.earthpol.economyPol.economy.api.EconomyPolAPI;
 import com.earthpol.economyPol.economy.api.EconomyPolApiFactory;
 import com.earthpol.economyPol.economy.api.EconomyPolApiProvider;
@@ -212,7 +212,7 @@ public final class EconomyPol extends JavaPlugin {
         }
         if (dbService != null) {
             try {
-                dbService.getDB().shutdown();
+                dbService.close();
             } catch (Exception exception) {
                 if (loggers != null) {
                     loggers.logSevere("Failed to shutdown database cleanly.", EconomyLoggers.LogType.OPERATIONS, exception);
@@ -245,7 +245,7 @@ public final class EconomyPol extends JavaPlugin {
             loggers.logSevere("Database did not start successfully.", EconomyLoggers.LogType.OPERATIONS);
             return;
         }
-        FlywaySupport.migrate(dbService.getDB(), this, java.util.List.of("db/migration/economypol"), log());
+        SchemaMigrator.migrate(dbService.getDB(), this, java.util.List.of("db/migration/economypol"), log());
     }
 
     private void registerListeners() {

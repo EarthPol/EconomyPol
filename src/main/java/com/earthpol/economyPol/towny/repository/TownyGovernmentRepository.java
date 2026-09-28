@@ -1,6 +1,6 @@
 package com.earthpol.economyPol.towny.repository;
 
-import com.earthpol.earthPolLib.database.DatabaseService;
+import com.earthpol.earthpollib.database.DatabaseService;
 import com.earthpol.economyPol.economy.logging.EconomyLoggers;
 import com.earthpol.economyPol.economy.repository.AbstractRepositorySupport;
 import com.earthpol.economyPol.towny.model.TownyGovernmentBinding;

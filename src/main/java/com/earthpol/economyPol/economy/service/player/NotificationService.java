@@ -1,7 +1,7 @@
 package com.earthpol.economyPol.economy.service.player;
 
-import com.earthpol.earthPolLib.translation.TranslationService;
-import com.earthpol.earthPolLib.translation.Translations;
+import com.earthpol.earthpollib.translation.TranslationService;
+import com.earthpol.earthpollib.translation.Translations;
 import com.earthpol.economyPol.economy.model.PlayerNotificationRecord;
 import com.earthpol.economyPol.economy.model.PlayerNotificationType;
 import com.earthpol.economyPol.economy.repository.NotificationRepository;

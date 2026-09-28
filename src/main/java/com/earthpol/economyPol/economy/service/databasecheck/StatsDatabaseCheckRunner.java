@@ -1,6 +1,6 @@
 package com.earthpol.economyPol.economy.service.databasecheck;
 
-import com.earthpol.earthPolLib.database.DatabaseService;
+import com.earthpol.earthpollib.database.DatabaseService;
 import com.earthpol.economyPol.economy.model.DatabaseCheckReport;
 import com.earthpol.economyPol.towny.TownyService;
 
